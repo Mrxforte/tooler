@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:tooler/views/home/home_screen.dart';
+import 'package:tooler/views/main/main_screen.dart';
 
 void main() => runApp(const MyApp());
 
@@ -10,7 +10,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Tooler app',
-      home: HomeScreen(),
+      home: MainScreen(),
       debugShowCheckedModeBanner: false,
     );
   }

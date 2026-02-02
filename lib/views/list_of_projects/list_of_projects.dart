@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:tooler/views/widgets/product_card.dart';
 
-class ListOfToolsScreen extends StatelessWidget {
-  const ListOfToolsScreen({super.key});
+class ListOfProjects extends StatelessWidget {
+  const ListOfProjects({super.key});
 
   @override
   Widget build(BuildContext context) {
