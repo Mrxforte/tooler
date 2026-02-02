@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:tooler/views/list_of_tools/list_of_tools_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,10 +15,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Home Screen'), centerTitle: true),
-      body: Container(
-        alignment: Alignment.center,
-        child: const Text('Welcome to the Home Screen!'),
-      ),
+      body: ListOfToolsScreen(),
       bottomNavigationBar: NavigationBar(
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
