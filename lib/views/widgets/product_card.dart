@@ -35,16 +35,17 @@ class ProductCard extends StatelessWidget {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(left: 16.0, top: 8.0),
-                  child: Container(
-                    width: 150,
-                    child: Text(
-                      "This is a description of the tool. It provides useful information about the tool's features and functionalities.",
-                      style: TextStyle(fontSize: 16),
-                      textAlign: TextAlign.justify,
-                      softWrap: true,
-                      maxLines: 5,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  child: SizedBox(height: 8),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16.0, top: 8.0),
+                  child: Text(
+                    "This is a description of the tool. It provides useful information about the tool's features and functionalities.",
+                    style: TextStyle(fontSize: 16),
+                    textAlign: TextAlign.justify,
+                    softWrap: true,
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
