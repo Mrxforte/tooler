@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "927665559732",
+    "project_id": "myblog-8ca17",
+    "storage_bucket": "myblog-8ca17.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:927665559732:android:853addd3bc7720b1325fe1",
+        "android_client_info": {
+          "package_name": "com.example.tooler"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAsXGfTNAXz1CxWddmeaZWtDyCGFv8yK7o"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
