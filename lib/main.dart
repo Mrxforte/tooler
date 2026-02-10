@@ -399,23 +399,31 @@ class LocalDatabase {
   static const String toolsBox = 'tools';
   static const String objectsBox = 'objects';
   static const String syncQueueBox = 'sync_queue';
+  static const String appSettingsBox = 'app_settings';
 
   static Future<void> init() async {
     try {
       await Hive.openBox<Tool>(toolsBox);
       await Hive.openBox<ConstructionObject>(objectsBox);
       await Hive.openBox<SyncItem>(syncQueueBox);
+      await Hive.openBox<String>(appSettingsBox);
       print('Hive boxes opened successfully');
     } catch (e) {
       print('Error opening Hive boxes: $e');
       // Try to delete corrupted boxes and recreate
-      await Hive.deleteBoxFromDisk(toolsBox);
-      await Hive.deleteBoxFromDisk(objectsBox);
-      await Hive.deleteBoxFromDisk(syncQueueBox);
+      try {
+        await Hive.deleteBoxFromDisk(toolsBox);
+        await Hive.deleteBoxFromDisk(objectsBox);
+        await Hive.deleteBoxFromDisk(syncQueueBox);
+        await Hive.deleteBoxFromDisk(appSettingsBox);
+      } catch (e) {
+        print('Error deleting boxes: $e');
+      }
 
       await Hive.openBox<Tool>(toolsBox);
       await Hive.openBox<ConstructionObject>(objectsBox);
       await Hive.openBox<SyncItem>(syncQueueBox);
+      await Hive.openBox<String>(appSettingsBox);
     }
   }
 
@@ -423,6 +431,28 @@ class LocalDatabase {
   static Box<ConstructionObject> get objects =>
       Hive.box<ConstructionObject>(objectsBox);
   static Box<SyncItem> get syncQueue => Hive.box<SyncItem>(syncQueueBox);
+  static Box<String> get appSettings => Hive.box<String>(appSettingsBox);
+
+  // Cache management
+  static Future<void> saveCacheTimestamp() async {
+    await appSettings.put(
+      'last_cache_update',
+      DateTime.now().toIso8601String(),
+    );
+  }
+
+  static Future<DateTime?> getLastCacheUpdate() async {
+    final timestamp = appSettings.get('last_cache_update');
+    return timestamp != null ? DateTime.parse(timestamp) : null;
+  }
+
+  static Future<bool> shouldRefreshCache({
+    Duration maxAge = const Duration(hours: 1),
+  }) async {
+    final lastUpdate = await getLastCacheUpdate();
+    if (lastUpdate == null) return true;
+    return DateTime.now().difference(lastUpdate) > maxAge;
+  }
 }
 
 class SyncItem {
@@ -530,6 +560,12 @@ class ErrorHandler {
       ),
     );
   }
+
+  static void handleError(Object error, StackTrace stackTrace) {
+    print('Error: $error');
+    print('Stack trace: $stackTrace');
+    // Here you can add more error handling logic like sending to analytics
+  }
 }
 
 // Global navigator key
@@ -570,7 +606,7 @@ class AuthProvider with ChangeNotifier {
         }
       });
     } catch (e) {
-      print('Auth initialization error: $e');
+      ErrorHandler.handleError(e, StackTrace.current);
       _isLoading = false;
       notifyListeners();
     }
@@ -679,6 +715,7 @@ class ToolsProvider with ChangeNotifier {
   String _sortBy = 'date';
   bool _sortAscending = false;
   bool _selectionMode = false;
+  bool _cacheInitialized = false;
 
   List<Tool> get tools => _getFilteredTools();
   List<Tool> get garageTools =>
@@ -688,6 +725,7 @@ class ToolsProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get selectionMode => _selectionMode;
   bool get hasSelectedTools => _tools.any((t) => t.isSelected);
+  int get totalTools => _tools.length;
 
   void toggleSelectionMode() {
     _selectionMode = !_selectionMode;
@@ -738,28 +776,23 @@ class ToolsProvider with ChangeNotifier {
   }
 
   List<Tool> _getFilteredTools() {
-    var filteredTools = _searchQuery.isEmpty
-        ? List<Tool>.from(_tools)
-        : _tools
-              .where(
-                (tool) =>
-                    tool.title.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    tool.brand.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    tool.uniqueId.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    tool.description.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
-              )
-              .toList();
+    if (_searchQuery.isEmpty) {
+      return _sortTools(List.from(_tools));
+    }
 
-    // Sort tools
-    filteredTools.sort((a, b) {
+    final query = _searchQuery.toLowerCase();
+    final filtered = _tools.where((tool) {
+      return tool.title.toLowerCase().contains(query) ||
+          tool.brand.toLowerCase().contains(query) ||
+          tool.uniqueId.toLowerCase().contains(query) ||
+          tool.description.toLowerCase().contains(query);
+    }).toList();
+
+    return _sortTools(filtered);
+  }
+
+  List<Tool> _sortTools(List<Tool> tools) {
+    tools.sort((a, b) {
       int comparison;
       switch (_sortBy) {
         case 'name':
@@ -777,7 +810,7 @@ class ToolsProvider with ChangeNotifier {
       return _sortAscending ? comparison : -comparison;
     });
 
-    return filteredTools;
+    return tools;
   }
 
   void setSearchQuery(String query) {
@@ -791,7 +824,7 @@ class ToolsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadTools() async {
+  Future<void> loadTools({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
     _isLoading = true;
@@ -799,25 +832,30 @@ class ToolsProvider with ChangeNotifier {
 
     try {
       await LocalDatabase.init();
-      final loadedTools = LocalDatabase.tools.values.toList();
 
-      // Validate and filter out null tools
-      _tools = loadedTools.where((tool) => tool != null).toList();
+      // Load from cache first for fast UI response
+      final cachedTools = LocalDatabase.tools.values.toList();
+      if (cachedTools.isNotEmpty && !forceRefresh) {
+        _tools = cachedTools.where((tool) => tool != null).toList();
+        print('Loaded ${_tools.length} tools from cache');
+      }
 
-      print('Loaded ${_tools.length} tools from local database');
-
-      // Try to sync with Firebase if online
-      await _syncWithFirebase();
-    } catch (e) {
+      // Always try to sync with Firebase in background
+      if (await LocalDatabase.shouldRefreshCache() || forceRefresh) {
+        await _syncWithFirebase();
+        await LocalDatabase.saveCacheTimestamp();
+      }
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error loading tools: $e');
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          'Не удалось загрузить инструменты: ${e.toString()}',
-        );
+      // Even if sync fails, keep cached data
+      if (_tools.isEmpty) {
+        final cachedTools = LocalDatabase.tools.values.toList();
+        _tools = cachedTools.where((tool) => tool != null).toList();
       }
     } finally {
       _isLoading = false;
+      _cacheInitialized = true;
       notifyListeners();
     }
   }
@@ -860,7 +898,8 @@ class ToolsProvider with ChangeNotifier {
           'Инструмент успешно добавлен',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error adding tool: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -916,7 +955,8 @@ class ToolsProvider with ChangeNotifier {
       } else {
         throw Exception('Инструмент не найден');
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error updating tool: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -958,7 +998,8 @@ class ToolsProvider with ChangeNotifier {
           'Инструмент успешно удален',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error deleting tool: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1003,7 +1044,8 @@ class ToolsProvider with ChangeNotifier {
           'Удалено ${selectedTools.length} инструментов',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error deleting selected tools: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1065,7 +1107,8 @@ class ToolsProvider with ChangeNotifier {
           'Инструмент перемещен в $newLocationName',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error moving tool: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1130,7 +1173,8 @@ class ToolsProvider with ChangeNotifier {
           'Перемещено ${selectedTools.length} инструментов в $newLocationName',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error moving selected tools: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1149,7 +1193,8 @@ class ToolsProvider with ChangeNotifier {
       final tool = _tools[toolIndex];
       final updatedTool = tool.copyWith(isFavorite: !tool.isFavorite);
       await updateTool(updatedTool);
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error toggling favorite: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1186,6 +1231,7 @@ class ToolsProvider with ChangeNotifier {
       final syncItems = LocalDatabase.syncQueue.values.toList();
       print('Syncing ${syncItems.length} items with Firebase');
 
+      // Send local changes to Firebase
       for (final item in syncItems) {
         final docRef = FirebaseFirestore.instance
             .collection('tools')
@@ -1203,8 +1249,23 @@ class ToolsProvider with ChangeNotifier {
 
         await LocalDatabase.syncQueue.delete(item.id);
       }
+
+      // Pull changes from Firebase
+      final snapshot = await FirebaseFirestore.instance
+          .collection('tools')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final toolData = doc.data();
+        final tool = Tool.fromJson({...toolData, 'id': doc.id});
+        await LocalDatabase.tools.put(tool.id, tool);
+      }
+
+      print('Sync completed successfully');
     } catch (e) {
       print('Sync error: $e');
+      // Don't throw, just log. App continues with cached data.
     }
   }
 }
@@ -1216,6 +1277,7 @@ class ObjectsProvider with ChangeNotifier {
   String _sortBy = 'name';
   bool _sortAscending = true;
   bool _selectionMode = false;
+  bool _cacheInitialized = false;
 
   List<ConstructionObject> get objects => _getFilteredObjects();
   bool get isLoading => _isLoading;
@@ -1223,6 +1285,7 @@ class ObjectsProvider with ChangeNotifier {
   List<ConstructionObject> get selectedObjects =>
       _objects.where((o) => o.isSelected).toList();
   bool get hasSelectedObjects => _objects.any((o) => o.isSelected);
+  int get totalObjects => _objects.length;
 
   void toggleSelectionMode() {
     _selectionMode = !_selectionMode;
@@ -1273,22 +1336,21 @@ class ObjectsProvider with ChangeNotifier {
   }
 
   List<ConstructionObject> _getFilteredObjects() {
-    var filteredObjects = _searchQuery.isEmpty
-        ? List<ConstructionObject>.from(_objects)
-        : _objects
-              .where(
-                (obj) =>
-                    obj.name.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ) ||
-                    obj.description.toLowerCase().contains(
-                      _searchQuery.toLowerCase(),
-                    ),
-              )
-              .toList();
+    if (_searchQuery.isEmpty) {
+      return _sortObjects(List.from(_objects));
+    }
 
-    // Sort objects
-    filteredObjects.sort((a, b) {
+    final query = _searchQuery.toLowerCase();
+    final filtered = _objects.where((obj) {
+      return obj.name.toLowerCase().contains(query) ||
+          obj.description.toLowerCase().contains(query);
+    }).toList();
+
+    return _sortObjects(filtered);
+  }
+
+  List<ConstructionObject> _sortObjects(List<ConstructionObject> objects) {
+    objects.sort((a, b) {
       int comparison;
       switch (_sortBy) {
         case 'name':
@@ -1306,7 +1368,7 @@ class ObjectsProvider with ChangeNotifier {
       return _sortAscending ? comparison : -comparison;
     });
 
-    return filteredObjects;
+    return objects;
   }
 
   void setSearchQuery(String query) {
@@ -1320,7 +1382,7 @@ class ObjectsProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadObjects() async {
+  Future<void> loadObjects({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
     _isLoading = true;
@@ -1328,22 +1390,30 @@ class ObjectsProvider with ChangeNotifier {
 
     try {
       await LocalDatabase.init();
-      final loadedObjects = LocalDatabase.objects.values.toList();
 
-      // Validate and filter out null objects
-      _objects = loadedObjects.where((obj) => obj != null).toList();
+      // Load from cache first for fast UI response
+      final cachedObjects = LocalDatabase.objects.values.toList();
+      if (cachedObjects.isNotEmpty && !forceRefresh) {
+        _objects = cachedObjects.where((obj) => obj != null).toList();
+        print('Loaded ${_objects.length} objects from cache');
+      }
 
-      print('Loaded ${_objects.length} objects from local database');
-    } catch (e) {
+      // Always try to sync with Firebase in background
+      if (await LocalDatabase.shouldRefreshCache() || forceRefresh) {
+        await _syncWithFirebase();
+        await LocalDatabase.saveCacheTimestamp();
+      }
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error loading objects: $e');
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          'Не удалось загрузить объекты: ${e.toString()}',
-        );
+      // Even if sync fails, keep cached data
+      if (_objects.isEmpty) {
+        final cachedObjects = LocalDatabase.objects.values.toList();
+        _objects = cachedObjects.where((obj) => obj != null).toList();
       }
     } finally {
       _isLoading = false;
+      _cacheInitialized = true;
       notifyListeners();
     }
   }
@@ -1385,7 +1455,8 @@ class ObjectsProvider with ChangeNotifier {
           'Объект успешно добавлен',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error adding object: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1447,7 +1518,8 @@ class ObjectsProvider with ChangeNotifier {
           'Объект успешно обновлен',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error updating object: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1489,7 +1561,8 @@ class ObjectsProvider with ChangeNotifier {
           'Объект успешно удален',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error deleting object: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1534,7 +1607,8 @@ class ObjectsProvider with ChangeNotifier {
           'Удалено ${selectedObjects.length} объектов',
         );
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error deleting selected objects: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1559,7 +1633,8 @@ class ObjectsProvider with ChangeNotifier {
         );
         await updateObject(updatedObject);
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error adding tools to object: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1583,7 +1658,8 @@ class ObjectsProvider with ChangeNotifier {
         final updatedObject = object.copyWith(toolIds: updatedToolIds);
         await updateObject(updatedObject);
       }
-    } catch (e) {
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
       print('Error removing tools from object: $e');
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
@@ -1609,6 +1685,33 @@ class ObjectsProvider with ChangeNotifier {
       await LocalDatabase.syncQueue.put(syncItem.id, syncItem);
     } catch (e) {
       print('Error adding to sync queue: $e');
+    }
+  }
+
+  Future<void> _syncWithFirebase() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      // Pull changes from Firebase
+      final snapshot = await FirebaseFirestore.instance
+          .collection('objects')
+          .where('userId', isEqualTo: user.uid)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        final objectData = doc.data();
+        final object = ConstructionObject.fromJson({
+          ...objectData,
+          'id': doc.id,
+        });
+        await LocalDatabase.objects.put(object.id, object);
+      }
+
+      print('Objects sync completed successfully');
+    } catch (e) {
+      print('Objects sync error: $e');
+      // Don't throw, just log. App continues with cached data.
     }
   }
 }
@@ -2215,61 +2318,184 @@ class WelcomeScreen extends StatelessWidget {
 }
 
 // Tools List Screen
-class ToolsListScreen extends StatelessWidget {
+class ToolsListScreen extends StatefulWidget {
+  @override
+  _ToolsListScreenState createState() => _ToolsListScreenState();
+}
+
+class _ToolsListScreenState extends State<ToolsListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ToolsProvider>(context, listen: false);
+      provider.loadTools();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Все инструменты'),
+        title: Text('Все инструменты (${toolsProvider.totalTools})'),
         actions: [
           IconButton(
-            icon: Icon(Icons.search),
-            onPressed: () {
-              showSearch(
-                context: context,
-                delegate: ToolSearchDelegate(toolsProvider.tools),
-              );
-            },
+            icon: Icon(Icons.refresh),
+            onPressed: () => toolsProvider.loadTools(forceRefresh: true),
           ),
         ],
       ),
-      body: toolsProvider.isLoading
-          ? Center(child: CircularProgressIndicator())
-          : toolsProvider.tools.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.build, size: 80, color: Colors.grey[300]),
-                  SizedBox(height: 20),
-                  Text(
-                    'Нет инструментов',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                ],
+      body: Column(
+        children: [
+          // Search Bar
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Поиск инструментов...',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
-            )
-          : ListView.builder(
-              itemCount: toolsProvider.tools.length,
-              itemBuilder: (context, index) {
-                final tool = toolsProvider.tools[index];
-                return SelectionToolCard(
-                  tool: tool,
-                  selectionMode: false,
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            EnhancedToolDetailsScreen(tool: tool),
-                      ),
-                    );
-                  },
-                );
+              onChanged: (value) {
+                toolsProvider.setSearchQuery(value);
               },
             ),
+          ),
+
+          // Filter Chips
+          Container(
+            height: 50,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _buildFilterChip('Все', ''),
+                _buildFilterChip('Гараж', 'garage'),
+                _buildFilterChip('Избранное', 'favorite'),
+                _buildFilterChip('По имени', 'name'),
+                _buildFilterChip('По дате', 'date'),
+              ],
+            ),
+          ),
+
+          Divider(height: 1),
+
+          // Tools List
+          Expanded(
+            child: toolsProvider.isLoading && toolsProvider.tools.isEmpty
+                ? Center(child: CircularProgressIndicator())
+                : toolsProvider.tools.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.build, size: 80, color: Colors.grey[300]),
+                        SizedBox(height: 20),
+                        Text(
+                          'Нет инструментов',
+                          style: TextStyle(
+                            fontSize: 18,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                        SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => AddEditToolScreen(),
+                              ),
+                            );
+                          },
+                          child: Text('Добавить инструмент'),
+                        ),
+                      ],
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => toolsProvider.loadTools(),
+                    child: ListView.builder(
+                      itemCount: toolsProvider.tools.length,
+                      itemBuilder: (context, index) {
+                        final tool = toolsProvider.tools[index];
+                        return SelectionToolCard(
+                          tool: tool,
+                          selectionMode: toolsProvider.selectionMode,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    EnhancedToolDetailsScreen(tool: tool),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => AddEditToolScreen()),
+          );
+        },
+        child: Icon(Icons.add),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value) {
+    return Consumer<ToolsProvider>(
+      builder: (context, provider, child) {
+        bool isSelected = false;
+        if (value == 'garage') {
+          isSelected = provider.garageTools.length == provider.tools.length;
+        } else if (value == 'favorite') {
+          isSelected = provider.favoriteTools.length == provider.tools.length;
+        } else if (value == 'name') {
+          isSelected = provider._sortBy == 'name';
+        } else if (value == 'date') {
+          isSelected = provider._sortBy == 'date';
+        }
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 4),
+          child: FilterChip(
+            label: Text(label),
+            selected: isSelected,
+            onSelected: (selected) {
+              if (value == 'garage') {
+                provider.setSearchQuery('');
+              } else if (value == 'favorite') {
+                provider.setSearchQuery('');
+              } else if (value == 'name') {
+                provider.setSort('name', true);
+              } else if (value == 'date') {
+                provider.setSort('date', false);
+              }
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -3310,12 +3536,12 @@ class ProfileScreen extends StatelessWidget {
                         _buildStatCard(
                           icon: Icons.build,
                           label: 'Инструменты',
-                          value: toolsProvider.tools.length.toString(),
+                          value: toolsProvider.totalTools.toString(),
                         ),
                         _buildStatCard(
                           icon: Icons.location_city,
                           label: 'Объекты',
-                          value: objectsProvider.objects.length.toString(),
+                          value: objectsProvider.totalObjects.toString(),
                         ),
                         _buildStatCard(
                           icon: Icons.star,
@@ -3459,7 +3685,9 @@ class ProfileScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Очистка кэша'),
-        content: Text('Вы уверены, что хотите очистить кэш приложения?'),
+        content: Text(
+          'Это очистит только временные данные. Ваши инструменты и объекты останутся сохраненными.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -3469,9 +3697,9 @@ class ProfileScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               try {
-                await Hive.deleteBoxFromDisk(LocalDatabase.toolsBox);
-                await Hive.deleteBoxFromDisk(LocalDatabase.objectsBox);
-                await Hive.deleteBoxFromDisk(LocalDatabase.syncQueueBox);
+                // Clear sync queue and app settings, but keep tools and objects
+                await LocalDatabase.syncQueue.clear();
+                await LocalDatabase.appSettings.clear();
 
                 ErrorHandler.showSuccessDialog(context, 'Кэш успешно очищен');
               } catch (e) {
@@ -3504,11 +3732,13 @@ class _SearchScreenState extends State<SearchScreen> {
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
-    _filteredTools = Provider.of<ToolsProvider>(context, listen: false).tools;
-    _filteredObjects = Provider.of<ObjectsProvider>(
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(
       context,
       listen: false,
-    ).objects;
+    );
+    _filteredTools = toolsProvider.tools;
+    _filteredObjects = objectsProvider.objects;
   }
 
   void _onSearchChanged() {
@@ -4754,6 +4984,15 @@ class EnhancedGarageScreen extends StatefulWidget {
 
 class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ToolsProvider>(context, listen: false);
+      provider.loadTools();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
 
@@ -4769,7 +5008,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               isToolSelection: true,
             )
           : AppBar(
-              title: Text('Гараж'),
+              title: Text('Гараж (${toolsProvider.garageTools.length})'),
               actions: [
                 if (toolsProvider.garageTools.isNotEmpty)
                   IconButton(
@@ -4810,7 +5049,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                 ),
               ],
             ),
-      body: toolsProvider.isLoading
+      body: toolsProvider.isLoading && toolsProvider.garageTools.isEmpty
           ? Center(child: CircularProgressIndicator())
           : toolsProvider.garageTools.isEmpty
           ? Center(
@@ -5023,6 +5262,15 @@ class EnhancedObjectsListScreen extends StatefulWidget {
 
 class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ObjectsProvider>(context, listen: false);
+      provider.loadObjects();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final objectsProvider = Provider.of<ObjectsProvider>(context);
     final toolsProvider = Provider.of<ToolsProvider>(context);
@@ -5038,7 +5286,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
               isToolSelection: false,
             )
           : AppBar(
-              title: Text('Объекты'),
+              title: Text('Объекты (${objectsProvider.totalObjects})'),
               actions: [
                 if (objectsProvider.objects.isNotEmpty)
                   IconButton(
@@ -5079,7 +5327,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                 ),
               ],
             ),
-      body: objectsProvider.isLoading
+      body: objectsProvider.isLoading && objectsProvider.objects.isEmpty
           ? Center(child: CircularProgressIndicator())
           : objectsProvider.objects.isEmpty
           ? Center(
@@ -5198,20 +5446,32 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   final _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _initialLoadComplete = false;
 
   @override
   void initState() {
     super.initState();
     // Load data when main screen starts
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-      final objectsProvider = Provider.of<ObjectsProvider>(
-        context,
-        listen: false,
-      );
+      await _loadInitialData();
+    });
+  }
 
-      await toolsProvider.loadTools();
-      await objectsProvider.loadObjects();
+  Future<void> _loadInitialData() async {
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
+
+    // Load both simultaneously for better performance
+    await Future.wait([
+      toolsProvider.loadTools(),
+      objectsProvider.loadObjects(),
+    ]);
+
+    setState(() {
+      _initialLoadComplete = true;
     });
   }
 
@@ -5226,6 +5486,24 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialLoadComplete) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 20),
+              Text(
+                'Загрузка данных...',
+                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       key: _scaffoldKey,
       appBar: AppBar(
@@ -5309,6 +5587,8 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildDrawer(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final themeProvider = Provider.of<ThemeProvider>(context);
+    final toolsProvider = Provider.of<ToolsProvider>(context);
+    final objectsProvider = Provider.of<ObjectsProvider>(context);
 
     return Drawer(
       child: ListView(
@@ -5369,6 +5649,40 @@ class _MainScreenState extends State<MainScreen> {
               themeProvider.toggleLocale();
               Navigator.pop(context);
             },
+          ),
+          Divider(),
+          // Stats in drawer
+          Padding(
+            padding: EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Статистика',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Инструменты:'),
+                    Text('${toolsProvider.totalTools}'),
+                  ],
+                ),
+                SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text('Объекты:'),
+                    Text('${objectsProvider.totalObjects}'),
+                  ],
+                ),
+              ],
+            ),
           ),
           Divider(),
           ListTile(
@@ -5440,6 +5754,7 @@ class MyApp extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),
             ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
+            Provider.value(value: prefs),
           ],
           child: Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
