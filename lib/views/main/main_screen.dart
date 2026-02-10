@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:tooler/views/home/home_screen.dart';
-import 'package:tooler/views/list_of_projects/list_of_projects.dart';
-import 'package:tooler/views/list_of_tools/list_of_tools_screen.dart';
-import 'package:tooler/views/settings/settings_screen.dart';
+import 'package:provider/provider.dart';
+import 'package:tooler/app/providers/auth_provider.dart';
+import 'package:tooler/app/providers/tool_provider.dart';
+import 'package:tooler/features/export/screens/pdf_preview_screen.dart';
+import 'package:tooler/features/projects/screens/projects_screen.dart';
+import 'package:tooler/features/profile/screens/profile_screen.dart';
+import 'package:tooler/features/tools/screens/tools_screen.dart';
+import 'package:tooler/generated/l10n.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -12,32 +16,59 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  int selectedIndex = 0;
-  List<Widget> pages = [
-    HomeScreen(),
-    ListOfToolsScreen(),
-    ListOfProjects(),
-    SettingsScreen(),
-    //   You can add other screens here for Projects, Settings, etc.
+  int _selectedIndex = 0;
+
+  final List<Widget> _screens = [
+    const ToolsScreen(),
+    const ProjectsScreen(),
+    const PdfPreviewScreen(),
+    const ProfileScreen(),
   ];
+
   @override
   Widget build(BuildContext context) {
+    final s = S.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text(' Main Screen'), centerTitle: true),
-      body: pages[selectedIndex],
-      bottomNavigationBar: NavigationBar(
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.home), label: 'Home'),
-          NavigationDestination(icon: Icon(Icons.build), label: 'Tools'),
-          NavigationDestination(icon: Icon(Icons.folder), label: 'Projects'),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
+      body: _screens[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) => setState(() => _selectedIndex = index),
+        type: BottomNavigationBarType.fixed,
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home),
+            label: s.home,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.construction),
+            label: s.projects,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.picture_as_pdf),
+            label: s.reports,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
+            label: s.profile,
+          ),
         ],
-        selectedIndex: selectedIndex,
-        onDestinationSelected: (int index) {
-          setState(() {
-            selectedIndex = index;
-          });
-        },
+      ),
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+              onPressed: () => _showAddToolDialog(context),
+              child: const Icon(Icons.add),
+            )
+          : null,
+    );
+  }
+
+  void _showAddToolDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(S.of(context).addTool),
+        content: const AddToolForm(),
       ),
     );
   }

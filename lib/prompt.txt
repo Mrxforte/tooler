@@ -1,0 +1,124 @@
+Here's the optimized, concise prompt for GPT-4 to create the Tooler app:
+
+---
+
+**Create a Flutter construction tool management app "Tooler" with these features:**
+
+## **APP CORE**
+Tool tracking system to move tools between construction objects with offline sync.
+
+## **FEATURES LIST:**
+
+### **1. TOOL SYSTEM**
+- Create tool: title, description, brand, unique ID, image (local/network)
+- Tool duplicate option: Create new tool with same specs but different ID
+- Location history with dates
+- Add to favorites
+- CRUD operations
+
+### **2. CONSTRUCTION OBJECTS**
+- Create object with: name, image, description
+- Empty tool list initially
+- Add tools to objects (multiple/single)
+- Delete tools from objects
+- Full CRUD on objects
+
+### **3. TOOL MOVEMENT**
+- Drag & drop interface between objects
+- Alternative movement methods
+- Batch move multiple tools
+- Movement history tracking
+
+### **4. PDF & SHARING**
+- Export to PDF (inventory, reports)
+- In-app screenshot capture
+- Share functionality via system
+
+### **5. OFFLINE WORK**
+- Local database (Hive/SQFlite)
+- Sync with Firebase when online
+- Work without internet
+
+### **6. UI/UX**
+- Dark/Light theme
+- 3 languages: English, Russian, Uzbek
+- Responsive & adaptive design
+- Reusable widgets library
+- Provider state management
+
+### **7. SCREENS**
+- Onboarding (3-4 screens)
+- Auth (Firebase: email/Google)
+- Tools list (search/filters)
+- Tool detail & edit
+- Objects list & detail
+- Move tools screen
+- Favorites
+- Search with filters
+- Settings (profile, theme, language, about)
+- PDF preview
+- Screenshot gallery
+
+### **8. ADVANCED FUNCTIONALITY**
+- Add tools to objects (multiple selection)
+- Delete tools from objects
+- Tool duplication system
+- Object images support
+- Empty state handling
+
+## **FOLDER STRUCTURE:**
+```
+lib/
+├── app/
+│   ├── constants/ (colors.dart, strings.dart, etc.)
+│   ├── theme/ (dark/light themes)
+│   ├── utils/
+│   └── providers/ (auth, tools, projects, theme, sync, export)
+├── features/
+│   ├── auth/
+│   ├── tools/
+│   ├── projects/
+│   ├── profile/
+│   └── export/
+├── widgets/ (reusable components)
+├── services/ (Firebase, local DB, sync)
+└── models/ (data models)
+```
+
+## **TECHNICAL REQUIREMENTS:**
+- Firebase Auth & Firestore
+- Local database for offline
+- Provider state management
+- PDF export with pdf package
+- Screenshot capture
+- Image picker (gallery/camera)
+- Drag & drop functionality
+- Search with filters
+- Responsive layouts
+
+## **SPECIFIC IMPLEMENTATIONS:**
+1. **Tool duplication**: "Duplicate" button that copies all fields except ID
+2. **Object tools management**: Add/remove multiple tools from objects
+3. **Movement system**: Visual drag-drop between object cards
+4. **Sync system**: Queue offline changes, sync when online
+5. **PDF templates**: Custom layouts with tool lists and QR codes
+6. **Screenshot**: Capture any screen with annotation
+7. **Filters**: Tool category, brand, availability, project status
+8. **Empty states**: For objects without tools
+
+---
+
+**Generate complete Flutter codebase with:**
+- Full `pubspec.yaml` with dependencies
+- Complete folder structure
+- All models, providers, widgets
+- Firebase setup
+- Localization (EN/RU/UZ)
+- Dark/light themes
+- Local database schema
+- PDF export templates
+- Screenshot functionality
+- Comprehensive error handling
+- Production-ready code with comments
+
+**Priority:** Working drag-drop movement, offline sync, tool duplication, and PDF export.

@@ -1,53 +1,47 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
-import 'providers/settings_provider.dart';
-import 'providers/object_provider.dart';
-import 'providers/tool_provider.dart';
-import 'screens/home_screen.dart';
+import 'package:tooler/app/app.dart';
+import 'package:tooler/app/constants/app_constants.dart';
+import 'package:tooler/app/providers/auth_provider.dart';
+import 'package:tooler/app/providers/language_provider.dart';
+import 'package:tooler/app/providers/sync_provider.dart';
+import 'package:tooler/app/providers/theme_provider.dart';
+import 'package:tooler/app/providers/tool_provider.dart';
+import 'package:tooler/app/providers/project_provider.dart';
+import 'package:tooler/app/services/firebase_service.dart';
+import 'package:tooler/app/services/local_db_service.dart';
+import 'package:tooler/firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(const MyApp());
-}
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
-  @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
+  // Initialize Hive
+  await LocalDbService.init();
+
+  // Set preferred orientations
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  runApp(
+    MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => SettingsProvider()),
-        ChangeNotifierProvider(
-          create: (_) => ObjectProvider()..listenToObjects(),
-        ),
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => LanguageProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ToolProvider()),
+        ChangeNotifierProvider(create: (_) => ProjectProvider()),
+        ChangeNotifierProvider(create: (_) => SyncProvider()),
       ],
-      child: Consumer<SettingsProvider>(
-        builder: (context, settings, child) {
-          return MaterialApp(
-            title: 'Tooler',
-            debugShowCheckedModeBanner: false,
-            locale: settings.locale,
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            supportedLocales: const [Locale('en'), Locale('ru')],
-            theme: ThemeData(
-              colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-              useMaterial3: true,
-            ),
-            home: HomeScreen(
-              mounted: true,
-            ),
-          );
-        },
-      ),
-    );
-  }
+      child: const ToolerApp(),
+    ),
+  );
 }
