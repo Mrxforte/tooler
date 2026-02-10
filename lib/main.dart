@@ -1,9 +1,8 @@
-// main.dart - Enhanced Tooler Construction Tool Management App
-// ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously
+// main.dart - Modern Tooler Construction Tool Management App
+// ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison
 
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,19 +16,18 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:provider/provider.dart';
-import 'package:screenshot/screenshot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as path;
 import 'package:share_plus/share_plus.dart';
+// ignore: depend_on_referenced_packages
 import 'package:path_provider/path_provider.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 // ========== FIREBASE INITIALIZATION ==========
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Устанавливаем портретную ориентацию
+  // Set portrait orientation
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
@@ -62,7 +60,7 @@ Future<void> main() async {
     // Continue with offline mode
   }
 
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 // ========== HIVE ADAPTERS ==========
@@ -157,7 +155,7 @@ class Tool {
   DateTime createdAt;
   DateTime updatedAt;
   bool isSelected;
-  String userId; // Add user ID for multi-user support
+  String userId;
 
   Tool({
     required this.id,
@@ -264,7 +262,7 @@ class Tool {
     title: '$title (Копия ${copyNumber > 1 ? copyNumber : ''})'.trim(),
     description: description,
     brand: brand,
-    uniqueId: '${uniqueId}_copy_${copyNumber}',
+    uniqueId: '${uniqueId}_copy_$copyNumber',
     imageUrl: imageUrl,
     localImagePath: localImagePath,
     currentLocation: currentLocation,
@@ -320,7 +318,7 @@ class ConstructionObject {
   DateTime createdAt;
   DateTime updatedAt;
   bool isSelected;
-  String userId; // Add user ID for multi-user support
+  String userId;
 
   ConstructionObject({
     required this.id,
@@ -574,319 +572,169 @@ class ImageService {
   }
 }
 
-// ========== PDF REPORT SERVICE WITH RUSSIAN SUPPORT ==========
+// ========== ENHANCED PDF REPORT SERVICE WITH SHARE AND PRINT ==========
 class ReportService {
-  static Future<void> generateToolReport(
-    Tool tool,
-    BuildContext context,
-  ) async {
-    try {
-      final pdf = pw.Document();
-      final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-      final theme = Theme.of(context);
+  static Future<Uint8List> _generateToolReportPdf(Tool tool) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
 
-      // Загружаем шрифт для поддержки русского языка
-      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      final ttf = pw.Font.ttf(fontData.buffer.asByteData());
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          theme: pw.ThemeData.withFont(base: ttf),
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                // Заголовок
-                pw.Container(
-                  padding: pw.EdgeInsets.all(20),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColor.fromInt(theme.primaryColor.value),
-                    borderRadius: pw.BorderRadius.circular(10),
-                  ),
-                  child: pw.Row(
-                    children: [
-                      pw.Icon(
-                        pw.IconData(FontAwesomeIcons.tools.codePoint),
-                        size: 30,
-                        color: PdfColors.white,
-                      ),
-                      pw.SizedBox(width: 15),
-                      pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.start,
-                        children: [
-                          pw.Text(
-                            'TOOLER - ОТЧЕТ ОБ ИНСТРУМЕНТЕ',
-                            style: pw.TextStyle(
-                              fontSize: 20,
-                              fontWeight: pw.FontWeight.bold,
-                              color: PdfColors.white,
-                            ),
-                          ),
-                          pw.Text(
-                            'Сгенерировано: ${dateFormat.format(DateTime.now())}',
-                            style: pw.TextStyle(
-                              fontSize: 12,
-                              color: PdfColors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: 20),
-
-                // Основная информация
-                pw.Text(
-                  'ОСНОВНАЯ ИНФОРМАЦИЯ',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(theme.primaryColor.value),
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-
-                pw.Container(
-                  decoration: pw.BoxDecoration(
-                    border: pw.Border.all(color: PdfColors.grey300),
-                    borderRadius: pw.BorderRadius.circular(8),
-                  ),
-                  padding: pw.EdgeInsets.all(15),
-                  child: pw.Table(
-                    border: pw.TableBorder.all(color: PdfColors.grey100),
-                    children: [
-                      _buildPdfTableRow('Название:', tool.title),
-                      _buildPdfTableRow('Бренд:', tool.brand),
-                      _buildPdfTableRow('Уникальный ID:', tool.uniqueId),
-                      _buildPdfTableRow(
-                        'Модель:',
-                        tool.description.isNotEmpty
-                            ? tool.description
-                            : 'Не указана',
-                      ),
-                      _buildPdfTableRow(
-                        'Местоположение:',
-                        tool.currentLocationName,
-                      ),
-                      _buildPdfTableRow(
-                        'Статус:',
-                        tool.isFavorite ? '⭐ В избранном' : '📦 В наличии',
-                      ),
-                      _buildPdfTableRow(
-                        'Дата добавления:',
-                        DateFormat('dd.MM.yyyy').format(tool.createdAt),
-                      ),
-                      _buildPdfTableRow(
-                        'Последнее обновление:',
-                        DateFormat('dd.MM.yyyy').format(tool.updatedAt),
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.SizedBox(height: 20),
-
-                // История перемещений
-                if (tool.locationHistory.isNotEmpty)
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'ИСТОРИЯ ПЕРЕМЕЩЕНИЙ',
-                        style: pw.TextStyle(
-                          fontSize: 16,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColor.fromInt(theme.primaryColor.value),
-                        ),
-                      ),
-                      pw.SizedBox(height: 10),
-                      pw.Container(
-                        decoration: pw.BoxDecoration(
-                          border: pw.Border.all(color: PdfColors.grey300),
-                          borderRadius: pw.BorderRadius.circular(8),
-                        ),
-                        padding: pw.EdgeInsets.all(15),
-                        child: pw.Column(
-                          children: tool.locationHistory.map((history) {
-                            return pw.Padding(
-                              padding: pw.EdgeInsets.only(bottom: 8),
-                              child: pw.Row(
-                                children: [
-                                  pw.Icon(
-                                    pw.IconData(
-                                      FontAwesomeIcons.locationArrow.codePoint,
-                                    ),
-                                    size: 12,
-                                    color: PdfColors.blue,
-                                  ),
-                                  pw.SizedBox(width: 8),
-                                  pw.Expanded(
-                                    child: pw.Text(
-                                      '${history.locationName}',
-                                      style: pw.TextStyle(fontSize: 12),
-                                    ),
-                                  ),
-                                  pw.Text(
-                                    DateFormat(
-                                      'dd.MM.yyyy',
-                                    ).format(history.date),
-                                    style: pw.TextStyle(
-                                      fontSize: 10,
-                                      color: PdfColors.grey,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                pw.SizedBox(height: 30),
-
-                // QR код с информацией об инструменте
-                pw.Container(
-                  alignment: pw.Alignment.center,
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        'QR КОД ИНСТРУМЕНТА',
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 10),
-                      pw.Container(
-                        width: 150,
-                        height: 150,
-                        color: PdfColors.grey100,
-                        child: pw.Center(
-                          child: pw.Text(
-                            'QR: ${tool.uniqueId}',
-                            style: pw.TextStyle(fontSize: 10),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                pw.Spacer(),
-
-                // Подвал
-                pw.Container(
-                  margin: pw.EdgeInsets.only(top: 30),
-                  padding: pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    borderRadius: pw.BorderRadius.circular(5),
-                  ),
-                  child: pw.Center(
-                    child: pw.Text(
-                      '© 2026 Tooler App - Система управления строительными инструментами\nГенерация отчета: ${dateFormat.format(DateTime.now())}',
-                      style: pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-                      textAlign: pw.TextAlign.center,
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      );
-
-      // Сохраняем PDF во временный файл
-      final tempDir = await getTemporaryDirectory();
-      final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
-      await pdfFile.writeAsBytes(await pdf.save());
-
-      // Делимся PDF
-      await Share.shareXFiles([
-        XFile(pdfFile.path),
-      ], text: '📋 Отчет об инструменте: ${tool.title}');
-    } catch (e, s) {
-      print('Error generating report: $e\n$s');
-      // Fallback без шрифта
-      _generateSimpleReport(tool, context);
-    }
-  }
-
-  static pw.TableRow _buildPdfTableRow(String label, String value) {
-    return pw.TableRow(
-      children: [
-        pw.Padding(
-          padding: pw.EdgeInsets.symmetric(vertical: 5),
-          child: pw.Text(
-            label,
-            style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold),
-          ),
-        ),
-        pw.Padding(
-          padding: pw.EdgeInsets.symmetric(vertical: 5),
-          child: pw.Text(value, style: pw.TextStyle(fontSize: 12)),
-        ),
-      ],
-    );
-  }
-
-  static Future<void> _generateSimpleReport(
-    Tool tool,
-    BuildContext context,
-  ) async {
-    try {
-      final pdf = pw.Document();
-      final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text(
-                  'ОТЧЕТ ОБ ИНСТРУМЕНТЕ',
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Header(
+                level: 0,
+                child: pw.Text(
+                  'TOOLER - ОТЧЕТ ОБ ИНСТРУМЕНТЕ',
                   style: pw.TextStyle(
                     fontSize: 20,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
-                pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'),
-                pw.Divider(),
-                pw.Text('Название: ${tool.title}'),
-                pw.Text('Бренд: ${tool.brand}'),
-                pw.Text('ID: ${tool.uniqueId}'),
-                pw.Text('Местоположение: ${tool.currentLocationName}'),
-                pw.Text(
-                  'Добавлен: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}',
+              ),
+              pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'),
+              pw.SizedBox(height: 20),
+
+              pw.Text(
+                'ОСНОВНАЯ ИНФОРМАЦИЯ',
+                style: pw.TextStyle(
+                  fontSize: 16,
+                  fontWeight: pw.FontWeight.bold,
                 ),
-                if (tool.description.isNotEmpty)
-                  pw.Text('Описание: ${tool.description}'),
+              ),
+              pw.SizedBox(height: 10),
+
+              pw.Table.fromTextArray(
+                context: context,
+                data: [
+                  ['Название:', tool.title],
+                  ['Бренд:', tool.brand],
+                  ['Уникальный ID:', tool.uniqueId],
+                  [
+                    'Модель:',
+                    tool.description.isNotEmpty
+                        ? tool.description
+                        : 'Не указана',
+                  ],
+                  ['Местоположение:', tool.currentLocationName],
+                  [
+                    'Статус:',
+                    tool.isFavorite ? '⭐ В избранном' : '📦 В наличии',
+                  ],
+                  [
+                    'Дата добавления:',
+                    DateFormat('dd.MM.yyyy').format(tool.createdAt),
+                  ],
+                  [
+                    'Последнее обновление:',
+                    DateFormat('dd.MM.yyyy').format(tool.updatedAt),
+                  ],
+                ],
+              ),
+
+              if (tool.locationHistory.isNotEmpty) ...[
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  'ИСТОРИЯ ПЕРЕМЕЩЕНИЙ',
+                  style: pw.TextStyle(
+                    fontSize: 16,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 10),
+                ...tool.locationHistory.map(
+                  (history) => pw.Padding(
+                    padding: pw.EdgeInsets.only(bottom: 8),
+                    child: pw.Row(
+                      children: [
+                        pw.Text('• '),
+                        pw.Expanded(
+                          child: pw.Text(
+                            '${history.locationName} (${DateFormat('dd.MM.yyyy').format(history.date)})',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
-            );
-          },
-        ),
-      );
 
+              pw.Spacer(),
+              pw.Container(
+                margin: pw.EdgeInsets.only(top: 30),
+                padding: pw.EdgeInsets.all(10),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(5),
+                ),
+                child: pw.Center(
+                  child: pw.Text(
+                    '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\nГенерация отчета: ${dateFormat.format(DateTime.now())}',
+                    style: pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                    textAlign: pw.TextAlign.center,
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+
+    return await pdf.save();
+  }
+
+  static Future<void> shareToolReport(Tool tool, BuildContext context) async {
+    try {
+      final pdfBytes = await _generateToolReportPdf(tool);
       final tempDir = await getTemporaryDirectory();
-      final pdfFile = File('${tempDir.path}/tool_report_simple_${tool.id}.pdf');
-      await pdfFile.writeAsBytes(await pdf.save());
+      final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
+      await pdfFile.writeAsBytes(pdfBytes);
 
-      await Share.shareXFiles([
-        XFile(pdfFile.path),
-      ], text: 'Отчет об инструменте: ${tool.title}');
-    } catch (e) {
-      ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
+      await Share.shareXFiles(
+        [XFile(pdfFile.path)],
+        text:
+            '📋 Отчет об инструменте: ${tool.title}\n\n'
+            'Название: ${tool.title}\n'
+            'Бренд: ${tool.brand}\n'
+            'ID: ${tool.uniqueId}\n'
+            'Местоположение: ${tool.currentLocationName}\n'
+            'Статус: ${tool.isFavorite ? "⭐ В избранном" : "📦 В наличии"}\n'
+            'Добавлен: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}',
+      );
+    } catch (e, s) {
+      print('Error sharing report: $e\n$s');
+      // Fallback to text sharing
+      await Share.share(
+        '📋 Отчет об инструменте: ${tool.title}\n\n'
+        'Название: ${tool.title}\n'
+        'Бренд: ${tool.brand}\n'
+        'Уникальный ID: ${tool.uniqueId}\n'
+        'Описание: ${tool.description.isNotEmpty ? tool.description : "Не указано"}\n'
+        'Местоположение: ${tool.currentLocationName}\n'
+        'Статус: ${tool.isFavorite ? "⭐ В избранном" : "📦 В наличии"}\n'
+        'Добавлен: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}\n'
+        'Обновлен: ${DateFormat('dd.MM.yyyy').format(tool.updatedAt)}\n\n'
+        'История перемещений:\n${tool.locationHistory.map((h) => '• ${h.locationName} (${DateFormat('dd.MM.yyyy').format(h.date)})').join('\n')}\n\n'
+        '— Отчет создан в Tooler App —',
+      );
     }
   }
 
-  static Future<void> generateInventoryReport(
+  static Future<void> printToolReport(Tool tool, BuildContext context) async {
+    try {
+      final pdfBytes = await _generateToolReportPdf(tool);
+      await Printing.layoutPdf(onLayout: (_) => pdfBytes);
+    } catch (e) {
+      print('Error printing report: $e');
+      ErrorHandler.showErrorDialog(context, 'Не удалось напечатать отчет: $e');
+    }
+  }
+
+  static Future<void> shareInventoryReport(
     List<Tool> tools,
     List<ConstructionObject> objects,
     BuildContext context,
@@ -894,115 +742,64 @@ class ReportService {
     try {
       final pdf = pw.Document();
       final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-      final theme = Theme.of(context);
-
-      final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
-      final ttf = pw.Font.ttf(fontData.buffer.asByteData());
 
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
-          theme: pw.ThemeData.withFont(base: ttf),
           build: (pw.Context context) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Заголовок
-                pw.Container(
-                  padding: pw.EdgeInsets.all(20),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColor.fromInt(theme.primaryColor.value),
-                    borderRadius: pw.BorderRadius.circular(10),
-                  ),
-                  child: pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
-                      pw.Text(
-                        'TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
-                        style: pw.TextStyle(
-                          fontSize: 22,
-                          fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white,
-                        ),
-                      ),
-                      pw.Text(
-                        'Сгенерировано: ${dateFormat.format(DateTime.now())}',
-                        style: pw.TextStyle(
-                          fontSize: 12,
-                          color: PdfColors.white,
-                        ),
-                      ),
-                    ],
+                pw.Header(
+                  level: 0,
+                  child: pw.Text(
+                    'TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
+                    style: pw.TextStyle(
+                      fontSize: 22,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
                   ),
                 ),
-
+                pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'),
                 pw.SizedBox(height: 20),
 
-                // Сводка
                 pw.Text(
                   'СВОДКА ИНВЕНТАРИЗАЦИИ',
                   style: pw.TextStyle(
                     fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
-                    color: PdfColor.fromInt(theme.primaryColor.value),
                   ),
                 ),
                 pw.SizedBox(height: 15),
 
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatBox(
-                      'Всего инструментов',
-                      '${tools.length}',
-                      PdfColors.blue,
-                    ),
-                    _buildStatBox(
+                pw.Table.fromTextArray(
+                  context: context,
+                  data: [
+                    ['Всего инструментов', '${tools.length}'],
+                    [
                       'В гараже',
                       '${tools.where((t) => t.currentLocation == "garage").length}',
-                      PdfColors.green,
-                    ),
-                    _buildStatBox(
+                    ],
+                    [
                       'На объектах',
                       '${tools.where((t) => t.currentLocation != "garage").length}',
-                      PdfColors.orange,
-                    ),
-                    _buildStatBox(
-                      'Избранных',
-                      '${tools.where((t) => t.isFavorite).length}',
-                      PdfColors.red,
-                    ),
-                  ],
-                ),
-
-                pw.SizedBox(height: 10),
-
-                pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatBox(
-                      'Всего объектов',
-                      '${objects.length}',
-                      PdfColors.purple,
-                    ),
-                    _buildStatBox(
+                    ],
+                    ['Избранных', '${tools.where((t) => t.isFavorite).length}'],
+                    ['Всего объектов', '${objects.length}'],
+                    [
                       'С инструментами',
                       '${objects.where((o) => o.toolIds.isNotEmpty).length}',
-                      PdfColors.teal,
-                    ),
-                    _buildStatBox(
+                    ],
+                    [
                       'Пустых',
                       '${objects.where((o) => o.toolIds.isEmpty).length}',
-                      PdfColors.grey,
-                    ),
+                    ],
                   ],
                 ),
 
                 pw.SizedBox(height: 30),
-
-                // Детали по инструментам
                 pw.Text(
-                  'ДЕТАЛЬНЫЙ СПИСОК ИНСТРУМЕНТОВ',
+                  'СПИСОК ИНСТРУМЕНТОВ',
                   style: pw.TextStyle(
                     fontSize: 16,
                     fontWeight: pw.FontWeight.bold,
@@ -1010,64 +807,23 @@ class ReportService {
                 ),
                 pw.SizedBox(height: 10),
 
-                for (var tool in tools.take(
-                  50,
-                )) // Ограничиваем для производительности
-                  pw.Container(
-                    margin: pw.EdgeInsets.only(bottom: 8),
-                    padding: pw.EdgeInsets.all(10),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(color: PdfColors.grey300),
-                      borderRadius: pw.BorderRadius.circular(5),
-                    ),
-                    child: pw.Row(
-                      children: [
-                        pw.Container(
-                          width: 40,
-                          height: 40,
-                          decoration: pw.BoxDecoration(
-                            color: PdfColors.grey200,
-                            borderRadius: pw.BorderRadius.circular(20),
-                          ),
-                          child: pw.Center(
-                            child: pw.Icon(
-                              pw.IconData(FontAwesomeIcons.tools.codePoint),
-                              size: 20,
-                              color: PdfColors.grey600,
+                ...tools
+                    .take(50)
+                    .map(
+                      (tool) => pw.Padding(
+                        padding: pw.EdgeInsets.only(bottom: 8),
+                        child: pw.Row(
+                          children: [
+                            pw.Text('• '),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}',
+                              ),
                             ),
-                          ),
+                          ],
                         ),
-                        pw.SizedBox(width: 10),
-                        pw.Expanded(
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.start,
-                            children: [
-                              pw.Text(
-                                tool.title,
-                                style: pw.TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              ),
-                              pw.Text(
-                                '${tool.brand} • ${tool.currentLocationName}',
-                                style: pw.TextStyle(
-                                  fontSize: 10,
-                                  color: PdfColors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (tool.isFavorite)
-                          pw.Icon(
-                            pw.IconData(FontAwesomeIcons.star.codePoint),
-                            size: 12,
-                            color: PdfColors.yellow,
-                          ),
-                      ],
+                      ),
                     ),
-                  ),
 
                 if (tools.length > 50)
                   pw.Text(
@@ -1075,93 +831,72 @@ class ReportService {
                     style: pw.TextStyle(
                       fontSize: 12,
                       fontStyle: pw.FontStyle.italic,
-                      color: PdfColors.grey,
                     ),
                   ),
-
-                pw.SizedBox(height: 30),
-
-                // Подпись
-                pw.Container(
-                  margin: pw.EdgeInsets.only(top: 20),
-                  padding: pw.EdgeInsets.all(15),
-                  decoration: pw.BoxDecoration(
-                    color: PdfColors.grey100,
-                    borderRadius: pw.BorderRadius.circular(5),
-                  ),
-                  child: pw.Column(
-                    children: [
-                      pw.Text(
-                        'Итоги инвентаризации',
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.SizedBox(height: 10),
-                      pw.Text(
-                        'Общая стоимость инструментов: рассчитывается...',
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                      pw.Text(
-                        'Рекомендации: Проверьте состояние инструментов и обновите информацию.',
-                        style: pw.TextStyle(fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
               ],
             );
           },
         ),
       );
 
+      final pdfBytes = await pdf.save();
       final tempDir = await getTemporaryDirectory();
       final pdfFile = File(
         '${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
       );
-      await pdfFile.writeAsBytes(await pdf.save());
+      await pdfFile.writeAsBytes(pdfBytes);
 
-      await Share.shareXFiles([
-        XFile(pdfFile.path),
-      ], text: '📊 Инвентаризационный отчет Tooler');
+      final garageTools = tools
+          .where((t) => t.currentLocation == 'garage')
+          .length;
+      final onSiteTools = tools
+          .where((t) => t.currentLocation != 'garage')
+          .length;
+      final favoriteTools = tools.where((t) => t.isFavorite).length;
+      final objectsWithTools = objects
+          .where((o) => o.toolIds.isNotEmpty)
+          .length;
+
+      await Share.shareXFiles(
+        [XFile(pdfFile.path)],
+        text:
+            '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler\n\n'
+            '📅 Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}\n'
+            '🛠️ Всего инструментов: ${tools.length}\n'
+            '🏠 В гараже: $garageTools\n'
+            '🏗️ На объектах: $onSiteTools\n'
+            '⭐ Избранных: $favoriteTools\n'
+            '🏢 Всего объектов: ${objects.length}\n'
+            '📦 Объектов с инструментами: $objectsWithTools\n\n'
+            'Топ инструментов:\n${tools.take(5).map((t) => '• ${t.title} (${t.brand}) - ${t.currentLocationName}').join('\n')}\n\n'
+            '— Отчет создан в Tooler App —',
+      );
     } catch (e, s) {
-      print('Error generating inventory report: $e\n$s');
-      ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
-    }
-  }
+      print('Error sharing inventory report: $e\n$s');
+      final garageTools = tools
+          .where((t) => t.currentLocation == 'garage')
+          .length;
+      final onSiteTools = tools
+          .where((t) => t.currentLocation != 'garage')
+          .length;
+      final favoriteTools = tools.where((t) => t.isFavorite).length;
+      final objectsWithTools = objects
+          .where((o) => o.toolIds.isNotEmpty)
+          .length;
 
-  static pw.Container _buildStatBox(
-    String label,
-    String value,
-    PdfColor color,
-  ) {
-    return pw.Container(
-      width: 100,
-      padding: pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        color: color,
-        border: pw.Border.all(color: color),
-        borderRadius: pw.BorderRadius.circular(8),
-      ),
-      child: pw.Column(
-        children: [
-          pw.Text(
-            value,
-            style: pw.TextStyle(
-              fontSize: 18,
-              fontWeight: pw.FontWeight.bold,
-              color: color,
-            ),
-          ),
-          pw.Text(
-            label,
-            style: pw.TextStyle(fontSize: 10, color: PdfColors.grey),
-            textAlign: pw.TextAlign.center,
-          ),
-        ],
-      ),
-    );
+      await Share.share(
+        '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler\n\n'
+        '📅 Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}\n'
+        '🛠️ Всего инструментов: ${tools.length}\n'
+        '🏠 В гараже: $garageTools\n'
+        '🏗️ На объектах: $onSiteTools\n'
+        '⭐ Избранных: $favoriteTools\n'
+        '🏢 Всего объектов: ${objects.length}\n'
+        '📦 Объектов с инструментами: $objectsWithTools\n\n'
+        'Список инструментов:\n${tools.take(10).map((t) => '• ${t.title} (${t.brand}) - ${t.currentLocationName}${t.isFavorite ? " ⭐" : ""}').join('\n')}\n\n'
+        '— Отчет создан в Tooler App —',
+      );
+    }
   }
 }
 
@@ -1172,12 +907,12 @@ class ErrorHandler {
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Ошибка'),
+          title: const Text('Ошибка'),
           content: Text(message),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('OK'),
+              child: const Text('OK'),
             ),
           ],
         ),
@@ -1193,7 +928,7 @@ class ErrorHandler {
         SnackBar(
           content: Text(message),
           backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
     } catch (e) {
@@ -1207,7 +942,7 @@ class ErrorHandler {
         SnackBar(
           content: Text(message),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
         ),
       );
     } catch (e) {
@@ -1229,16 +964,14 @@ class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
   User? _user;
-  bool _isLoading = false; // Изменено на false для быстрой загрузки
+  bool _isLoading = false;
   bool _rememberMe = false;
-  bool _bypassAuth = false;
   File? _profileImage;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
-  bool get isLoggedIn => _user != null || _bypassAuth;
+  bool get isLoggedIn => _user != null;
   bool get rememberMe => _rememberMe;
-  bool get bypassAuth => _bypassAuth;
   File? get profileImage => _profileImage;
 
   AuthProvider(this._prefs) {
@@ -1248,7 +981,7 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _initializeAuth() async {
     try {
-      _isLoading = false; // Не показываем загрузку при инициализации
+      _isLoading = true;
       final savedUser = _auth.currentUser;
       if (savedUser != null && _rememberMe) {
         _user = savedUser;
@@ -1256,6 +989,7 @@ class AuthProvider with ChangeNotifier {
       notifyListeners();
     } catch (e) {
       print('Auth initialization error: $e');
+    } finally {
       _isLoading = false;
       notifyListeners();
     }
@@ -1266,22 +1000,12 @@ class AuthProvider with ChangeNotifier {
       _isLoading = true;
       notifyListeners();
 
-      // Быстрый тестовый вход
-      if (email.toLowerCase() == 'vadim' && password == 'vadim') {
-        await Future.delayed(Duration(milliseconds: 500)); // Имитация загрузки
-        _bypassAuth = true;
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      }
-
       final userCredential = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       _user = userCredential.user;
-      _bypassAuth = false;
 
       if (_rememberMe) {
         await _prefs.setString('saved_email', email);
@@ -1320,9 +1044,8 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
-      _bypassAuth = false;
 
-      // Сохраняем изображение профиля
+      // Save profile image
       if (profileImage != null && _user != null) {
         final imageUrl = await ImageService.uploadImage(
           profileImage,
@@ -1376,7 +1099,6 @@ class AuthProvider with ChangeNotifier {
     try {
       await _auth.signOut();
       _user = null;
-      _bypassAuth = false;
       _profileImage = null;
       await _prefs.remove('profile_image_url');
       notifyListeners();
@@ -1621,21 +1343,24 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> loadTools({bool forceRefresh = false}) async {
     if (_isLoading) return;
-
+    //  ════════ Exception caught by foundation library ════════════════════════════════
+    // setState() or markNeedsBuild() called during build.
+    //  improve this snippet
+    //  and infinity loading  make improviments
     _isLoading = true;
     notifyListeners();
 
     try {
       await LocalDatabase.init();
 
-      // Ленивая загрузка - сначала показываем кэшированные данные
+      // Lazy loading - show cached data first
       final cachedTools = LocalDatabase.tools.values.toList();
       if (cachedTools.isNotEmpty) {
         _tools = cachedTools.where((tool) => tool != null).toList();
-        notifyListeners(); // Обновляем UI сразу
+        notifyListeners(); // Update UI immediately
       }
 
-      // Затем в фоне синхронизируем с Firebase
+      // Then sync with Firebase in background
       if (forceRefresh || await LocalDatabase.shouldRefreshCache()) {
         await _syncWithFirebase();
         await LocalDatabase.saveCacheTimestamp();
@@ -1822,7 +1547,7 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> duplicateTool(Tool original) async {
     try {
-      // Считаем сколько копий уже есть
+      // Count how many copies already exist
       final copyCount =
           _tools
               .where(
@@ -2204,13 +1929,13 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> loadObjects({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
-    _isLoading = true;
-    notifyListeners();
+    // _isLoading = true;
+    // notifyListeners();
 
     try {
       await LocalDatabase.init();
 
-      // Ленивая загрузка
+      // Lazy loading
       final cachedObjects = LocalDatabase.objects.values.toList();
       if (cachedObjects.isNotEmpty) {
         _objects = cachedObjects.where((obj) => obj != null).toList();
@@ -2452,28 +2177,28 @@ class ObjectsProvider with ChangeNotifier {
   }
 }
 
-// ========== ENHANCED SELECTION TOOL CARD WITH FAVORITE BUTTON ==========
+// ========== MODERN SELECTION TOOL CARD ==========
 class SelectionToolCard extends StatelessWidget {
   final Tool tool;
   final bool selectionMode;
   final VoidCallback onTap;
 
   const SelectionToolCard({
-    Key? key,
+    super.key,
     required this.tool,
     required this.selectionMode,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
     return Consumer<ToolsProvider>(
       builder: (context, toolsProvider, child) {
         return Card(
-          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          elevation: 3,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          elevation: 4,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
             onTap: selectionMode
@@ -2487,20 +2212,28 @@ class SelectionToolCard extends StatelessWidget {
                 toolsProvider.toggleToolSelection(tool.id);
               }
             },
-            borderRadius: BorderRadius.circular(15),
-            child: Padding(
-              padding: EdgeInsets.all(12),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.grey.shade50],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   if (selectionMode)
                     Padding(
-                      padding: EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: 8),
                       child: Checkbox(
                         value: tool.isSelected,
                         onChanged: (value) {
                           toolsProvider.toggleToolSelection(tool.id);
                         },
-                        shape: CircleBorder(),
+                        shape: const CircleBorder(),
                       ),
                     ),
 
@@ -2509,12 +2242,23 @@ class SelectionToolCard extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.05),
+                        ],
+                      ),
                     ),
                     child: tool.displayImage != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             child: Image(
                               image: tool.displayImage!.startsWith('http')
                                   ? NetworkImage(tool.displayImage!)
@@ -2525,7 +2269,9 @@ class SelectionToolCard extends StatelessWidget {
                                 return Center(
                                   child: Icon(
                                     Icons.build,
-                                    color: Theme.of(context).primaryColor,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
                                     size: 30,
                                   ),
                                 );
@@ -2535,13 +2281,13 @@ class SelectionToolCard extends StatelessWidget {
                         : Center(
                             child: Icon(
                               Icons.build,
-                              color: Theme.of(context).primaryColor,
+                              color: Theme.of(context).colorScheme.primary,
                               size: 30,
                             ),
                           ),
                   ),
 
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
                   Expanded(
                     child: Column(
@@ -2552,7 +2298,7 @@ class SelectionToolCard extends StatelessWidget {
                             Expanded(
                               child: Text(
                                 tool.title,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -2575,12 +2321,12 @@ class SelectionToolCard extends StatelessWidget {
                                   toolsProvider.toggleFavorite(tool.id);
                                 },
                                 padding: EdgeInsets.zero,
-                                constraints: BoxConstraints(),
+                                constraints: const BoxConstraints(),
                               ),
                           ],
                         ),
 
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
 
                         Text(
                           tool.brand,
@@ -2590,7 +2336,7 @@ class SelectionToolCard extends StatelessWidget {
                           ),
                         ),
 
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
 
                         Row(
                           children: [
@@ -2599,11 +2345,11 @@ class SelectionToolCard extends StatelessWidget {
                               size: 12,
                               color: Colors.grey,
                             ),
-                            SizedBox(width: 4),
+                            const SizedBox(width: 4),
                             Expanded(
                               child: Text(
                                 tool.currentLocationName,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   fontSize: 12,
                                   color: Colors.grey,
                                 ),
@@ -2622,8 +2368,8 @@ class SelectionToolCard extends StatelessWidget {
                       itemBuilder: (context) => [
                         PopupMenuItem(
                           child: ListTile(
-                            leading: Icon(Icons.edit),
-                            title: Text('Редактировать'),
+                            leading: const Icon(Icons.edit),
+                            title: const Text('Редактировать'),
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -2639,8 +2385,8 @@ class SelectionToolCard extends StatelessWidget {
                         if (tool.currentLocation == 'garage')
                           PopupMenuItem(
                             child: ListTile(
-                              leading: Icon(Icons.copy),
-                              title: Text('Дублировать'),
+                              leading: const Icon(Icons.copy),
+                              title: const Text('Дублировать'),
                               onTap: () {
                                 Navigator.pop(context);
                                 toolsProvider.duplicateTool(tool);
@@ -2649,18 +2395,31 @@ class SelectionToolCard extends StatelessWidget {
                           ),
                         PopupMenuItem(
                           child: ListTile(
-                            leading: Icon(Icons.picture_as_pdf),
-                            title: Text('Создать отчет'),
+                            leading: const Icon(Icons.share),
+                            title: const Text('Поделиться отчетом'),
                             onTap: () {
                               Navigator.pop(context);
-                              ReportService.generateToolReport(tool, context);
+                              ReportService.shareToolReport(tool, context);
                             },
                           ),
                         ),
                         PopupMenuItem(
                           child: ListTile(
-                            leading: Icon(Icons.delete, color: Colors.red),
-                            title: Text(
+                            leading: const Icon(Icons.print),
+                            title: const Text('Печать отчета'),
+                            onTap: () {
+                              Navigator.pop(context);
+                              ReportService.printToolReport(tool, context);
+                            },
+                          ),
+                        ),
+                        PopupMenuItem(
+                          child: ListTile(
+                            leading: const Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                            ),
+                            title: const Text(
                               'Удалить',
                               style: TextStyle(color: Colors.red),
                             ),
@@ -2669,19 +2428,19 @@ class SelectionToolCard extends StatelessWidget {
                               showDialog(
                                 context: context,
                                 builder: (context) => AlertDialog(
-                                  title: Text('Подтверждение удаления'),
+                                  title: const Text('Подтверждение удаления'),
                                   content: Text('Удалить "${tool.title}"?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.pop(context),
-                                      child: Text('Отмена'),
+                                      child: const Text('Отмена'),
                                     ),
                                     TextButton(
                                       onPressed: () async {
                                         Navigator.pop(context);
                                         await toolsProvider.deleteTool(tool.id);
                                       },
-                                      child: Text(
+                                      child: const Text(
                                         'Удалить',
                                         style: TextStyle(color: Colors.red),
                                       ),
@@ -2708,7 +2467,7 @@ class SelectionToolCard extends StatelessWidget {
 class AddEditToolScreen extends StatefulWidget {
   final Tool? tool;
 
-  const AddEditToolScreen({Key? key, this.tool}) : super(key: key);
+  const AddEditToolScreen({super.key, this.tool});
 
   @override
   _AddEditToolScreenState createState() => _AddEditToolScreenState();
@@ -2822,17 +2581,17 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
         actions: [
           if (isEdit)
             IconButton(
-              icon: Icon(Icons.delete),
+              icon: const Icon(Icons.delete),
               onPressed: () {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text('Подтверждение удаления'),
+                    title: const Text('Подтверждение удаления'),
                     content: Text('Удалить "${widget.tool!.title}"?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text('Отмена'),
+                        child: const Text('Отмена'),
                       ),
                       TextButton(
                         onPressed: () async {
@@ -2844,7 +2603,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                           await toolsProvider.deleteTool(widget.tool!.id);
                           Navigator.pop(context);
                         },
-                        child: Text(
+                        child: const Text(
                           'Удалить',
                           style: TextStyle(color: Colors.red),
                         ),
@@ -2857,9 +2616,9 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -2871,22 +2630,37 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                         height: 200,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
+                              Theme.of(
+                                context,
+                              ).colorScheme.secondary.withOpacity(0.1),
+                            ],
+                          ),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: _getImageWidget(),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     // Title
                     TextFormField(
                       controller: _titleController,
                       decoration: InputDecoration(
                         labelText: 'Название инструмента *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.title),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -2895,15 +2669,19 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Brand
                     TextFormField(
                       controller: _brandController,
                       decoration: InputDecoration(
                         labelText: 'Бренд *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.branding_watermark),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.branding_watermark),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -2912,22 +2690,26 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Unique ID
                     TextFormField(
                       controller: _uniqueIdController,
                       decoration: InputDecoration(
                         labelText: 'Уникальный идентификатор *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.qr_code),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.qr_code),
                         suffixIcon: IconButton(
-                          icon: Icon(Icons.refresh),
+                          icon: const Icon(Icons.refresh),
                           onPressed: () {
                             _uniqueIdController.text =
                                 IdGenerator.generateUniqueId();
                           },
                         ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -2936,36 +2718,40 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Description
                     TextFormField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
                         labelText: 'Описание',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         alignLabelWithHint: true,
-                        prefixIcon: Icon(Icons.description),
+                        prefixIcon: const Icon(Icons.description),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       maxLines: 4,
                     ),
-                    SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
                     // Save Button
                     ElevatedButton(
                       onPressed: _saveTool,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 50),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: Text(
                         isEdit ? 'Сохранить изменения' : 'Добавить инструмент',
-                        style: TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -2976,12 +2762,12 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
   Widget _getImageWidget() {
     if (_imageFile != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.file(_imageFile!, fit: BoxFit.cover),
       );
     } else if (_imageUrl != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.network(
           _imageUrl!,
           fit: BoxFit.cover,
@@ -2992,7 +2778,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       );
     } else if (_localImagePath != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.file(
           File(_localImagePath!),
           fit: BoxFit.cover,
@@ -3010,9 +2796,12 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.camera_alt, size: 50, color: Colors.grey),
-          SizedBox(height: 8),
-          Text('Добавить фото инструмента'),
+          Icon(Icons.camera_alt, size: 50, color: Colors.grey.shade400),
+          const SizedBox(height: 8),
+          Text(
+            'Добавить фото инструмента',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -3027,16 +2816,16 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.photo_library),
-                title: Text('Выбрать из галереи'),
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Выбрать из галереи'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage();
                 },
               ),
               ListTile(
-                leading: Icon(Icons.camera_alt),
-                title: Text('Сделать фото'),
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Сделать фото'),
                 onTap: () {
                   Navigator.pop(context);
                   _takePhoto();
@@ -3046,8 +2835,8 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                   _imageUrl != null ||
                   _localImagePath != null)
                 ListTile(
-                  leading: Icon(Icons.delete, color: Colors.red),
-                  title: Text(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
                     'Удалить фото',
                     style: TextStyle(color: Colors.red),
                   ),
@@ -3068,211 +2857,262 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
   }
 }
 
-// ========== ENHANCED GARAGE SCREEN WITH SWIPE REFRESH ==========
+// ========== MODERN GARAGE SCREEN ==========
 class EnhancedGarageScreen extends StatefulWidget {
+  const EnhancedGarageScreen({super.key});
+
   @override
-  _EnhancedGarageScreenState createState() => _EnhancedGarageScreenState();
+  State<EnhancedGarageScreen> createState() => _EnhancedGarageScreenState();
 }
 
 class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
-  final RefreshController _refreshController = RefreshController();
-
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await toolsProvider.loadTools(forceRefresh: true);
-        },
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Container(
-              width: MediaQuery.of(context).size.width,
-              padding: EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
+      body: StreamBuilder<List<Tool>>(
+        stream: _getToolsStream(toolsProvider),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingScreen();
+          }
+
+          if (snapshot.hasError) {
+            return _buildErrorScreen(snapshot.error.toString());
+          }
+
+          final tools = snapshot.data ?? [];
+          final garageTools = tools
+              .where((t) => t.currentLocation == 'garage')
+              .toList();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with gradient
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.secondary,
+                    ],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(30),
+                    bottomRight: Radius.circular(30),
+                  ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Мой Гараж',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Мой Гараж',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    '${toolsProvider.garageTools.length} инструментов доступно',
-                    style: TextStyle(fontSize: 16, color: Colors.white70),
-                  ),
-                  SizedBox(height: 16),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width,
+                    const SizedBox(height: 8),
+                    Text(
+                      '${garageTools.length} инструментов доступно',
+                      style: const TextStyle(
+                        fontSize: 16,
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Stats cards
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
                       child: Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
                         children: [
                           _buildStatCard(
                             context,
                             'Всего',
-                            '${toolsProvider.totalTools}',
+                            '${tools.length}',
                             Icons.build,
+                            Colors.white.withOpacity(0.2),
                           ),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           _buildStatCard(
                             context,
                             'В гараже',
-                            '${toolsProvider.garageTools.length}',
+                            '${garageTools.length}',
                             Icons.garage,
+                            Colors.white.withOpacity(0.2),
                           ),
-                          SizedBox(width: 10),
+                          const SizedBox(width: 10),
                           _buildStatCard(
                             context,
                             'Избранные',
-                            '${toolsProvider.favoriteTools.length}',
+                            '${tools.where((t) => t.isFavorite).length}',
                             Icons.favorite,
+                            Colors.white.withOpacity(0.2),
                           ),
-                          SizedBox(width: 10),
                         ],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Quick Actions
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddEditToolScreen(),
+              // Quick Actions
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AddEditToolScreen(),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.add),
+                        label: const Text('Добавить'),
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        );
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        toolsProvider.toggleSelectionMode();
                       },
-                      icon: Icon(Icons.add),
-                      label: Text('Добавить'),
+                      icon: const Icon(Icons.checklist),
+                      label: Text(
+                        toolsProvider.selectionMode ? 'Отменить' : 'Выбрать',
+                      ),
                       style: ElevatedButton.styleFrom(
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      toolsProvider.toggleSelectionMode();
-                    },
-                    icon: Icon(Icons.checklist),
-                    label: Text(
-                      toolsProvider.selectionMode ? 'Отменить' : 'Выбрать',
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
-            // Tools List
-            Expanded(
-              child:
-                  toolsProvider.isLoading && toolsProvider.garageTools.isEmpty
-                  ? Center(child: CircularProgressIndicator())
-                  : toolsProvider.garageTools.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.garage, size: 80, color: Colors.grey[300]),
-                          SizedBox(height: 20),
-                          Text(
-                            'Гараж пуст',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          Text(
-                            'Добавьте инструменты в гараж',
-                            style: TextStyle(color: Colors.grey[500]),
-                          ),
-                          SizedBox(height: 20),
-                          ElevatedButton(
-                            onPressed: () {
+              // Tools List
+              Expanded(
+                child: garageTools.isEmpty
+                    ? _buildEmptyGarage()
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: garageTools.length,
+                        itemBuilder: (context, index) {
+                          final tool = garageTools[index];
+                          return SelectionToolCard(
+                            tool: tool,
+                            selectionMode: toolsProvider.selectionMode,
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => AddEditToolScreen(),
+                                  builder: (context) =>
+                                      EnhancedToolDetailsScreen(tool: tool),
                                 ),
                               );
                             },
-                            child: Text('Добавить первый инструмент'),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      padding: EdgeInsets.all(8),
-                      itemCount: toolsProvider.garageTools.length,
-                      itemBuilder: (context, index) {
-                        final tool = toolsProvider.garageTools[index];
-                        return SelectionToolCard(
-                          tool: tool,
-                          selectionMode: toolsProvider.selectionMode,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EnhancedToolDetailsScreen(tool: tool),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton:
+          toolsProvider.selectionMode && toolsProvider.hasSelectedTools
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                _showGarageSelectionActions(context);
+              },
+              icon: const Icon(Icons.more_vert),
+              label: Text('${toolsProvider.selectedTools.length}'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+          : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
+    return Stream.fromFuture(
+      provider.loadTools(),
+    ).asyncMap((_) => provider.tools);
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Загрузка гаража...',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, size: 60, color: Colors.red),
+            const SizedBox(height: 20),
+            Text(
+              'Ошибка загрузки',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[800],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                final provider = Provider.of<ToolsProvider>(
+                  context,
+                  listen: false,
+                );
+                provider.loadTools(forceRefresh: true);
+              },
+              child: const Text('Повторить'),
             ),
           ],
         ),
       ),
-      floatingActionButton: toolsProvider.selectionMode
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (toolsProvider.hasSelectedTools) {
-                  _showGarageSelectionActions(context);
-                }
-              },
-              icon: Icon(Icons.more_vert),
-              label: Text('${toolsProvider.selectedTools.length}'),
-              backgroundColor: Theme.of(context).primaryColor,
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -3281,26 +3121,63 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     String title,
     String value,
     IconData icon,
+    Color backgroundColor,
   ) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.2),
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
         children: [
           Icon(icon, size: 24, color: Colors.white),
-          SizedBox(height: 4),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
-          Text(title, style: TextStyle(fontSize: 12, color: Colors.white70)),
+          Text(
+            title,
+            style: const TextStyle(fontSize: 12, color: Colors.white70),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyGarage() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.garage, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 20),
+          Text(
+            'Гараж пуст',
+            style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Добавьте инструменты в гараж',
+            style: TextStyle(color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditToolScreen(),
+                ),
+              );
+            },
+            child: const Text('Добавить первый инструмент'),
+          ),
         ],
       ),
     );
@@ -3314,19 +3191,30 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
       context: context,
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey.shade50],
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Выбрано: $selectedCount инструментов',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               ListTile(
-                leading: Icon(Icons.favorite, color: Colors.red),
-                title: Text('Добавить в избранное'),
+                leading: const Icon(Icons.favorite, color: Colors.red),
+                title: const Text('Добавить в избранное'),
                 onTap: () {
                   Navigator.pop(context);
                   toolsProvider.toggleFavoriteForSelected();
@@ -3334,8 +3222,8 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               ),
 
               ListTile(
-                leading: Icon(Icons.move_to_inbox, color: Colors.blue),
-                title: Text('Переместить выбранные'),
+                leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
+                title: const Text('Переместить выбранные'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -3350,29 +3238,40 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               ),
 
               ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Удалить выбранные'),
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Поделиться отчетами'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  // Share each tool report
+                  for (final tool in toolsProvider.selectedTools) {
+                    await ReportService.shareToolReport(tool, context);
+                  }
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Удалить выбранные'),
                 onTap: () {
                   Navigator.pop(context);
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
-                      title: Text('Подтверждение удаления'),
+                      title: const Text('Подтверждение удаления'),
                       content: Text(
                         'Удалить выбранные $selectedCount инструментов?',
                       ),
                       actions: [
                         TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text('Отмена'),
+                          child: const Text('Отмена'),
                         ),
                         TextButton(
                           onPressed: () async {
                             Navigator.pop(context);
                             await toolsProvider.deleteSelectedTools();
-                            Navigator.pop(context);
                           },
-                          child: Text(
+                          child: const Text(
                             'Удалить',
                             style: TextStyle(color: Colors.red),
                           ),
@@ -3383,10 +3282,10 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                 },
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Отмена'),
+                child: const Text('Отмена'),
               ),
             ],
           ),
@@ -3396,27 +3295,16 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   }
 }
 
-class RefreshController {
-  Future<void> refresh() async {}
-}
-
-// ========== ENHANCED TOOLS LIST SCREEN ==========
+// ========== TOOLS LIST SCREEN WITH STREAM BUILDER ==========
 class ToolsListScreen extends StatefulWidget {
+  const ToolsListScreen({super.key});
+
   @override
-  _ToolsListScreenState createState() => _ToolsListScreenState();
+  State<ToolsListScreen> createState() => _ToolsListScreenState();
 }
 
 class _ToolsListScreenState extends State<ToolsListScreen> {
   final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ToolsProvider>(context, listen: false);
-      provider.loadTools();
-    });
-  }
 
   @override
   void dispose() {
@@ -3430,119 +3318,136 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Все инструменты (${toolsProvider.totalTools})'),
+        title: StreamBuilder<int>(
+          stream: Stream.fromFuture(
+            toolsProvider.loadTools(),
+          ).asyncMap((_) => toolsProvider.totalTools),
+          builder: (context, snapshot) {
+            final count = snapshot.data ?? 0;
+            return Text('Все инструменты ($count)');
+          },
+        ),
         actions: [
           IconButton(
-            icon: Icon(Icons.filter_list),
+            icon: const Icon(Icons.filter_list),
             onPressed: () => _showFilterDialog(context),
           ),
           IconButton(
-            icon: Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh),
             onPressed: () => toolsProvider.loadTools(forceRefresh: true),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () => toolsProvider.loadTools(forceRefresh: true),
-        child: Column(
-          children: [
-            // Search
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Поиск инструментов...',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+      body: StreamBuilder<List<Tool>>(
+        stream: _getToolsStream(toolsProvider),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingScreen();
+          }
+
+          if (snapshot.hasError) {
+            return _buildErrorScreen(snapshot.error.toString());
+          }
+
+          final tools = snapshot.data ?? [];
+
+          return Column(
+            children: [
+              // Search
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Поиск инструментов...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  onChanged: (value) {
+                    toolsProvider.setSearchQuery(value);
+                  },
+                ),
+              ),
+
+              // Active filters indicator
+              if (toolsProvider.filterLocation != 'all' ||
+                  toolsProvider.filterBrand != 'all' ||
+                  toolsProvider.filterFavorites)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        Theme.of(
+                          context,
+                        ).colorScheme.secondary.withOpacity(0.1),
+                      ],
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.filter_alt,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _getActiveFiltersText(toolsProvider),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => toolsProvider.clearAllFilters(),
+                        child: const Text(
+                          'Очистить',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                onChanged: (value) {
-                  toolsProvider.setSearchQuery(value);
-                },
-              ),
-            ),
 
-            // Active filters indicator
-            if (toolsProvider.filterLocation != 'all' ||
-                toolsProvider.filterBrand != 'all' ||
-                toolsProvider.filterFavorites)
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                color: Colors.blue[50],
-                child: Row(
-                  children: [
-                    Icon(Icons.filter_alt, size: 16, color: Colors.blue),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _getActiveFiltersText(toolsProvider),
-                        style: TextStyle(fontSize: 12, color: Colors.blue[800]),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () => toolsProvider.clearAllFilters(),
-                      child: Text('Очистить', style: TextStyle(fontSize: 12)),
-                    ),
-                  ],
-                ),
-              ),
-
-            Expanded(
-              child: toolsProvider.isLoading && toolsProvider.tools.isEmpty
-                  ? Center(child: CircularProgressIndicator())
-                  : toolsProvider.tools.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.build, size: 80, color: Colors.grey[300]),
-                          SizedBox(height: 20),
-                          Text(
-                            'Нет инструментов',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () {
+              Expanded(
+                child: tools.isEmpty
+                    ? _buildEmptyToolsScreen()
+                    : ListView.builder(
+                        itemCount: tools.length,
+                        itemBuilder: (context, index) {
+                          final tool = tools[index];
+                          return SelectionToolCard(
+                            tool: tool,
+                            selectionMode: toolsProvider.selectionMode,
+                            onTap: () {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => AddEditToolScreen(),
+                                  builder: (context) =>
+                                      EnhancedToolDetailsScreen(tool: tool),
                                 ),
                               );
                             },
-                            child: Text('Добавить инструмент'),
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    )
-                  : ListView.builder(
-                      itemCount: toolsProvider.tools.length,
-                      itemBuilder: (context, index) {
-                        final tool = toolsProvider.tools[index];
-                        return SelectionToolCard(
-                          tool: tool,
-                          selectionMode: toolsProvider.selectionMode,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EnhancedToolDetailsScreen(tool: tool),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
       floatingActionButton: toolsProvider.selectionMode
           ? FloatingActionButton.extended(
@@ -3551,26 +3456,122 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
                   _showSelectionActions(context);
                 }
               },
-              icon: Icon(Icons.more_vert),
+              icon: const Icon(Icons.more_vert),
               label: Text('${toolsProvider.selectedTools.length}'),
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).colorScheme.primary,
             )
           : FloatingActionButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => AddEditToolScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => const AddEditToolScreen(),
+                  ),
                 );
               },
-              child: Icon(Icons.add),
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: const Icon(Icons.add),
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
+  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
+    return Stream.fromFuture(
+      provider.loadTools(),
+    ).asyncMap((_) => provider.tools);
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Загрузка инструментов...',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, size: 60, color: Colors.red),
+            const SizedBox(height: 20),
+            const Text(
+              'Ошибка загрузки',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                final provider = Provider.of<ToolsProvider>(
+                  context,
+                  listen: false,
+                );
+                provider.loadTools(forceRefresh: true);
+              },
+              child: const Text('Повторить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyToolsScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.build, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 20),
+          const Text(
+            'Нет инструментов',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditToolScreen(),
+                ),
+              );
+            },
+            child: const Text('Добавить инструмент'),
+          ),
+        ],
+      ),
+    );
+  }
+
   String _getActiveFiltersText(ToolsProvider provider) {
-    List<String> filters = [];
+    final filters = <String>[];
 
     if (provider.filterLocation != 'all') {
       filters.add(
@@ -3603,22 +3604,36 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
         return StatefulBuilder(
           builder: (context, setState) {
             return Container(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.grey.shade50],
+                ),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Фильтры инструментов',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Location filter
                   ExpansionTile(
-                    title: Text('Местоположение'),
+                    title: const Text('Местоположение'),
                     children: [
                       RadioListTile<String>(
-                        title: Text('Все'),
+                        title: const Text('Все'),
                         value: 'all',
                         groupValue: toolsProvider.filterLocation,
                         onChanged: (value) {
@@ -3627,7 +3642,7 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
                         },
                       ),
                       RadioListTile<String>(
-                        title: Text('Гараж'),
+                        title: const Text('Гараж'),
                         value: 'garage',
                         groupValue: toolsProvider.filterLocation,
                         onChanged: (value) {
@@ -3651,7 +3666,7 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
 
                   // Brand filter
                   ExpansionTile(
-                    title: Text('Бренд'),
+                    title: const Text('Бренд'),
                     children: toolsProvider.uniqueBrands
                         .map(
                           (brand) => RadioListTile<String>(
@@ -3669,27 +3684,27 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
 
                   // Favorites filter
                   SwitchListTile(
-                    title: Text('Только избранные'),
+                    title: const Text('Только избранные'),
                     value: toolsProvider.filterFavorites,
                     onChanged: (value) {
                       toolsProvider.setFilterFavorites(value);
                     },
                   ),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
                         child: TextButton(
                           onPressed: () => toolsProvider.clearAllFilters(),
-                          child: Text('Сбросить все'),
+                          child: const Text('Сбросить все'),
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text('Применить'),
+                          child: const Text('Применить'),
                         ),
                       ),
                     ],
@@ -3711,19 +3726,30 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
       context: context,
       builder: (context) {
         return Container(
-          padding: EdgeInsets.all(20),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey.shade50],
+            ),
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 'Выбрано: $selectedCount инструментов',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
               ListTile(
-                leading: Icon(Icons.favorite, color: Colors.red),
-                title: Text('Добавить в избранное'),
+                leading: const Icon(Icons.favorite, color: Colors.red),
+                title: const Text('Добавить в избранное'),
                 onTap: () {
                   Navigator.pop(context);
                   toolsProvider.toggleFavoriteForSelected();
@@ -3731,8 +3757,8 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
               ),
 
               ListTile(
-                leading: Icon(Icons.move_to_inbox, color: Colors.blue),
-                title: Text('Переместить выбранные'),
+                leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
+                title: const Text('Переместить выбранные'),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -3747,18 +3773,29 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
               ),
 
               ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Удалить выбранные'),
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Поделиться отчетами'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  for (final tool in toolsProvider.selectedTools) {
+                    await ReportService.shareToolReport(tool, context);
+                  }
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Удалить выбранные'),
                 onTap: () {
                   Navigator.pop(context);
                   _showMultiDeleteDialog(context);
                 },
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: Text('Отмена'),
+                child: const Text('Отмена'),
               ),
             ],
           ),
@@ -3774,21 +3811,21 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Подтверждение удаления'),
+        title: const Text('Подтверждение удаления'),
         content: Text(
           'Вы уверены, что хотите удалить выбранные $selectedCount инструментов?',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Отмена'),
+            child: const Text('Отмена'),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
               await toolsProvider.deleteSelectedTools();
             },
-            child: Text('Удалить', style: TextStyle(color: Colors.red)),
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -3800,8 +3837,7 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
 class EnhancedToolDetailsScreen extends StatelessWidget {
   final Tool tool;
 
-  const EnhancedToolDetailsScreen({Key? key, required this.tool})
-    : super(key: key);
+  const EnhancedToolDetailsScreen({super.key, required this.tool});
 
   @override
   Widget build(BuildContext context) {
@@ -3824,12 +3860,21 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                         fit: BoxFit.cover,
                       )
                     : Container(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              theme.colorScheme.primary.withOpacity(0.2),
+                              theme.colorScheme.secondary.withOpacity(0.2),
+                            ],
+                          ),
+                        ),
                         child: Center(
                           child: Icon(
                             Icons.build,
                             size: 100,
-                            color: theme.colorScheme.primary.withOpacity(0.3),
+                            color: theme.colorScheme.primary.withOpacity(0.5),
                           ),
                         ),
                       ),
@@ -3837,16 +3882,19 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
             ),
             actions: [
               IconButton(
-                icon: Icon(Icons.share),
-                onPressed: () =>
-                    ReportService.generateToolReport(tool, context),
+                icon: const Icon(Icons.share),
+                onPressed: () => ReportService.shareToolReport(tool, context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.print),
+                onPressed: () => ReportService.printToolReport(tool, context),
               ),
               PopupMenuButton(
                 itemBuilder: (context) => [
                   PopupMenuItem(
                     child: ListTile(
-                      leading: Icon(Icons.edit),
-                      title: Text('Редактировать'),
+                      leading: const Icon(Icons.edit),
+                      title: const Text('Редактировать'),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -3861,8 +3909,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                   if (tool.currentLocation == 'garage')
                     PopupMenuItem(
                       child: ListTile(
-                        leading: Icon(Icons.copy),
-                        title: Text('Дублировать'),
+                        leading: const Icon(Icons.copy),
+                        title: const Text('Дублировать'),
                         onTap: () {
                           Navigator.pop(context);
                           final toolsProvider = Provider.of<ToolsProvider>(
@@ -3876,18 +3924,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                     ),
                   PopupMenuItem(
                     child: ListTile(
-                      leading: Icon(Icons.picture_as_pdf),
-                      title: Text('Создать PDF отчет'),
-                      onTap: () {
-                        Navigator.pop(context);
-                        ReportService.generateToolReport(tool, context);
-                      },
-                    ),
-                  ),
-                  PopupMenuItem(
-                    child: ListTile(
-                      leading: Icon(Icons.delete, color: Colors.red),
-                      title: Text(
+                      leading: const Icon(Icons.delete, color: Colors.red),
+                      title: const Text(
                         'Удалить',
                         style: TextStyle(color: Colors.red),
                       ),
@@ -3910,7 +3948,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                       Expanded(
                         child: Text(
                           tool.title,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                           ),
@@ -3935,17 +3973,24 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                     ],
                   ),
 
-                  SizedBox(height: 10),
+                  const SizedBox(height: 10),
 
                   Row(
                     children: [
                       Container(
-                        padding: EdgeInsets.symmetric(
+                        padding: const EdgeInsets.symmetric(
                           horizontal: 12,
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              theme.colorScheme.primary.withOpacity(0.1),
+                              theme.colorScheme.secondary.withOpacity(0.1),
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -3956,14 +4001,17 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                           ),
                         ),
                       ),
-                      SizedBox(width: 10),
-                      Icon(Icons.qr_code, size: 16, color: Colors.grey),
-                      SizedBox(width: 5),
-                      Text(tool.uniqueId, style: TextStyle(color: Colors.grey)),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.qr_code, size: 16, color: Colors.grey),
+                      const SizedBox(width: 5),
+                      Text(
+                        tool.uniqueId,
+                        style: const TextStyle(color: Colors.grey),
+                      ),
                     ],
                   ),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Description
                   if (tool.description.isNotEmpty)
@@ -3985,7 +4033,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                                 color: theme.colorScheme.primary,
                               ),
                             ),
-                            SizedBox(height: 10),
+                            const SizedBox(height: 10),
                             Text(
                               tool.description,
                               style: TextStyle(
@@ -3999,12 +4047,12 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                       ),
                     ),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Details Grid
                   GridView.count(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
+                    physics: const NeverScrollableScrollPhysics(),
                     crossAxisCount: 2,
                     childAspectRatio: 1.8,
                     crossAxisSpacing: 10,
@@ -4037,7 +4085,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                     ],
                   ),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Location History
                   if (tool.locationHistory.isNotEmpty)
@@ -4053,8 +4101,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.history, color: Colors.purple),
-                                SizedBox(width: 10),
+                                const Icon(Icons.history, color: Colors.purple),
+                                const SizedBox(width: 10),
                                 Text(
                                   'История перемещений',
                                   style: TextStyle(
@@ -4065,21 +4113,23 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            SizedBox(height: 10),
+                            const SizedBox(height: 10),
                             ...tool.locationHistory.map((history) {
                               return Padding(
-                                padding: EdgeInsets.symmetric(vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 8,
+                                ),
                                 child: Row(
                                   children: [
                                     Container(
                                       width: 8,
                                       height: 8,
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         color: Colors.purple,
                                         shape: BoxShape.circle,
                                       ),
                                     ),
-                                    SizedBox(width: 12),
+                                    const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment:
@@ -4087,16 +4137,16 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                                         children: [
                                           Text(
                                             history.locationName,
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
-                                          SizedBox(height: 2),
+                                          const SizedBox(height: 2),
                                           Text(
                                             DateFormat(
                                               'dd.MM.yyyy HH:mm',
                                             ).format(history.date),
-                                            style: TextStyle(
+                                            style: const TextStyle(
                                               fontSize: 12,
                                               color: Colors.grey,
                                             ),
@@ -4113,7 +4163,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                       ),
                     ),
 
-                  SizedBox(height: 40),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -4122,19 +4172,19 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
       ),
 
       bottomNavigationBar: Container(
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Colors.grey[200]!)),
+          border: Border(top: BorderSide(color: Colors.grey.shade200)),
         ),
         child: Consumer<ToolsProvider>(
           builder: (context, toolsProvider, child) {
             return ElevatedButton.icon(
               onPressed: () => _showMoveDialog(context, tool),
-              icon: Icon(Icons.move_to_inbox),
-              label: Text('Переместить инструмент'),
+              icon: const Icon(Icons.move_to_inbox),
+              label: const Text('Переместить инструмент'),
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -4164,7 +4214,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
             Row(
               children: [
                 Icon(icon, size: 20, color: color),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text(
                   title,
                   style: TextStyle(
@@ -4175,10 +4225,10 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                 ),
               ],
             ),
-            SizedBox(height: 6),
+            const SizedBox(height: 6),
             Text(
               value,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
                 color: Colors.black87,
@@ -4194,12 +4244,12 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Подтверждение удаления'),
+        title: const Text('Подтверждение удаления'),
         content: Text('Вы уверены, что хотите удалить "${tool.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Отмена'),
+            child: const Text('Отмена'),
           ),
           TextButton(
             onPressed: () async {
@@ -4211,7 +4261,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
               await toolsProvider.deleteTool(tool.id);
               Navigator.pop(context);
             },
-            child: Text('Удалить', style: TextStyle(color: Colors.red)),
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -4236,22 +4286,36 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
         return StatefulBuilder(
           builder: (context, setState) {
             return Container(
-              padding: EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.grey.shade50],
+                ),
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Переместить инструмент',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
 
                   // Garage option
                   ListTile(
-                    leading: Icon(Icons.garage, color: Colors.blue),
-                    title: Text('Гараж'),
+                    leading: const Icon(Icons.garage, color: Colors.blue),
+                    title: const Text('Гараж'),
                     trailing: selectedLocationId == 'garage'
-                        ? Icon(Icons.check, color: Colors.green)
+                        ? const Icon(Icons.check, color: Colors.green)
                         : null,
                     onTap: () {
                       setState(() {
@@ -4261,16 +4325,19 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                     },
                   ),
 
-                  Divider(),
+                  const Divider(),
 
                   // Objects options
                   ...objects.map((object) {
                     return ListTile(
-                      leading: Icon(Icons.location_city, color: Colors.orange),
+                      leading: const Icon(
+                        Icons.location_city,
+                        color: Colors.orange,
+                      ),
                       title: Text(object.name),
                       subtitle: Text('${object.toolIds.length} инструментов'),
                       trailing: selectedLocationId == object.id
-                          ? Icon(Icons.check, color: Colors.green)
+                          ? const Icon(Icons.check, color: Colors.green)
                           : null,
                       onTap: () {
                         setState(() {
@@ -4281,16 +4348,16 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                     );
                   }),
 
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
                       Expanded(
                         child: TextButton(
                           onPressed: () => Navigator.pop(context),
-                          child: Text('Отмена'),
+                          child: const Text('Отмена'),
                         ),
                       ),
-                      SizedBox(width: 10),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
@@ -4304,7 +4371,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                               Navigator.pop(context);
                             }
                           },
-                          child: Text('Переместить'),
+                          child: const Text('Переместить'),
                         ),
                       ),
                     ],
@@ -4319,225 +4386,6 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
   }
 }
 
-// ========== ENHANCED OBJECTS LIST SCREEN ==========
-class EnhancedObjectsListScreen extends StatefulWidget {
-  @override
-  _EnhancedObjectsListScreenState createState() =>
-      _EnhancedObjectsListScreenState();
-}
-
-class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ObjectsProvider>(context, listen: false);
-      provider.loadObjects();
-    });
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final objectsProvider = Provider.of<ObjectsProvider>(context);
-    final toolsProvider = Provider.of<ToolsProvider>(context);
-
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Объекты (${objectsProvider.totalObjects})'),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.refresh),
-            onPressed: () => objectsProvider.loadObjects(forceRefresh: true),
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => objectsProvider.loadObjects(forceRefresh: true),
-        child: Column(
-          children: [
-            // Search
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Поиск объектов...',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                onChanged: (value) {
-                  objectsProvider.setSearchQuery(value);
-                },
-              ),
-            ),
-
-            // Objects List
-            Expanded(
-              child:
-                  objectsProvider.isLoading && objectsProvider.objects.isEmpty
-                  ? Center(child: CircularProgressIndicator())
-                  : objectsProvider.objects.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.location_city,
-                            size: 80,
-                            color: Colors.grey[300],
-                          ),
-                          SizedBox(height: 20),
-                          Text(
-                            'Нет объектов',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          SizedBox(height: 10),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => AddEditObjectScreen(),
-                                ),
-                              );
-                            },
-                            child: Text('Добавить объект'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: objectsProvider.objects.length,
-                      itemBuilder: (context, index) {
-                        final object = objectsProvider.objects[index];
-                        return ObjectCard(
-                          object: object,
-                          toolsProvider: toolsProvider,
-                          selectionMode: objectsProvider.selectionMode,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    ObjectDetailsScreen(object: object),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: objectsProvider.selectionMode
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (objectsProvider.hasSelectedObjects) {
-                  _showObjectSelectionActions(context);
-                }
-              },
-              icon: Icon(Icons.more_vert),
-              label: Text('${objectsProvider.selectedObjects.length}'),
-              backgroundColor: Theme.of(context).primaryColor,
-            )
-          : FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddEditObjectScreen(),
-                  ),
-                );
-              },
-              child: Icon(Icons.add),
-              backgroundColor: Theme.of(context).primaryColor,
-            ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    );
-  }
-
-  void _showObjectSelectionActions(BuildContext context) {
-    final objectsProvider = Provider.of<ObjectsProvider>(
-      context,
-      listen: false,
-    );
-    final selectedCount = objectsProvider.selectedObjects.length;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Выбрано: $selectedCount объектов',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-
-              ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Удалить выбранные'),
-                onTap: () {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: Text('Подтверждение удаления'),
-                      content: Text(
-                        'Вы уверены, что хотите удалить выбранные $selectedCount объектов?',
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: Text('Отмена'),
-                        ),
-                        TextButton(
-                          onPressed: () async {
-                            Navigator.pop(context);
-                            await objectsProvider.deleteSelectedObjects();
-                            Navigator.pop(context);
-                          },
-                          child: Text(
-                            'Удалить',
-                            style: TextStyle(color: Colors.red),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-
-              SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Отмена'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 // ========== OBJECT CARD ==========
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;
@@ -4546,12 +4394,12 @@ class ObjectCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const ObjectCard({
-    Key? key,
+    super.key,
     required this.object,
     required this.toolsProvider,
     required this.selectionMode,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -4562,10 +4410,10 @@ class ObjectCard extends StatelessWidget {
     return Consumer<ObjectsProvider>(
       builder: (context, objectsProvider, child) {
         return Card(
-          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          elevation: 3,
+          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          elevation: 4,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(16),
           ),
           child: InkWell(
             onTap: selectionMode
@@ -4579,20 +4427,28 @@ class ObjectCard extends StatelessWidget {
                 objectsProvider.toggleObjectSelection(object.id);
               }
             },
-            borderRadius: BorderRadius.circular(15),
-            child: Padding(
-              padding: EdgeInsets.all(12),
+            borderRadius: BorderRadius.circular(16),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.white, Colors.grey.shade50],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
               child: Row(
                 children: [
                   if (selectionMode)
                     Padding(
-                      padding: EdgeInsets.only(right: 8),
+                      padding: const EdgeInsets.only(right: 8),
                       child: Checkbox(
                         value: object.isSelected,
                         onChanged: (value) {
                           objectsProvider.toggleObjectSelection(object.id);
                         },
-                        shape: CircleBorder(),
+                        shape: const CircleBorder(),
                       ),
                     ),
 
@@ -4601,12 +4457,19 @@ class ObjectCard extends StatelessWidget {
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.orange.withOpacity(0.1),
+                          Colors.orange.withOpacity(0.05),
+                        ],
+                      ),
                     ),
                     child: object.displayImage != null
                         ? ClipRRect(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                             child: Image(
                               image: object.displayImage!.startsWith('http')
                                   ? NetworkImage(object.displayImage!)
@@ -4633,7 +4496,7 @@ class ObjectCard extends StatelessWidget {
                           ),
                   ),
 
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
 
                   Expanded(
                     child: Column(
@@ -4641,7 +4504,7 @@ class ObjectCard extends StatelessWidget {
                       children: [
                         Text(
                           object.name,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
@@ -4649,7 +4512,7 @@ class ObjectCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
 
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
 
                         if (object.description.isNotEmpty)
                           Text(
@@ -4662,15 +4525,19 @@ class ObjectCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
 
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
 
                         Row(
                           children: [
-                            Icon(Icons.build, size: 12, color: Colors.grey),
-                            SizedBox(width: 4),
+                            const Icon(
+                              Icons.build,
+                              size: 12,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
                             Text(
                               '${toolsOnObject.length} инструментов',
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                               ),
@@ -4686,8 +4553,8 @@ class ObjectCard extends StatelessWidget {
                       itemBuilder: (context) => [
                         PopupMenuItem(
                           child: ListTile(
-                            leading: Icon(Icons.edit),
-                            title: Text('Редактировать'),
+                            leading: const Icon(Icons.edit),
+                            title: const Text('Редактировать'),
                             onTap: () {
                               Navigator.pop(context);
                               Navigator.push(
@@ -4702,8 +4569,11 @@ class ObjectCard extends StatelessWidget {
                         ),
                         PopupMenuItem(
                           child: ListTile(
-                            leading: Icon(Icons.delete, color: Colors.red),
-                            title: Text(
+                            leading: const Icon(
+                              Icons.delete,
+                              color: Colors.red,
+                            ),
+                            title: const Text(
                               'Удалить',
                               style: TextStyle(color: Colors.red),
                             ),
@@ -4712,12 +4582,12 @@ class ObjectCard extends StatelessWidget {
                               showDialog(
                                 context: context,
                                 builder: (context) => AlertDialog(
-                                  title: Text('Подтверждение удаления'),
+                                  title: const Text('Подтверждение удаления'),
                                   content: Text('Удалить "${object.name}"?'),
                                   actions: [
                                     TextButton(
                                       onPressed: () => Navigator.pop(context),
-                                      child: Text('Отмена'),
+                                      child: const Text('Отмена'),
                                     ),
                                     TextButton(
                                       onPressed: () async {
@@ -4726,7 +4596,7 @@ class ObjectCard extends StatelessWidget {
                                           object.id,
                                         );
                                       },
-                                      child: Text(
+                                      child: const Text(
                                         'Удалить',
                                         style: TextStyle(color: Colors.red),
                                       ),
@@ -4753,7 +4623,7 @@ class ObjectCard extends StatelessWidget {
 class AddEditObjectScreen extends StatefulWidget {
   final ConstructionObject? object;
 
-  const AddEditObjectScreen({Key? key, this.object}) : super(key: key);
+  const AddEditObjectScreen({super.key, this.object});
 
   @override
   _AddEditObjectScreenState createState() => _AddEditObjectScreenState();
@@ -4856,17 +4726,17 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
         actions: [
           if (isEdit)
             IconButton(
-              icon: Icon(Icons.delete),
+              icon: const Icon(Icons.delete),
               onPressed: () {
                 showDialog(
                   context: context,
                   builder: (context) => AlertDialog(
-                    title: Text('Подтверждение удаления'),
+                    title: const Text('Подтверждение удаления'),
                     content: Text('Удалить "${widget.object!.name}"?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: Text('Отмена'),
+                        child: const Text('Отмена'),
                       ),
                       TextButton(
                         onPressed: () async {
@@ -4878,7 +4748,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                           await objectsProvider.deleteObject(widget.object!.id);
                           Navigator.pop(context);
                         },
-                        child: Text(
+                        child: const Text(
                           'Удалить',
                           style: TextStyle(color: Colors.red),
                         ),
@@ -4891,9 +4761,9 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -4905,22 +4775,37 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                         height: 200,
                         width: double.infinity,
                         decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.1),
+                              Theme.of(
+                                context,
+                              ).colorScheme.secondary.withOpacity(0.1),
+                            ],
+                          ),
                           border: Border.all(color: Colors.grey.shade300),
                         ),
                         child: _getImageWidget(),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     // Name
                     TextFormField(
                       controller: _nameController,
                       decoration: InputDecoration(
                         labelText: 'Название объекта *',
-                        border: OutlineInputBorder(),
-                        prefixIcon: Icon(Icons.title),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: const Icon(Icons.title),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       validator: (value) {
                         if (value == null || value.isEmpty) {
@@ -4929,36 +4814,40 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     // Description
                     TextFormField(
                       controller: _descriptionController,
                       decoration: InputDecoration(
                         labelText: 'Описание',
-                        border: OutlineInputBorder(),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         alignLabelWithHint: true,
-                        prefixIcon: Icon(Icons.description),
+                        prefixIcon: const Icon(Icons.description),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       maxLines: 4,
                     ),
-                    SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
                     // Save Button
                     ElevatedButton(
                       onPressed: _saveObject,
                       style: ElevatedButton.styleFrom(
-                        minimumSize: Size(double.infinity, 50),
+                        minimumSize: const Size(double.infinity, 50),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: Text(
                         isEdit ? 'Сохранить изменения' : 'Добавить объект',
-                        style: TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: 16),
                       ),
                     ),
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
                   ],
                 ),
               ),
@@ -4969,12 +4858,12 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
   Widget _getImageWidget() {
     if (_imageFile != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.file(_imageFile!, fit: BoxFit.cover),
       );
     } else if (_imageUrl != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.network(
           _imageUrl!,
           fit: BoxFit.cover,
@@ -4985,7 +4874,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
       );
     } else if (_localImagePath != null) {
       return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Image.file(
           File(_localImagePath!),
           fit: BoxFit.cover,
@@ -5003,9 +4892,12 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.location_city, size: 50, color: Colors.grey),
-          SizedBox(height: 8),
-          Text('Добавить фото объекта'),
+          Icon(Icons.location_city, size: 50, color: Colors.grey.shade400),
+          const SizedBox(height: 8),
+          Text(
+            'Добавить фото объекта',
+            style: TextStyle(color: Colors.grey.shade600),
+          ),
         ],
       ),
     );
@@ -5020,16 +4912,16 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.photo_library),
-                title: Text('Выбрать из галереи'),
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Выбрать из галереи'),
                 onTap: () {
                   Navigator.pop(context);
                   _pickImage();
                 },
               ),
               ListTile(
-                leading: Icon(Icons.camera_alt),
-                title: Text('Сделать фото'),
+                leading: const Icon(Icons.camera_alt),
+                title: const Text('Сделать фото'),
                 onTap: () {
                   Navigator.pop(context);
                   _takePhoto();
@@ -5039,8 +4931,8 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                   _imageUrl != null ||
                   _localImagePath != null)
                 ListTile(
-                  leading: Icon(Icons.delete, color: Colors.red),
-                  title: Text(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text(
                     'Удалить фото',
                     style: TextStyle(color: Colors.red),
                   ),
@@ -5065,160 +4957,505 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
 class ObjectDetailsScreen extends StatelessWidget {
   final ConstructionObject object;
 
-  const ObjectDetailsScreen({Key? key, required this.object}) : super(key: key);
+  const ObjectDetailsScreen({super.key, required this.object});
 
   @override
   Widget build(BuildContext context) {
-    final toolsProvider = Provider.of<ToolsProvider>(context);
-    final toolsOnObject = toolsProvider.tools
-        .where((tool) => tool.currentLocation == object.id)
-        .toList();
+    return StreamBuilder<List<Tool>>(
+      stream: _getToolsStream(context),
+      builder: (context, snapshot) {
+        Provider.of<ToolsProvider>(context);
+        final toolsOnObject =
+            snapshot.data
+                ?.where((tool) => tool.currentLocation == object.id)
+                .toList() ??
+            [];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(object.name),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.edit),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => AddEditObjectScreen(object: object),
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(object.name),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AddEditObjectScreen(object: object),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+          body: Column(
+            children: [
+              // Object Image
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.grey.shade100, Colors.grey.shade200],
+                  ),
                 ),
-              );
-            },
+                child: object.displayImage != null
+                    ? Image(
+                        image: object.displayImage!.startsWith('http')
+                            ? NetworkImage(object.displayImage!)
+                                  as ImageProvider
+                            : FileImage(File(object.displayImage!)),
+                        fit: BoxFit.cover,
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.location_city,
+                          size: 80,
+                          color: Colors.grey.shade300,
+                        ),
+                      ),
+              ),
+
+              // Object Info
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      object.name,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    if (object.description.isNotEmpty)
+                      Text(
+                        object.description,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        const Icon(Icons.build, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Инструментов на объекте: ${toolsOnObject.length}',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.calendar_today, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Создан: ${DateFormat('dd.MM.yyyy').format(object.createdAt)}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const Divider(),
+
+              // Tools on Object
+              Expanded(
+                child: toolsOnObject.isEmpty
+                    ? _buildEmptyObjectTools()
+                    : ListView.builder(
+                        itemCount: toolsOnObject.length,
+                        itemBuilder: (context, index) {
+                          final tool = toolsOnObject[index];
+                          return SelectionToolCard(
+                            tool: tool,
+                            selectionMode: false,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      EnhancedToolDetailsScreen(tool: tool),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Stream<List<Tool>> _getToolsStream(BuildContext context) {
+    final provider = Provider.of<ToolsProvider>(context, listen: false);
+    return Stream.fromFuture(
+      provider.loadTools(),
+    ).asyncMap((_) => provider.tools);
+  }
+
+  Widget _buildEmptyObjectTools() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.build, size: 60, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text(
+            'На объекте нет инструментов',
+            style: TextStyle(fontSize: 16, color: Colors.grey),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Переместите инструменты на этот объект',
+            style: TextStyle(color: Colors.grey),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          await toolsProvider.loadTools(forceRefresh: true);
-        },
-        child: Column(
-          children: [
-            // Object Image
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(color: Colors.grey[100]),
-              child: object.displayImage != null
-                  ? Image(
-                      image: object.displayImage!.startsWith('http')
-                          ? NetworkImage(object.displayImage!) as ImageProvider
-                          : FileImage(File(object.displayImage!)),
-                      fit: BoxFit.cover,
-                    )
-                  : Center(
-                      child: Icon(
-                        Icons.location_city,
-                        size: 80,
-                        color: Colors.grey[300],
-                      ),
-                    ),
-            ),
+    );
+  }
+}
 
-            // Object Info
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    object.name,
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 8),
-                  if (object.description.isNotEmpty)
-                    Text(
-                      object.description,
-                      style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+// ========== ENHANCED OBJECTS LIST SCREEN WITH STREAM BUILDER ==========
+class EnhancedObjectsListScreen extends StatefulWidget {
+  const EnhancedObjectsListScreen({super.key});
+
+  @override
+  State<EnhancedObjectsListScreen> createState() =>
+      _EnhancedObjectsListScreenState();
+}
+
+class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ObjectsProvider>(context, listen: false);
+      provider.loadObjects();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final objectsProvider = Provider.of<ObjectsProvider>(context);
+    final toolsProvider = Provider.of<ToolsProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: StreamBuilder<int>(
+          stream: Stream.fromFuture(
+            objectsProvider.loadObjects(),
+          ).asyncMap((_) => objectsProvider.totalObjects),
+          builder: (context, snapshot) {
+            final count = snapshot.data ?? 0;
+            return Text('Объекты ($count)');
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => objectsProvider.loadObjects(forceRefresh: true),
+          ),
+        ],
+      ),
+      body: StreamBuilder<List<ConstructionObject>>(
+        stream: _getObjectsStream(objectsProvider),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingScreen();
+          }
+
+          if (snapshot.hasError) {
+            return _buildErrorScreen(snapshot.error.toString());
+          }
+
+          final objects = snapshot.data ?? [];
+
+          return Column(
+            children: [
+              // Search
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Поиск объектов...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Icon(Icons.build, color: Colors.grey),
-                      SizedBox(width: 8),
-                      Text(
-                        'Инструментов на объекте: ${toolsOnObject.length}',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                    ],
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
                   ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, color: Colors.grey),
-                      SizedBox(width: 8),
-                      Text(
-                        'Создан: ${DateFormat('dd.MM.yyyy').format(object.createdAt)}',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
+                  onChanged: (value) {
+                    objectsProvider.setSearchQuery(value);
+                  },
+                ),
+              ),
+
+              // Objects List
+              Expanded(
+                child: objects.isEmpty
+                    ? _buildEmptyObjectsScreen()
+                    : ListView.builder(
+                        itemCount: objects.length,
+                        itemBuilder: (context, index) {
+                          final object = objects[index];
+                          return ObjectCard(
+                            object: object,
+                            toolsProvider: toolsProvider,
+                            selectionMode: objectsProvider.selectionMode,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      ObjectDetailsScreen(object: object),
+                                ),
+                              );
+                            },
+                          );
+                        },
                       ),
-                    ],
+              ),
+            ],
+          );
+        },
+      ),
+      floatingActionButton: objectsProvider.selectionMode
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                if (objectsProvider.hasSelectedObjects) {
+                  _showObjectSelectionActions(context);
+                }
+              },
+              icon: const Icon(Icons.more_vert),
+              label: Text('${objectsProvider.selectedObjects.length}'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+          : FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEditObjectScreen(),
                   ),
-                ],
+                );
+              },
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: const Icon(Icons.add),
+            ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Stream<List<ConstructionObject>> _getObjectsStream(ObjectsProvider provider) {
+    return Stream.fromFuture(
+      provider.loadObjects(),
+    ).asyncMap((_) => provider.objects);
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(
+              Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Загрузка объектов...',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorScreen(String error) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, size: 60, color: Colors.red),
+            const SizedBox(height: 20),
+            const Text(
+              'Ошибка загрузки',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey,
               ),
             ),
-
-            Divider(),
-
-            // Tools on Object
-            Expanded(
-              child: toolsOnObject.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.build, size: 60, color: Colors.grey[300]),
-                          SizedBox(height: 16),
-                          Text(
-                            'На объекте нет инструментов',
-                            style: TextStyle(
-                              fontSize: 16,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Переместите инструменты на этот объект',
-                            style: TextStyle(color: Colors.grey[500]),
-                          ),
-                        ],
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: toolsOnObject.length,
-                      itemBuilder: (context, index) {
-                        final tool = toolsOnObject[index];
-                        return SelectionToolCard(
-                          tool: tool,
-                          selectionMode: false,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    EnhancedToolDetailsScreen(tool: tool),
-                              ),
-                            );
-                          },
-                        );
-                      },
-                    ),
+            const SizedBox(height: 10),
+            Text(
+              error,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: () {
+                final provider = Provider.of<ObjectsProvider>(
+                  context,
+                  listen: false,
+                );
+                provider.loadObjects(forceRefresh: true);
+              },
+              child: const Text('Повторить'),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildEmptyObjectsScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.location_city, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 20),
+          const Text(
+            'Нет объектов',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditObjectScreen(),
+                ),
+              );
+            },
+            child: const Text('Добавить объект'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showObjectSelectionActions(BuildContext context) {
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
+    final selectedCount = objectsProvider.selectedObjects.length;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey.shade50],
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Выбрано: $selectedCount объектов',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              ListTile(
+                leading: const Icon(Icons.delete, color: Colors.red),
+                title: const Text('Удалить выбранные'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showObjectsDeleteDialog(context);
+                },
+              ),
+
+              const SizedBox(height: 20),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Отмена'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showObjectsDeleteDialog(BuildContext context) {
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
+    final selectedCount = objectsProvider.selectedObjects.length;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Подтверждение удаления'),
+        content: Text(
+          'Вы уверены, что хотите удалить выбранные $selectedCount объектов?\n\nВнимание: Инструменты на этих объектах будут перемещены в гараж.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await objectsProvider.deleteSelectedObjects();
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
-// ========== MOVE TOOLS SCREEN WITH PROPER FUNCTIONALITY ==========
+// ========== MOVE TOOLS SCREEN ==========
 class MoveToolsScreen extends StatefulWidget {
   final List<Tool> selectedTools;
 
-  const MoveToolsScreen({Key? key, required this.selectedTools})
-    : super(key: key);
+  const MoveToolsScreen({super.key, required this.selectedTools});
 
   @override
   _MoveToolsScreenState createState() => _MoveToolsScreenState();
@@ -5241,24 +5478,27 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
         children: [
           // Location Selector
           Card(
-            margin: EdgeInsets.all(16),
+            margin: const EdgeInsets.all(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  const Text(
                     'Выберите место назначения:',
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
                   // Garage option
                   ListTile(
-                    leading: Icon(Icons.garage, color: Colors.blue),
-                    title: Text('Гараж'),
+                    leading: const Icon(Icons.garage, color: Colors.blue),
+                    title: const Text('Гараж'),
                     trailing: _selectedLocationId == 'garage'
-                        ? Icon(Icons.check, color: Colors.green)
+                        ? const Icon(Icons.check, color: Colors.green)
                         : null,
                     onTap: () {
                       setState(() {
@@ -5268,16 +5508,19 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
                     },
                   ),
 
-                  Divider(),
+                  const Divider(),
 
                   // Objects options
                   ...objectsProvider.objects.map((object) {
                     return ListTile(
-                      leading: Icon(Icons.location_city, color: Colors.orange),
+                      leading: const Icon(
+                        Icons.location_city,
+                        color: Colors.orange,
+                      ),
                       title: Text(object.name),
                       subtitle: Text('${object.toolIds.length} инструментов'),
                       trailing: _selectedLocationId == object.id
-                          ? Icon(Icons.check, color: Colors.green)
+                          ? const Icon(Icons.check, color: Colors.green)
                           : null,
                       onTap: () {
                         setState(() {
@@ -5299,22 +5542,28 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
               itemBuilder: (context, index) {
                 final tool = widget.selectedTools[index];
                 return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor: Theme.of(
                         context,
-                      ).primaryColor.withOpacity(0.1),
+                      ).colorScheme.primary.withOpacity(0.1),
                       child: Icon(
                         Icons.build,
-                        color: Theme.of(context).primaryColor,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
                     title: Text(tool.title),
                     subtitle: Text(tool.brand),
                     trailing: Text(
                       tool.currentLocationName,
-                      style: TextStyle(color: Colors.grey),
+                      style: const TextStyle(color: Colors.grey),
                     ),
                   ),
                 );
@@ -5324,10 +5573,10 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
 
           // Move Button
           Container(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border(top: BorderSide(color: Colors.grey[200]!)),
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
             ),
             child: ElevatedButton(
               onPressed: () async {
@@ -5348,7 +5597,7 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
                 Navigator.pop(context);
               },
               style: ElevatedButton.styleFrom(
-                minimumSize: Size(double.infinity, 50),
+                minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -5364,66 +5613,107 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
   }
 }
 
-// ========== FAVORITES SCREEN WITH SWIPE REFRESH ==========
+// ========== FAVORITES SCREEN ==========
 class FavoritesScreen extends StatelessWidget {
+  const FavoritesScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
-    final favoriteTools = toolsProvider.favoriteTools;
 
     return Scaffold(
-      appBar: AppBar(title: Text('Избранное (${favoriteTools.length})')),
-      body: RefreshIndicator(
-        onRefresh: () => toolsProvider.loadTools(forceRefresh: true),
-        child: favoriteTools.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.favorite_border,
-                      size: 80,
-                      color: Colors.grey[300],
-                    ),
-                    SizedBox(height: 20),
-                    Text(
-                      'Нет избранных инструментов',
-                      style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      'Добавьте инструменты в избранное',
-                      style: TextStyle(color: Colors.grey[500]),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.builder(
-                itemCount: favoriteTools.length,
-                itemBuilder: (context, index) {
-                  final tool = favoriteTools[index];
-                  return SelectionToolCard(
-                    tool: tool,
-                    selectionMode: false,
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) =>
-                              EnhancedToolDetailsScreen(tool: tool),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
+      appBar: AppBar(
+        title: StreamBuilder<List<Tool>>(
+          stream: _getToolsStream(toolsProvider),
+          builder: (context, snapshot) {
+            final favoriteTools = toolsProvider.favoriteTools;
+            return Text('Избранное (${favoriteTools.length})');
+          },
+        ),
+      ),
+      body: StreamBuilder<List<Tool>>(
+        stream: _getToolsStream(toolsProvider),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return _buildLoadingScreen();
+          }
+
+          final favoriteTools = toolsProvider.favoriteTools;
+
+          return favoriteTools.isEmpty
+              ? _buildEmptyFavoritesScreen()
+              : ListView.builder(
+                  itemCount: favoriteTools.length,
+                  itemBuilder: (context, index) {
+                    final tool = favoriteTools[index];
+                    return SelectionToolCard(
+                      tool: tool,
+                      selectionMode: false,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                EnhancedToolDetailsScreen(tool: tool),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+        },
+      ),
+    );
+  }
+
+  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
+    return Stream.fromFuture(
+      provider.loadTools(),
+    ).asyncMap((_) => provider.tools);
+  }
+
+  Widget _buildLoadingScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          const SizedBox(height: 20),
+          Text(
+            'Загрузка избранного...',
+            style: TextStyle(color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyFavoritesScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 20),
+          const Text(
+            'Нет избранных инструментов',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Добавьте инструменты в избранное',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ========== ENHANCED PROFILE SCREEN WITH WORKING SETTINGS ==========
+// ========== MODERN PROFILE SCREEN ==========
 class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
+
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
@@ -5431,7 +5721,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _syncEnabled = true;
   bool _notificationsEnabled = true;
-  bool _darkTheme = false;
+  ThemeMode _themeMode = ThemeMode.light;
 
   @override
   void initState() {
@@ -5444,13 +5734,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _syncEnabled = prefs.getBool('sync_enabled') ?? true;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-      _darkTheme = prefs.getBool('dark_theme') ?? false;
+      final themeIndex = prefs.getInt('theme_mode') ?? 0;
+      _themeMode = ThemeMode.values[themeIndex];
     });
   }
 
-  Future<void> _saveSetting(String key, bool value) async {
+  Future<void> _saveSetting(String key, dynamic value) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(key, value);
+    if (value is bool) {
+      await prefs.setBool(key, value);
+    } else if (value is int) {
+      await prefs.setInt(key, value);
+    }
+  }
+
+  Future<void> _changeTheme(ThemeMode mode) async {
+    setState(() {
+      _themeMode = mode;
+    });
+    await _saveSetting('theme_mode', mode.index);
+    // You can add theme switching logic here
   }
 
   @override
@@ -5463,16 +5766,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: SingleChildScrollView(
         child: Column(
           children: [
-            // Profile Header
+            // Profile Header with gradient
             Container(
-              height: 200,
+              height: 250,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                   colors: [
-                    Theme.of(context).primaryColor,
-                    Theme.of(context).primaryColorDark,
+                    Theme.of(context).colorScheme.primary,
+                    Theme.of(context).colorScheme.secondary,
                   ],
                 ),
               ),
@@ -5483,7 +5786,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Stack(
                       children: [
                         CircleAvatar(
-                          radius: 50,
+                          radius: 60,
                           backgroundColor: Colors.white,
                           backgroundImage: authProvider.profileImage != null
                               ? FileImage(authProvider.profileImage!)
@@ -5491,8 +5794,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           child: authProvider.profileImage == null
                               ? Icon(
                                   Icons.person,
-                                  size: 50,
-                                  color: Theme.of(context).primaryColor,
+                                  size: 60,
+                                  color: Theme.of(context).colorScheme.primary,
                                 )
                               : null,
                         ),
@@ -5500,10 +5803,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           bottom: 0,
                           right: 0,
                           child: CircleAvatar(
-                            radius: 15,
+                            radius: 20,
                             backgroundColor: Colors.white,
                             child: IconButton(
-                              icon: Icon(Icons.camera_alt, size: 15),
+                              icon: Icon(
+                                Icons.camera_alt,
+                                size: 15,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
                               onPressed: () => _pickProfileImage(authProvider),
                               padding: EdgeInsets.zero,
                             ),
@@ -5511,17 +5818,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ],
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 20),
                     Text(
                       authProvider.user?.email ?? 'Гость',
-                      style: TextStyle(
-                        fontSize: 20,
+                      style: const TextStyle(
+                        fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                       ),
                     ),
-                    SizedBox(height: 4),
-                    Text(
+                    const SizedBox(height: 4),
+                    const Text(
                       'Менеджер инструментов',
                       style: TextStyle(color: Colors.white70),
                     ),
@@ -5530,29 +5837,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Stats Grid - Improved Responsive Design
+            // Stats Grid
             Padding(
-              padding: EdgeInsets.all(16),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isTablet = constraints.maxWidth > 600;
+              padding: const EdgeInsets.all(16),
+              child: StreamBuilder<List<Tool>>(
+                stream: _getToolsStream(toolsProvider),
+                builder: (context, snapshot) {
+                  final totalTools = toolsProvider.totalTools;
+                  final garageTools = toolsProvider.garageTools.length;
+                  final favoriteTools = toolsProvider.favoriteTools.length;
+
                   return GridView.count(
                     shrinkWrap: true,
-                    physics: NeverScrollableScrollPhysics(),
-                    crossAxisCount: isTablet ? 4 : 2,
-                    childAspectRatio: isTablet ? 1.5 : ,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.5,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     children: [
                       _buildStatCard(
                         'Всего инструментов',
-                        '${toolsProvider.totalTools}',
+                        '$totalTools',
                         Icons.build,
                         Colors.blue,
                       ),
                       _buildStatCard(
                         'В гараже',
-                        '${toolsProvider.garageTools.length}',
+                        '$garageTools',
                         Icons.garage,
                         Colors.green,
                       ),
@@ -5564,7 +5875,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       _buildStatCard(
                         'Избранных',
-                        '${toolsProvider.favoriteTools.length}',
+                        '$favoriteTools',
                         Icons.favorite,
                         Colors.red,
                       ),
@@ -5574,108 +5885,149 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
 
-            // Settings - Working Switches
+            // Settings
             Card(
-              margin: EdgeInsets.all(16),
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: Icon(Icons.sync),
-                    title: Text('Синхронизация данных'),
-                    trailing: Switch(
-                      value: _syncEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          _syncEnabled = value;
-                        });
-                        _saveSetting('sync_enabled', value);
-                        if (value) {
+              margin: const EdgeInsets.all(16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    const Text(
+                      'Настройки',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    ListTile(
+                      leading: const Icon(Icons.sync),
+                      title: const Text('Синхронизация данных'),
+                      trailing: Switch(
+                        value: _syncEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            _syncEnabled = value;
+                          });
+                          _saveSetting('sync_enabled', value);
                           ErrorHandler.showSuccessDialog(
                             context,
-                            'Синхронизация включена',
+                            value
+                                ? 'Синхронизация включена'
+                                : 'Синхронизация выключена',
                           );
-                        }
-                      },
+                        },
+                      ),
                     ),
-                  ),
-                  ListTile(
-                    leading: Icon(Icons.dark_mode),
-                    title: Text('Темная тема'),
-                    trailing: Switch(
-                      value: _darkTheme,
-                      onChanged: (value) {
-                        setState(() {
-                          _darkTheme != value;
-                        });
-                        _saveSetting('dark_theme', value);
-                        ErrorHandler.showSuccessDialog(
-                          context,
-                          value
-                              ? 'Темная тема включена'
-                              : 'Темная тема выключена',
-                        );
-                      },
+                    ListTile(
+                      leading: const Icon(Icons.notifications),
+                      title: const Text('Уведомления'),
+                      trailing: Switch(
+                        value: _notificationsEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            _notificationsEnabled = value;
+                          });
+                          _saveSetting('notifications_enabled', value);
+                          ErrorHandler.showSuccessDialog(
+                            context,
+                            value
+                                ? 'Уведомления включены'
+                                : 'Уведомления выключены',
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                    ListTile(
+                      leading: const Icon(Icons.color_lens),
+                      title: const Text('Тема приложения'),
+                      trailing: DropdownButton<ThemeMode>(
+                        value: _themeMode,
+                        onChanged: (value) {
+                          if (value != null) {
+                            _changeTheme(value);
+                          }
+                        },
+                        items: const [
+                          DropdownMenuItem(
+                            value: ThemeMode.light,
+                            child: Text('Светлая'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.dark,
+                            child: Text('Темная'),
+                          ),
+                          DropdownMenuItem(
+                            value: ThemeMode.system,
+                            child: Text('Системная'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
             // Actions
             Padding(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
                   ElevatedButton.icon(
                     onPressed: () async {
-                      await ReportService.generateInventoryReport(
+                      await ReportService.shareInventoryReport(
                         toolsProvider.tools,
                         objectsProvider.objects,
                         context,
                       );
                     },
-                    icon: Icon(Icons.picture_as_pdf),
-                    label: Text('Создать отчет PDF'),
+                    icon: const Icon(Icons.share),
+                    label: const Text('Поделиться отчетом'),
                     style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
+                      minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   ElevatedButton.icon(
                     onPressed: () async {
-                      // Backup functionality
                       await _createBackup(
                         context,
                         toolsProvider,
                         objectsProvider,
                       );
                     },
-                    icon: Icon(Icons.backup),
-                    label: Text('Создать резервную копию'),
+                    icon: const Icon(Icons.backup),
+                    label: const Text('Создать резервную копию'),
                     style: ElevatedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
+                      minimumSize: const Size(double.infinity, 50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   OutlinedButton.icon(
                     onPressed: () async {
                       await authProvider.signOut();
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => AuthScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const AuthScreen(),
+                        ),
                       );
                     },
-                    icon: Icon(Icons.logout),
-                    label: Text('Выйти'),
+                    icon: const Icon(Icons.logout),
+                    label: const Text('Выйти'),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: Size(double.infinity, 50),
-                      side: BorderSide(color: Colors.red),
+                      minimumSize: const Size(double.infinity, 50),
+                      side: const BorderSide(color: Colors.red),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -5690,28 +6042,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
+    return Stream.fromFuture(
+      provider.loadTools(),
+    ).asyncMap((_) => provider.tools);
+  }
+
   Widget _buildStatCard(
     String title,
     String value,
     IconData icon,
-
     Color color,
   ) {
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(icon, color: color, size: 30),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               value,
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 4),
+            const SizedBox(height: 4),
             Text(
               title,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
@@ -5751,9 +6108,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
       await backupFile.writeAsString(jsonString);
 
-      await Share.shareXFiles([
-        XFile(backupFile.path),
-      ], text: 'Резервная копия Tooler');
+      await Share.shareXFiles(
+        [XFile(backupFile.path)],
+        text:
+            '📱 Резервная копия Tooler\n\n'
+            '📅 Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}\n'
+            '🛠️ Инструментов: ${toolsProvider.tools.length}\n'
+            '🏢 Объектов: ${objectsProvider.objects.length}\n\n'
+            '— Создано в Tooler App —',
+      );
 
       ErrorHandler.showSuccessDialog(context, 'Резервная копия создана');
     } catch (e) {
@@ -5767,6 +6130,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 // ========== SEARCH SCREEN ==========
 class SearchScreen extends StatefulWidget {
+  const SearchScreen({super.key});
+
   @override
   _SearchScreenState createState() => _SearchScreenState();
 }
@@ -5818,16 +6183,16 @@ class _SearchScreenState extends State<SearchScreen> {
         title: TextField(
           controller: _searchController,
           autofocus: true,
-          decoration: InputDecoration(
+          decoration: const InputDecoration(
             hintText: 'Поиск инструментов...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.white70),
           ),
-          style: TextStyle(color: Colors.white),
+          style: const TextStyle(color: Colors.white),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.clear),
+            icon: const Icon(Icons.clear),
             onPressed: () {
               _searchController.clear();
               setState(() {
@@ -5838,21 +6203,7 @@ class _SearchScreenState extends State<SearchScreen> {
         ],
       ),
       body: _searchResults.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.search, size: 80, color: Colors.grey[300]),
-                  SizedBox(height: 20),
-                  Text(
-                    _searchController.text.isEmpty
-                        ? 'Начните вводить для поиска'
-                        : 'Ничего не найдено',
-                    style: TextStyle(fontSize: 18, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            )
+          ? _buildEmptySearchScreen()
           : ListView.builder(
               itemCount: _searchResults.length,
               itemBuilder: (context, index) {
@@ -5874,13 +6225,31 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
     );
   }
+
+  Widget _buildEmptySearchScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.search, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 20),
+          Text(
+            _searchController.text.isEmpty
+                ? 'Начните вводить для поиска'
+                : 'Ничего не найдено',
+            style: const TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ========== WELCOME SCREEN ==========
 class WelcomeScreen extends StatelessWidget {
   final VoidCallback onContinue;
 
-  const WelcomeScreen({Key? key, required this.onContinue}) : super(key: key);
+  const WelcomeScreen({super.key, required this.onContinue});
 
   @override
   Widget build(BuildContext context) {
@@ -5891,20 +6260,20 @@ class WelcomeScreen extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              Theme.of(context).primaryColor,
-              Theme.of(context).primaryColorDark,
+              Theme.of(context).colorScheme.primary,
+              Theme.of(context).colorScheme.secondary,
             ],
           ),
         ),
         child: Center(
           child: Padding(
-            padding: EdgeInsets.all(32),
+            padding: const EdgeInsets.all(32),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.build, size: 100, color: Colors.white),
-                SizedBox(height: 32),
-                Text(
+                const SizedBox(height: 32),
+                const Text(
                   'Добро пожаловать в Tooler!',
                   style: TextStyle(
                     fontSize: 28,
@@ -5913,22 +6282,28 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 16),
-                Text(
+                const SizedBox(height: 16),
+                const Text(
                   'Простая и эффективная система управления строительными инструментами',
                   style: TextStyle(fontSize: 16, color: Colors.white70),
                   textAlign: TextAlign.center,
                 ),
-                SizedBox(height: 48),
+                const SizedBox(height: 48),
                 ElevatedButton(
                   onPressed: onContinue,
                   style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 40,
+                      vertical: 16,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  child: Text('Начать работу', style: TextStyle(fontSize: 18)),
+                  child: const Text(
+                    'Начать работу',
+                    style: TextStyle(fontSize: 18),
+                  ),
                 ),
               ],
             ),
@@ -5943,8 +6318,7 @@ class WelcomeScreen extends StatelessWidget {
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
 
-  const OnboardingScreen({Key? key, required this.onComplete})
-    : super(key: key);
+  const OnboardingScreen({super.key, required this.onComplete});
 
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -6004,12 +6378,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   widget.onComplete();
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (context) => AuthScreen()),
+                    MaterialPageRoute(builder: (context) => const AuthScreen()),
                   );
                 },
                 child: Text(
                   'Пропустить',
-                  style: TextStyle(color: Theme.of(context).primaryColor),
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
                 ),
               ),
             ),
@@ -6027,7 +6403,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemBuilder: (context, index) {
                   final page = _pages[index];
                   return Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(32),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -6044,21 +6420,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             color: page['color'],
                           ),
                         ),
-                        SizedBox(height: 40),
+                        const SizedBox(height: 40),
                         Text(
                           page['title'],
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        SizedBox(height: 20),
+                        const SizedBox(height: 20),
                         Text(
                           page['description'],
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            color: Colors.grey,
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
@@ -6072,38 +6448,40 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             // Dots and Next button
             Padding(
-              padding: EdgeInsets.all(32),
+              padding: const EdgeInsets.all(32),
               child: Row(
                 children: [
                   // Dots
                   ...List.generate(
                     _pages.length,
                     (index) => Container(
-                      margin: EdgeInsets.symmetric(horizontal: 4),
+                      margin: const EdgeInsets.symmetric(horizontal: 4),
                       width: 8,
                       height: 8,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: _currentPage == index
-                            ? Theme.of(context).primaryColor
+                            ? Theme.of(context).colorScheme.primary
                             : Colors.grey[300],
                       ),
                     ),
                   ),
-                  Spacer(),
+                  const Spacer(),
                   // Next/Start button
                   ElevatedButton(
                     onPressed: () {
                       if (_currentPage < _pages.length - 1) {
                         _pageController.nextPage(
-                          duration: Duration(milliseconds: 300),
+                          duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
                         );
                       } else {
                         widget.onComplete();
                         Navigator.pushReplacement(
                           context,
-                          MaterialPageRoute(builder: (context) => AuthScreen()),
+                          MaterialPageRoute(
+                            builder: (context) => const AuthScreen(),
+                          ),
                         );
                       }
                     },
@@ -6121,8 +6499,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 }
 
-// ========== ENHANCED AUTH SCREEN WITH PROFILE IMAGE ==========
+// ========== MODERN AUTH SCREEN ==========
 class AuthScreen extends StatefulWidget {
+  const AuthScreen({super.key});
+
   @override
   _AuthScreenState createState() => _AuthScreenState();
 }
@@ -6188,9 +6568,10 @@ class _AuthScreenState extends State<AuthScreen> {
             );
 
       if (success) {
+        // Navigate directly to main screen
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => MainScreen()),
+          MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       } else {
         ErrorHandler.showErrorDialog(
@@ -6207,18 +6588,18 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthProvider>(context);
+    Provider.of<AuthProvider>(context);
 
     return Scaffold(
       body: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.all(24),
+          padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(height: 40),
+              const SizedBox(height: 40),
 
-              // Logo
+              // Logo with gradient
               Center(
                 child: Column(
                   children: [
@@ -6234,7 +6615,9 @@ class _AuthScreenState extends State<AuthScreen> {
                             right: 0,
                             child: CircleAvatar(
                               radius: 20,
-                              backgroundColor: Theme.of(context).primaryColor,
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
                               child: IconButton(
                                 icon: Icon(
                                   Icons.camera_alt,
@@ -6255,21 +6638,21 @@ class _AuthScreenState extends State<AuthScreen> {
                           radius: 60,
                           backgroundColor: Theme.of(
                             context,
-                          ).primaryColor.withOpacity(0.1),
+                          ).colorScheme.primary.withOpacity(0.1),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 Icons.camera_alt,
                                 size: 30,
-                                color: Theme.of(context).primaryColor,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
-                              SizedBox(height: 8),
+                              const SizedBox(height: 8),
                               Text(
                                 'Фото',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Theme.of(context).primaryColor,
+                                  color: Theme.of(context).colorScheme.primary,
                                 ),
                               ),
                             ],
@@ -6277,10 +6660,25 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                       )
                     else
-                      Icon(
-                        Icons.build,
-                        size: 100,
-                        color: Theme.of(context).primaryColor,
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Theme.of(context).colorScheme.primary,
+                              Theme.of(context).colorScheme.secondary,
+                            ],
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.build,
+                          size: 60,
+                          color: Colors.white,
+                        ),
                       ),
                     SizedBox(height: _isLogin ? 20 : 10),
                     Text(
@@ -6288,19 +6686,19 @@ class _AuthScreenState extends State<AuthScreen> {
                       style: TextStyle(
                         fontSize: 40,
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
                     ),
-                    SizedBox(height: 5),
-                    Text(
+                    const SizedBox(height: 5),
+                    const Text(
                       'Управление строительными инструментами',
-                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 14, color: Colors.grey),
                     ),
                   ],
                 ),
               ),
 
-              SizedBox(height: 40),
+              const SizedBox(height: 40),
 
               Form(
                 key: _formKey,
@@ -6310,10 +6708,12 @@ class _AuthScreenState extends State<AuthScreen> {
                       controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Email',
-                        prefixIcon: Icon(Icons.email),
+                        prefixIcon: const Icon(Icons.email),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
@@ -6326,13 +6726,13 @@ class _AuthScreenState extends State<AuthScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
                     TextFormField(
                       controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Пароль',
-                        prefixIcon: Icon(Icons.lock),
+                        prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
                           icon: Icon(
                             _obscurePassword
@@ -6348,6 +6748,8 @@ class _AuthScreenState extends State<AuthScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                       ),
                       obscureText: _obscurePassword,
                       validator: (value) {
@@ -6362,12 +6764,12 @@ class _AuthScreenState extends State<AuthScreen> {
                     ),
 
                     if (!_isLogin) ...[
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _confirmPasswordController,
                         decoration: InputDecoration(
                           labelText: 'Подтвердите пароль',
-                          prefixIcon: Icon(Icons.lock),
+                          prefixIcon: const Icon(Icons.lock),
                           suffixIcon: IconButton(
                             icon: Icon(
                               _obscureConfirmPassword
@@ -6384,6 +6786,8 @@ class _AuthScreenState extends State<AuthScreen> {
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
                         ),
                         obscureText: _obscureConfirmPassword,
                         validator: (value) {
@@ -6398,7 +6802,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ],
 
-                    SizedBox(height: 20),
+                    const SizedBox(height: 20),
 
                     if (_isLogin)
                       Row(
@@ -6413,14 +6817,14 @@ class _AuthScreenState extends State<AuthScreen> {
                               );
                             },
                           ),
-                          Text('Запомнить меня'),
+                          const Text('Запомнить меня'),
                         ],
                       ),
                   ],
                 ),
               ),
 
-              SizedBox(height: 24),
+              const SizedBox(height: 24),
 
               if (_isLoading)
                 Center(child: CircularProgressIndicator())
@@ -6428,18 +6832,18 @@ class _AuthScreenState extends State<AuthScreen> {
                 ElevatedButton(
                   onPressed: _submit,
                   style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                   child: Text(
                     _isLogin ? 'Войти' : 'Зарегистрироваться',
-                    style: TextStyle(fontSize: 16),
+                    style: const TextStyle(fontSize: 16),
                   ),
                 ),
 
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
 
               TextButton(
                 onPressed: () {
@@ -6455,22 +6859,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
 
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-              // Quick login for testing
-              OutlinedButton(
-                onPressed: () {
-                  _emailController.text = 'vadim';
-                  _passwordController.text = 'vadim';
-                  _submit();
-                },
-                child: Text('Быстрый вход (тестовый режим)'),
-                style: OutlinedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
+              // Remove quick login button
             ],
           ),
         ),
@@ -6479,9 +6870,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-// ========== MAIN SCREEN WITH BOTTOM NAVIGATION ==========
+// ========== MAIN SCREEN ==========
 class MainScreen extends StatefulWidget {
-  const MainScreen({Key? key}) : super(key: key);
+  const MainScreen({super.key});
 
   @override
   _MainScreenState createState() => _MainScreenState();
@@ -6489,14 +6880,13 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
-  bool _initialLoadComplete = false;
 
   final List<Widget> _screens = [
-    EnhancedGarageScreen(),
-    ToolsListScreen(),
-    EnhancedObjectsListScreen(),
-    FavoritesScreen(),
-    ProfileScreen(),
+    const EnhancedGarageScreen(),
+    const ToolsListScreen(),
+    const EnhancedObjectsListScreen(),
+    const FavoritesScreen(),
+    const ProfileScreen(),
   ];
 
   final List<String> _titles = [
@@ -6508,74 +6898,25 @@ class _MainScreenState extends State<MainScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _loadInitialData();
-    });
-  }
-
-  Future<void> _loadInitialData() async {
-    try {
-      final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-      final objectsProvider = Provider.of<ObjectsProvider>(
-        context,
-        listen: false,
-      );
-
-      // Ленивая загрузка - загружаем в фоне
-      Future.microtask(() async {
-        await toolsProvider.loadTools();
-        await objectsProvider.loadObjects();
-      });
-
-      setState(() {
-        _initialLoadComplete = true;
-      });
-    } catch (e) {
-      print('Ошибка загрузки начальных данных: $e');
-      setState(() {
-        _initialLoadComplete = true;
-      });
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!_initialLoadComplete) {
-      return Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(height: 20),
-              Text(
-                'Загрузка...',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text(_titles[_selectedIndex]),
         actions: _selectedIndex == 0 || _selectedIndex == 1
             ? [
                 IconButton(
-                  icon: Icon(Icons.search),
+                  icon: const Icon(Icons.search),
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => SearchScreen()),
+                      MaterialPageRoute(
+                        builder: (context) => const SearchScreen(),
+                      ),
                     );
                   },
                 ),
                 IconButton(
-                  icon: Icon(Icons.picture_as_pdf),
+                  icon: const Icon(Icons.share),
                   onPressed: () => _generateInventoryReport(context),
                 ),
               ]
@@ -6590,11 +6931,11 @@ class _MainScreenState extends State<MainScreen> {
           });
         },
         type: BottomNavigationBarType.fixed,
-        selectedItemColor: Theme.of(context).primaryColor,
+        selectedItemColor: Theme.of(context).colorScheme.primary,
         unselectedItemColor: Colors.grey[600],
         showSelectedLabels: true,
         showUnselectedLabels: true,
-        items: [
+        items: const [
           BottomNavigationBarItem(icon: Icon(Icons.garage), label: 'Гараж'),
           BottomNavigationBarItem(
             icon: Icon(Icons.build),
@@ -6611,220 +6952,7 @@ class _MainScreenState extends State<MainScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
         ],
       ),
-      floatingActionButton: _getFloatingActionButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Widget? _getFloatingActionButton() {
-    final toolsProvider = Provider.of<ToolsProvider>(context);
-    final objectsProvider = Provider.of<ObjectsProvider>(context);
-
-    if (_selectedIndex == 0 || _selectedIndex == 1) {
-      if (toolsProvider.selectionMode && toolsProvider.hasSelectedTools) {
-        return FloatingActionButton.extended(
-          onPressed: () => _showToolSelectionActions(context),
-          icon: Icon(Icons.more_vert),
-          label: Text('${toolsProvider.selectedTools.length}'),
-          backgroundColor: Theme.of(context).primaryColor,
-        );
-      }
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddEditToolScreen()),
-          );
-        },
-        child: Icon(Icons.add),
-        backgroundColor: Theme.of(context).primaryColor,
-      );
-    } else if (_selectedIndex == 2) {
-      if (objectsProvider.selectionMode && objectsProvider.hasSelectedObjects) {
-        return FloatingActionButton.extended(
-          onPressed: () => _showObjectSelectionActions(context),
-          icon: Icon(Icons.more_vert),
-          label: Text('${objectsProvider.selectedObjects.length}'),
-          backgroundColor: Theme.of(context).primaryColor,
-        );
-      }
-      return FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => AddEditObjectScreen()),
-          );
-        },
-        child: Icon(Icons.add),
-        backgroundColor: Theme.of(context).primaryColor,
-      );
-    }
-    return null;
-  }
-
-  void _showToolSelectionActions(BuildContext context) {
-    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-    final selectedCount = toolsProvider.selectedTools.length;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Выбрано: $selectedCount инструментов',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-
-              ListTile(
-                leading: Icon(Icons.favorite, color: Colors.red),
-                title: Text('Добавить в избранное'),
-                onTap: () {
-                  Navigator.pop(context);
-                  toolsProvider.toggleFavoriteForSelected();
-                },
-              ),
-
-              ListTile(
-                leading: Icon(Icons.move_to_inbox, color: Colors.blue),
-                title: Text('Переместить выбранные'),
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MoveToolsScreen(
-                        selectedTools: toolsProvider.selectedTools,
-                      ),
-                    ),
-                  );
-                },
-              ),
-
-              ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Удалить выбранные'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showMultiDeleteDialog(context, true);
-                },
-              ),
-
-              SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Отмена'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showObjectSelectionActions(BuildContext context) {
-    final objectsProvider = Provider.of<ObjectsProvider>(
-      context,
-      listen: false,
-    );
-    final selectedCount = objectsProvider.selectedObjects.length;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return Container(
-          padding: EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Выбрано: $selectedCount объектов',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-
-              ListTile(
-                leading: Icon(Icons.delete, color: Colors.red),
-                title: Text('Удалить выбранные'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showMultiDeleteDialog(context, false);
-                },
-              ),
-
-              SizedBox(height: 20),
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text('Отмена'),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _showMultiDeleteDialog(BuildContext context, bool isTools) {
-    if (isTools) {
-      final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-      final selectedCount = toolsProvider.selectedTools.length;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Подтверждение удаления'),
-          content: Text(
-            'Вы уверены, что хотите удалить выбранные $selectedCount инструментов?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await toolsProvider.deleteSelectedTools();
-              },
-              child: Text('Удалить', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      );
-    } else {
-      final objectsProvider = Provider.of<ObjectsProvider>(
-        context,
-        listen: false,
-      );
-      final selectedCount = objectsProvider.selectedObjects.length;
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('Подтверждение удаления'),
-          content: Text(
-            'Вы уверены, что хотите удалить выбранные $selectedCount объектов?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await objectsProvider.deleteSelectedObjects();
-              },
-              child: Text('Удалить', style: TextStyle(color: Colors.red)),
-            ),
-          ],
-        ),
-      );
-    }
   }
 
   Future<void> _generateInventoryReport(BuildContext context) async {
@@ -6835,7 +6963,7 @@ class _MainScreenState extends State<MainScreen> {
         listen: false,
       );
 
-      await ReportService.generateInventoryReport(
+      await ReportService.shareInventoryReport(
         toolsProvider.tools,
         objectsProvider.objects,
         context,
@@ -6848,7 +6976,7 @@ class _MainScreenState extends State<MainScreen> {
 
 // ========== MAIN APP WIDGET ==========
 class MyApp extends StatelessWidget {
-  const MyApp({Key? key}) : super(key: key);
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -6859,38 +6987,7 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             home: Scaffold(body: Center(child: CircularProgressIndicator())),
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              primaryColor: Colors.blue,
-              colorScheme: ColorScheme.fromSwatch(
-                primarySwatch: Colors.blue,
-                accentColor: Colors.blueAccent,
-              ),
-              appBarTheme: AppBarTheme(
-                elevation: 0,
-                backgroundColor: Colors.blue,
-                iconTheme: IconThemeData(color: Colors.white),
-                titleTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              floatingActionButtonTheme: FloatingActionButtonThemeData(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              cardTheme: CardThemeData(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+            theme: _buildThemeData(),
           );
         }
 
@@ -6914,38 +7011,7 @@ class MyApp extends StatelessWidget {
           ],
           child: MaterialApp(
             title: 'Tooler',
-            theme: ThemeData(
-              primaryColor: Colors.blue,
-              colorScheme: ColorScheme.fromSwatch(
-                primarySwatch: Colors.blue,
-                accentColor: Colors.blueAccent,
-              ),
-              appBarTheme: AppBarTheme(
-                elevation: 0,
-                backgroundColor: Colors.blue,
-                iconTheme: IconThemeData(color: Colors.white),
-                titleTextStyle: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              floatingActionButtonTheme: FloatingActionButtonThemeData(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
-              ),
-              cardTheme: CardThemeData(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
-              inputDecorationTheme: InputDecorationTheme(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
+            theme: _buildThemeData(),
             navigatorKey: navigatorKey,
             home: Consumer<AuthProvider>(
               builder: (context, authProvider, child) {
@@ -6962,7 +7028,9 @@ class MyApp extends StatelessWidget {
                       await prefs.setBool('seen_welcome', true);
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(builder: (context) => AuthScreen()),
+                        MaterialPageRoute(
+                          builder: (context) => const AuthScreen(),
+                        ),
                       );
                     },
                   );
@@ -6978,16 +7046,88 @@ class MyApp extends StatelessWidget {
                       },
                     );
                   }
-                  return AuthScreen();
+                  return const AuthScreen();
                 }
 
-                return MainScreen();
+                return const MainScreen();
               },
             ),
             debugShowCheckedModeBanner: false,
           ),
         );
       },
+    );
+  }
+
+  ThemeData _buildThemeData() {
+    return ThemeData(
+      primaryColor: const Color(0xFF4A6FA5),
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF4A6FA5),
+        secondary: Color(0xFF6B8E23),
+        surface: Colors.white,
+        background: Color(0xFFF5F7FA),
+        error: Color(0xFFE63946),
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: Color(0xFF2D3748),
+        onBackground: Color(0xFF2D3748),
+        onError: Colors.white,
+      ),
+      appBarTheme: const AppBarTheme(
+        elevation: 0,
+        backgroundColor: Color(0xFF4A6FA5),
+        iconTheme: IconThemeData(color: Colors.white),
+        titleTextStyle: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: Color(0xFF4A6FA5),
+        foregroundColor: Colors.white,
+      ),
+      cardTheme: CardThemeData(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.shade400),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF4A6FA5), width: 2),
+        ),
+        filled: true,
+        fillColor: Colors.white,
+      ),
+      buttonTheme: ButtonThemeData(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: const BorderSide(color: Color(0xFF4A6FA5)),
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+        ),
+      ),
     );
   }
 }
