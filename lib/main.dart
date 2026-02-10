@@ -3091,6 +3091,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
           children: [
             // Header
             Container(
+              width: MediaQuery.of(context).size.width,
               padding: EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Theme.of(context).primaryColor,
@@ -3118,29 +3119,35 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   SizedBox(height: 16),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        _buildStatCard(
-                          context,
-                          'Всего',
-                          '${toolsProvider.totalTools}',
-                          Icons.build,
-                        ),
-                        SizedBox(width: 10),
-                        _buildStatCard(
-                          context,
-                          'В гараже',
-                          '${toolsProvider.garageTools.length}',
-                          Icons.garage,
-                        ),
-                        SizedBox(width: 10),
-                        _buildStatCard(
-                          context,
-                          'Избранные',
-                          '${toolsProvider.favoriteTools.length}',
-                          Icons.favorite,
-                        ),
-                      ],
+                    child: SizedBox(
+                      width: MediaQuery.of(context).size.width,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.max,
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          _buildStatCard(
+                            context,
+                            'Всего',
+                            '${toolsProvider.totalTools}',
+                            Icons.build,
+                          ),
+                          SizedBox(width: 10),
+                          _buildStatCard(
+                            context,
+                            'В гараже',
+                            '${toolsProvider.garageTools.length}',
+                            Icons.garage,
+                          ),
+                          SizedBox(width: 10),
+                          _buildStatCard(
+                            context,
+                            'Избранные',
+                            '${toolsProvider.favoriteTools.length}',
+                            Icons.favorite,
+                          ),
+                          SizedBox(width: 10),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -5533,7 +5540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
                     crossAxisCount: isTablet ? 4 : 2,
-                    childAspectRatio: isTablet ? 1.5 : 1.8,
+                    childAspectRatio: isTablet ? 1.5 : 1,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     children: [
@@ -5592,32 +5599,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   ListTile(
-                    leading: Icon(Icons.notifications),
-                    title: Text('Уведомления'),
-                    trailing: Switch(
-                      value: _notificationsEnabled,
-                      onChanged: (value) {
-                        setState(() {
-                          _notificationsEnabled = value;
-                        });
-                        _saveSetting('notifications_enabled', value);
-                        ErrorHandler.showSuccessDialog(
-                          context,
-                          value
-                              ? 'Уведомления включены'
-                              : 'Уведомления выключены',
-                        );
-                      },
-                    ),
-                  ),
-                  ListTile(
                     leading: Icon(Icons.dark_mode),
                     title: Text('Темная тема'),
                     trailing: Switch(
                       value: _darkTheme,
                       onChanged: (value) {
                         setState(() {
-                          _darkTheme = value;
+                          _darkTheme != value;
                         });
                         _saveSetting('dark_theme', value);
                         ErrorHandler.showSuccessDialog(
@@ -5706,6 +5694,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String title,
     String value,
     IconData icon,
+
     Color color,
   ) {
     return Card(
