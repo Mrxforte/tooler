@@ -572,6 +572,9 @@ class ImageService {
   }
 }
 
+// ========== REPORT TYPES ==========
+enum ReportType { pdf, text, screenshot }
+
 // ========== ENHANCED PDF REPORT SERVICE WITH SHARE AND PRINT ==========
 class ReportService {
   static Future<Uint8List> _generateToolReportPdf(Tool tool) async {
@@ -687,41 +690,135 @@ class ReportService {
     return await pdf.save();
   }
 
-  static Future<void> shareToolReport(Tool tool, BuildContext context) async {
-    try {
-      final pdfBytes = await _generateToolReportPdf(tool);
-      final tempDir = await getTemporaryDirectory();
-      final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
-      await pdfFile.writeAsBytes(pdfBytes);
+  static String _generateToolReportText(Tool tool) {
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
 
-      await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        text:
-            '📋 Отчет об инструменте: ${tool.title}\n\n'
-            'Название: ${tool.title}\n'
-            'Бренд: ${tool.brand}\n'
-            'ID: ${tool.uniqueId}\n'
-            'Местоположение: ${tool.currentLocationName}\n'
-            'Статус: ${tool.isFavorite ? "⭐ В избранном" : "📦 В наличии"}\n'
-            'Добавлен: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}',
-      );
+    String report =
+        '''
+📋 ОТЧЕТ ОБ ИНСТРУМЕНТЕ - ${tool.title}
+
+🛠️ ОСНОВНАЯ ИНФОРМАЦИЯ:
+─────────────────────
+• Название: ${tool.title}
+• Бренд: ${tool.brand}
+• Уникальный ID: ${tool.uniqueId}
+• Модель: ${tool.description.isNotEmpty ? tool.description : 'Не указана'}
+• Местоположение: ${tool.currentLocationName}
+• Статус: ${tool.isFavorite ? '⭐ В избранном' : '📦 В наличии'}
+• Дата добавления: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}
+• Последнее обновление: ${DateFormat('dd.MM.yyyy').format(tool.updatedAt)}
+''';
+
+    if (tool.locationHistory.isNotEmpty) {
+      report +=
+          '''
+      
+📜 ИСТОРИЯ ПЕРЕМЕЩЕНИЙ:
+─────────────────────
+${tool.locationHistory.map((history) => '• ${history.locationName} (${DateFormat('dd.MM.yyyy').format(history.date)})').join('\n')}
+''';
+    }
+
+    report +=
+        '''
+      
+📅 Отчет сгенерирован: ${dateFormat.format(DateTime.now())}
+© ${DateTime.now().year} Tooler App
+''';
+
+    return report;
+  }
+
+  static Future<void> shareToolReport(
+    Tool tool,
+    BuildContext context,
+    ReportType reportType,
+  ) async {
+    try {
+      switch (reportType) {
+        case ReportType.pdf:
+          final pdfBytes = await _generateToolReportPdf(tool);
+          final tempDir = await getTemporaryDirectory();
+          final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
+          await pdfFile.writeAsBytes(pdfBytes);
+
+          await Share.shareXFiles([
+            XFile(pdfFile.path),
+          ], text: '📋 Отчет об инструменте: ${tool.title}');
+          break;
+
+        case ReportType.text:
+          final textReport = _generateToolReportText(tool);
+          await Share.share(textReport);
+          break;
+
+        case ReportType.screenshot:
+          // For screenshot, we'll share the text report
+          final textReport = _generateToolReportText(tool);
+          await Share.share(textReport);
+          break;
+      }
     } catch (e, s) {
       print('Error sharing report: $e\n$s');
       // Fallback to text sharing
-      await Share.share(
-        '📋 Отчет об инструменте: ${tool.title}\n\n'
-        'Название: ${tool.title}\n'
-        'Бренд: ${tool.brand}\n'
-        'Уникальный ID: ${tool.uniqueId}\n'
-        'Описание: ${tool.description.isNotEmpty ? tool.description : "Не указано"}\n'
-        'Местоположение: ${tool.currentLocationName}\n'
-        'Статус: ${tool.isFavorite ? "⭐ В избранном" : "📦 В наличии"}\n'
-        'Добавлен: ${DateFormat('dd.MM.yyyy').format(tool.createdAt)}\n'
-        'Обновлен: ${DateFormat('dd.MM.yyyy').format(tool.updatedAt)}\n\n'
-        'История перемещений:\n${tool.locationHistory.map((h) => '• ${h.locationName} (${DateFormat('dd.MM.yyyy').format(h.date)})').join('\n')}\n\n'
-        '— Отчет создан в Tooler App —',
-      );
+      final textReport = _generateToolReportText(tool);
+      await Share.share(textReport);
     }
+  }
+
+  static void showReportTypeDialog(
+    BuildContext context,
+    Tool tool,
+    Function(ReportType) onTypeSelected,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Выберите тип отчета',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 20),
+
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('PDF отчет'),
+                subtitle: const Text('С возможностью печати'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onTypeSelected(ReportType.pdf);
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.text_fields, color: Colors.blue),
+                title: const Text('Текстовый отчет'),
+                subtitle: const Text('Быстрая отправка в мессенджеры'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onTypeSelected(ReportType.text);
+                },
+              ),
+
+              ListTile(
+                leading: const Icon(Icons.screenshot, color: Colors.green),
+                title: const Text('Скриншот отчета'),
+                subtitle: const Text('Изображение для быстрого просмотра'),
+                onTap: () {
+                  Navigator.pop(context);
+                  onTypeSelected(ReportType.screenshot);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   static Future<void> printToolReport(Tool tool, BuildContext context) async {
@@ -734,168 +831,182 @@ class ReportService {
     }
   }
 
+  static String _generateInventoryReportText(
+    List<Tool> tools,
+    List<ConstructionObject> objects,
+  ) {
+    final garageTools = tools
+        .where((t) => t.currentLocation == 'garage')
+        .length;
+    final onSiteTools = tools
+        .where((t) => t.currentLocation != 'garage')
+        .length;
+    final favoriteTools = tools.where((t) => t.isFavorite).length;
+    final objectsWithTools = objects.where((o) => o.toolIds.isNotEmpty).length;
+
+    return '''
+📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler
+
+📅 Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}
+📊 СВОДКА:
+─────────────────────
+🛠️ Всего инструментов: ${tools.length}
+🏠 В гараже: $garageTools
+🏗️ На объектах: $onSiteTools
+⭐ Избранных: $favoriteTools
+🏢 Всего объектов: ${objects.length}
+📦 Объектов с инструментами: $objectsWithTools
+
+📋 СПИСОК ИНСТРУМЕНТОВ:
+─────────────────────
+${tools.take(15).map((t) => '• ${t.title} (${t.brand}) - ${t.currentLocationName}${t.isFavorite ? " ⭐" : ""}').join('\n')}
+${tools.length > 15 ? '\n... и еще ${tools.length - 15} инструментов' : ''}
+
+🏢 СПИСОК ОБЪЕКТОВ:
+─────────────────────
+${objects.take(10).map((o) => '• ${o.name} - ${o.toolIds.length} инструментов').join('\n')}
+${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов' : ''}
+
+📅 Отчет создан: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}
+© ${DateTime.now().year} Tooler App
+''';
+  }
+
   static Future<void> shareInventoryReport(
     List<Tool> tools,
     List<ConstructionObject> objects,
     BuildContext context,
+    ReportType reportType,
   ) async {
     try {
-      final pdf = pw.Document();
-      final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+      switch (reportType) {
+        case ReportType.pdf:
+          final pdf = pw.Document();
+          final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
 
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Header(
-                  level: 0,
-                  child: pw.Text(
-                    'TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
-                    style: pw.TextStyle(
-                      fontSize: 22,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                ),
-                pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'),
-                pw.SizedBox(height: 20),
-
-                pw.Text(
-                  'СВОДКА ИНВЕНТАРИЗАЦИИ',
-                  style: pw.TextStyle(
-                    fontSize: 18,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 15),
-
-                pw.Table.fromTextArray(
-                  context: context,
-                  data: [
-                    ['Всего инструментов', '${tools.length}'],
-                    [
-                      'В гараже',
-                      '${tools.where((t) => t.currentLocation == "garage").length}',
-                    ],
-                    [
-                      'На объектах',
-                      '${tools.where((t) => t.currentLocation != "garage").length}',
-                    ],
-                    ['Избранных', '${tools.where((t) => t.isFavorite).length}'],
-                    ['Всего объектов', '${objects.length}'],
-                    [
-                      'С инструментами',
-                      '${objects.where((o) => o.toolIds.isNotEmpty).length}',
-                    ],
-                    [
-                      'Пустых',
-                      '${objects.where((o) => o.toolIds.isEmpty).length}',
-                    ],
-                  ],
-                ),
-
-                pw.SizedBox(height: 30),
-                pw.Text(
-                  'СПИСОК ИНСТРУМЕНТОВ',
-                  style: pw.TextStyle(
-                    fontSize: 16,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-
-                ...tools
-                    .take(50)
-                    .map(
-                      (tool) => pw.Padding(
-                        padding: pw.EdgeInsets.only(bottom: 8),
-                        child: pw.Row(
-                          children: [
-                            pw.Text('• '),
-                            pw.Expanded(
-                              child: pw.Text(
-                                '${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}',
-                              ),
-                            ),
-                          ],
+          pdf.addPage(
+            pw.Page(
+              pageFormat: PdfPageFormat.a4,
+              build: (pw.Context context) {
+                return pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Header(
+                      level: 0,
+                      child: pw.Text(
+                        'TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
+                        style: pw.TextStyle(
+                          fontSize: 22,
+                          fontWeight: pw.FontWeight.bold,
                         ),
                       ),
                     ),
-
-                if (tools.length > 50)
-                  pw.Text(
-                    '... и еще ${tools.length - 50} инструментов',
-                    style: pw.TextStyle(
-                      fontSize: 12,
-                      fontStyle: pw.FontStyle.italic,
+                    pw.Text(
+                      'Сгенерировано: ${dateFormat.format(DateTime.now())}',
                     ),
-                  ),
-              ],
-            );
-          },
-        ),
-      );
+                    pw.SizedBox(height: 20),
 
-      final pdfBytes = await pdf.save();
-      final tempDir = await getTemporaryDirectory();
-      final pdfFile = File(
-        '${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
-      );
-      await pdfFile.writeAsBytes(pdfBytes);
+                    pw.Text(
+                      'СВОДКА ИНВЕНТАРИЗАЦИИ',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 15),
 
-      final garageTools = tools
-          .where((t) => t.currentLocation == 'garage')
-          .length;
-      final onSiteTools = tools
-          .where((t) => t.currentLocation != 'garage')
-          .length;
-      final favoriteTools = tools.where((t) => t.isFavorite).length;
-      final objectsWithTools = objects
-          .where((o) => o.toolIds.isNotEmpty)
-          .length;
+                    pw.Table.fromTextArray(
+                      context: context,
+                      data: [
+                        ['Всего инструментов', '${tools.length}'],
+                        [
+                          'В гараже',
+                          '${tools.where((t) => t.currentLocation == "garage").length}',
+                        ],
+                        [
+                          'На объектах',
+                          '${tools.where((t) => t.currentLocation != "garage").length}',
+                        ],
+                        [
+                          'Избранных',
+                          '${tools.where((t) => t.isFavorite).length}',
+                        ],
+                        ['Всего объектов', '${objects.length}'],
+                        [
+                          'С инструментами',
+                          '${objects.where((o) => o.toolIds.isNotEmpty).length}',
+                        ],
+                        [
+                          'Пустых',
+                          '${objects.where((o) => o.toolIds.isEmpty).length}',
+                        ],
+                      ],
+                    ),
 
-      await Share.shareXFiles(
-        [XFile(pdfFile.path)],
-        text:
-            '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler\n\n'
-            '📅 Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}\n'
-            '🛠️ Всего инструментов: ${tools.length}\n'
-            '🏠 В гараже: $garageTools\n'
-            '🏗️ На объектах: $onSiteTools\n'
-            '⭐ Избранных: $favoriteTools\n'
-            '🏢 Всего объектов: ${objects.length}\n'
-            '📦 Объектов с инструментами: $objectsWithTools\n\n'
-            'Топ инструментов:\n${tools.take(5).map((t) => '• ${t.title} (${t.brand}) - ${t.currentLocationName}').join('\n')}\n\n'
-            '— Отчет создан в Tooler App —',
-      );
+                    pw.SizedBox(height: 30),
+                    pw.Text(
+                      'СПИСОК ИНСТРУМЕНТОВ',
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+
+                    ...tools
+                        .take(50)
+                        .map(
+                          (tool) => pw.Padding(
+                            padding: pw.EdgeInsets.only(bottom: 8),
+                            child: pw.Row(
+                              children: [
+                                pw.Text('• '),
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    '${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                    if (tools.length > 50)
+                      pw.Text(
+                        '... и еще ${tools.length - 50} инструментов',
+                        style: pw.TextStyle(
+                          fontSize: 12,
+                          fontStyle: pw.FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          );
+
+          final pdfBytes = await pdf.save();
+          final tempDir = await getTemporaryDirectory();
+          final pdfFile = File(
+            '${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+          );
+          await pdfFile.writeAsBytes(pdfBytes);
+
+          await Share.shareXFiles([
+            XFile(pdfFile.path),
+          ], text: '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler');
+          break;
+
+        case ReportType.text:
+        case ReportType.screenshot:
+          final textReport = _generateInventoryReportText(tools, objects);
+          await Share.share(textReport);
+          break;
+      }
     } catch (e, s) {
       print('Error sharing inventory report: $e\n$s');
-      final garageTools = tools
-          .where((t) => t.currentLocation == 'garage')
-          .length;
-      final onSiteTools = tools
-          .where((t) => t.currentLocation != 'garage')
-          .length;
-      final favoriteTools = tools.where((t) => t.isFavorite).length;
-      final objectsWithTools = objects
-          .where((o) => o.toolIds.isNotEmpty)
-          .length;
-
-      await Share.share(
-        '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler\n\n'
-        '📅 Дата: ${DateFormat('dd.MM.yyyy').format(DateTime.now())}\n'
-        '🛠️ Всего инструментов: ${tools.length}\n'
-        '🏠 В гараже: $garageTools\n'
-        '🏗️ На объектах: $onSiteTools\n'
-        '⭐ Избранных: $favoriteTools\n'
-        '🏢 Всего объектов: ${objects.length}\n'
-        '📦 Объектов с инструментами: $objectsWithTools\n\n'
-        'Список инструментов:\n${tools.take(10).map((t) => '• ${t.title} (${t.brand}) - ${t.currentLocationName}${t.isFavorite ? " ⭐" : ""}').join('\n')}\n\n'
-        '— Отчет создан в Tooler App —',
-      );
+      final textReport = _generateInventoryReportText(tools, objects);
+      await Share.share(textReport);
     }
   }
 }
@@ -982,11 +1093,12 @@ class AuthProvider with ChangeNotifier {
   Future<void> _initializeAuth() async {
     try {
       _isLoading = true;
+      notifyListeners();
+
       final savedUser = _auth.currentUser;
       if (savedUser != null && _rememberMe) {
         _user = savedUser;
       }
-      notifyListeners();
     } catch (e) {
       print('Auth initialization error: $e');
     } finally {
@@ -1013,19 +1125,16 @@ class AuthProvider with ChangeNotifier {
         await _prefs.remove('saved_email');
       }
 
-      _isLoading = false;
-      notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
-      _isLoading = false;
-      notifyListeners();
       print('Sign in error: ${e.code} - ${e.message}');
       return false;
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
       print('Unexpected auth error: $e');
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -1079,19 +1188,16 @@ class AuthProvider with ChangeNotifier {
         await _prefs.setString('saved_email', email);
       }
 
-      _isLoading = false;
-      notifyListeners();
       return true;
     } on FirebaseAuthException catch (e) {
-      _isLoading = false;
-      notifyListeners();
       print('Sign up error: ${e.code} - ${e.message}');
       return false;
     } catch (e) {
-      _isLoading = false;
-      notifyListeners();
       print('Unexpected signup error: $e');
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -1343,12 +1449,11 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> loadTools({bool forceRefresh = false}) async {
     if (_isLoading) return;
-    //  ════════ Exception caught by foundation library ════════════════════════════════
-    // setState() or markNeedsBuild() called during build.
-    //  improve this snippet
-    //  and infinity loading  make improviments
+
     _isLoading = true;
-    notifyListeners();
+    // WidgetsBinding.instance.addPostFrameCallback((_) {
+    //   notifyListeners();
+    // });
 
     try {
       await LocalDatabase.init();
@@ -1357,7 +1462,9 @@ class ToolsProvider with ChangeNotifier {
       final cachedTools = LocalDatabase.tools.values.toList();
       if (cachedTools.isNotEmpty) {
         _tools = cachedTools.where((tool) => tool != null).toList();
-        notifyListeners(); // Update UI immediately
+        // WidgetsBinding.instance.addPostFrameCallback((_) {
+        //   // notifyListeners();
+        // });
       }
 
       // Then sync with Firebase in background
@@ -1370,7 +1477,9 @@ class ToolsProvider with ChangeNotifier {
       print('Error loading tools: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      // WidgetsBinding.instance.addPostFrameCallback((_) {
+      //   notifyListeners();
+      // });
     }
   }
 
@@ -1929,8 +2038,10 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> loadObjects({bool forceRefresh = false}) async {
     if (_isLoading) return;
 
-    // _isLoading = true;
-    // notifyListeners();
+    _isLoading = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
 
     try {
       await LocalDatabase.init();
@@ -1939,7 +2050,9 @@ class ObjectsProvider with ChangeNotifier {
       final cachedObjects = LocalDatabase.objects.values.toList();
       if (cachedObjects.isNotEmpty) {
         _objects = cachedObjects.where((obj) => obj != null).toList();
-        notifyListeners();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          notifyListeners();
+        });
       }
 
       if (forceRefresh || await LocalDatabase.shouldRefreshCache()) {
@@ -1951,7 +2064,9 @@ class ObjectsProvider with ChangeNotifier {
       print('Error loading objects: $e');
     } finally {
       _isLoading = false;
-      notifyListeners();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
@@ -2399,7 +2514,17 @@ class SelectionToolCard extends StatelessWidget {
                             title: const Text('Поделиться отчетом'),
                             onTap: () {
                               Navigator.pop(context);
-                              ReportService.shareToolReport(tool, context);
+                              ReportService.showReportTypeDialog(
+                                context,
+                                tool,
+                                (type) {
+                                  ReportService.shareToolReport(
+                                    tool,
+                                    context,
+                                    type,
+                                  );
+                                },
+                              );
                             },
                           ),
                         ),
@@ -2867,174 +2992,169 @@ class EnhancedGarageScreen extends StatefulWidget {
 
 class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   @override
+  void initState() {
+    super.initState();
+    // Load tools when screen is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ToolsProvider>(context, listen: false);
+      provider.loadTools();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
+    final garageTools = toolsProvider.garageTools;
 
     return Scaffold(
-      body: StreamBuilder<List<Tool>>(
-        stream: _getToolsStream(toolsProvider),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingScreen();
-          }
-
-          if (snapshot.hasError) {
-            return _buildErrorScreen(snapshot.error.toString());
-          }
-
-          final tools = snapshot.data ?? [];
-          final garageTools = tools
-              .where((t) => t.currentLocation == 'garage')
-              .toList();
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with gradient
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
+      body: toolsProvider.isLoading && garageTools.isEmpty
+          ? _buildLoadingScreen()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header with gradient
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        Theme.of(context).colorScheme.primary,
+                        Theme.of(context).colorScheme.secondary,
+                      ],
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Мой Гараж',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${garageTools.length} инструментов доступно',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Stats cards
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            _buildStatCard(
+                              context,
+                              'Всего',
+                              '${toolsProvider.totalTools}',
+                              Icons.build,
+                              Colors.white.withOpacity(0.2),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildStatCard(
+                              context,
+                              'В гараже',
+                              '${garageTools.length}',
+                              Icons.garage,
+                              Colors.white.withOpacity(0.2),
+                            ),
+                            const SizedBox(width: 10),
+                            _buildStatCard(
+                              context,
+                              'Избранные',
+                              '${toolsProvider.favoriteTools.length}',
+                              Icons.favorite,
+                              Colors.white.withOpacity(0.2),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
-                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Мой Гараж',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${garageTools.length} инструментов доступно',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Stats cards
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildStatCard(
-                            context,
-                            'Всего',
-                            '${tools.length}',
-                            Icons.build,
-                            Colors.white.withOpacity(0.2),
-                          ),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                            context,
-                            'В гараже',
-                            '${garageTools.length}',
-                            Icons.garage,
-                            Colors.white.withOpacity(0.2),
-                          ),
-                          const SizedBox(width: 10),
-                          _buildStatCard(
-                            context,
-                            'Избранные',
-                            '${tools.where((t) => t.isFavorite).length}',
-                            Icons.favorite,
-                            Colors.white.withOpacity(0.2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Quick Actions
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const AddEditToolScreen(),
+                // Quick Actions
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AddEditToolScreen(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Добавить'),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          );
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        onPressed: () {
+                          toolsProvider.toggleSelectionMode();
                         },
-                        icon: const Icon(Icons.add),
-                        label: const Text('Добавить'),
+                        icon: const Icon(Icons.checklist),
+                        label: Text(
+                          toolsProvider.selectionMode ? 'Отменить' : 'Выбрать',
+                        ),
                         style: ElevatedButton.styleFrom(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        toolsProvider.toggleSelectionMode();
-                      },
-                      icon: const Icon(Icons.checklist),
-                      label: Text(
-                        toolsProvider.selectionMode ? 'Отменить' : 'Выбрать',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
 
-              // Tools List
-              Expanded(
-                child: garageTools.isEmpty
-                    ? _buildEmptyGarage()
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: garageTools.length,
-                        itemBuilder: (context, index) {
-                          final tool = garageTools[index];
-                          return SelectionToolCard(
-                            tool: tool,
-                            selectionMode: toolsProvider.selectionMode,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      EnhancedToolDetailsScreen(tool: tool),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+                // Tools List
+                Expanded(
+                  child: garageTools.isEmpty
+                      ? _buildEmptyGarage()
+                      : ListView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: garageTools.length,
+                          itemBuilder: (context, index) {
+                            final tool = garageTools[index];
+                            return SelectionToolCard(
+                              tool: tool,
+                              selectionMode: toolsProvider.selectionMode,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EnhancedToolDetailsScreen(tool: tool),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton:
           toolsProvider.selectionMode && toolsProvider.hasSelectedTools
           ? FloatingActionButton.extended(
@@ -3048,12 +3168,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
-    return Stream.fromFuture(
-      provider.loadTools(),
-    ).asyncMap((_) => provider.tools);
   }
 
   Widget _buildLoadingScreen() {
@@ -3072,46 +3186,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildErrorScreen(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, size: 60, color: Colors.red),
-            const SizedBox(height: 20),
-            Text(
-              'Ошибка загрузки',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[800],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final provider = Provider.of<ToolsProvider>(
-                  context,
-                  listen: false,
-                );
-                provider.loadTools(forceRefresh: true);
-              },
-              child: const Text('Повторить'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -3244,7 +3318,11 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   Navigator.pop(context);
                   // Share each tool report
                   for (final tool in toolsProvider.selectedTools) {
-                    await ReportService.shareToolReport(tool, context);
+                    await ReportService.shareToolReport(
+                      tool,
+                      context,
+                      ReportType.text,
+                    );
                   }
                 },
               ),
@@ -3307,6 +3385,15 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<ToolsProvider>(context, listen: false);
+      provider.loadTools();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
@@ -3318,15 +3405,7 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: StreamBuilder<int>(
-          stream: Stream.fromFuture(
-            toolsProvider.loadTools(),
-          ).asyncMap((_) => toolsProvider.totalTools),
-          builder: (context, snapshot) {
-            final count = snapshot.data ?? 0;
-            return Text('Все инструменты ($count)');
-          },
-        ),
+        title: Text('Все инструменты (${toolsProvider.totalTools})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.filter_list),
@@ -3338,117 +3417,106 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Tool>>(
-        stream: _getToolsStream(toolsProvider),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingScreen();
-          }
-
-          if (snapshot.hasError) {
-            return _buildErrorScreen(snapshot.error.toString());
-          }
-
-          final tools = snapshot.data ?? [];
-
-          return Column(
-            children: [
-              // Search
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Поиск инструментов...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+      body: toolsProvider.isLoading && toolsProvider.tools.isEmpty
+          ? _buildLoadingScreen()
+          : Column(
+              children: [
+                // Search
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск инструментов...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
                     ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
+                    onChanged: (value) {
+                      toolsProvider.setSearchQuery(value);
+                    },
                   ),
-                  onChanged: (value) {
-                    toolsProvider.setSearchQuery(value);
-                  },
                 ),
-              ),
 
-              // Active filters indicator
-              if (toolsProvider.filterLocation != 'all' ||
-                  toolsProvider.filterBrand != 'all' ||
-                  toolsProvider.filterFavorites)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                        Theme.of(
-                          context,
-                        ).colorScheme.secondary.withOpacity(0.1),
+                // Active filters indicator
+                if (toolsProvider.filterLocation != 'all' ||
+                    toolsProvider.filterBrand != 'all' ||
+                    toolsProvider.filterFavorites)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Theme.of(
+                            context,
+                          ).colorScheme.primary.withOpacity(0.1),
+                          Theme.of(
+                            context,
+                          ).colorScheme.secondary.withOpacity(0.1),
+                        ],
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.filter_alt,
+                          size: 16,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _getActiveFiltersText(toolsProvider),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => toolsProvider.clearAllFilters(),
+                          child: const Text(
+                            'Очистить',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.filter_alt,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _getActiveFiltersText(toolsProvider),
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Theme.of(context).colorScheme.primary,
-                          ),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () => toolsProvider.clearAllFilters(),
-                        child: const Text(
-                          'Очистить',
-                          style: TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
 
-              Expanded(
-                child: tools.isEmpty
-                    ? _buildEmptyToolsScreen()
-                    : ListView.builder(
-                        itemCount: tools.length,
-                        itemBuilder: (context, index) {
-                          final tool = tools[index];
-                          return SelectionToolCard(
-                            tool: tool,
-                            selectionMode: toolsProvider.selectionMode,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      EnhancedToolDetailsScreen(tool: tool),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          );
-        },
-      ),
+                Expanded(
+                  child: toolsProvider.tools.isEmpty
+                      ? _buildEmptyToolsScreen()
+                      : ListView.builder(
+                          itemCount: toolsProvider.tools.length,
+                          itemBuilder: (context, index) {
+                            final tool = toolsProvider.tools[index];
+                            return SelectionToolCard(
+                              tool: tool,
+                              selectionMode: toolsProvider.selectionMode,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        EnhancedToolDetailsScreen(tool: tool),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton: toolsProvider.selectionMode
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -3474,12 +3542,6 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
-    return Stream.fromFuture(
-      provider.loadTools(),
-    ).asyncMap((_) => provider.tools);
   }
 
   Widget _buildLoadingScreen() {
@@ -3778,7 +3840,11 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
                 onTap: () async {
                   Navigator.pop(context);
                   for (final tool in toolsProvider.selectedTools) {
-                    await ReportService.shareToolReport(tool, context);
+                    await ReportService.shareToolReport(
+                      tool,
+                      context,
+                      ReportType.text,
+                    );
                   }
                 },
               ),
@@ -3883,7 +3949,11 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
             actions: [
               IconButton(
                 icon: const Icon(Icons.share),
-                onPressed: () => ReportService.shareToolReport(tool, context),
+                onPressed: () {
+                  ReportService.showReportTypeDialog(context, tool, (type) {
+                    ReportService.shareToolReport(tool, context, type);
+                  });
+                },
               ),
               IconButton(
                 icon: const Icon(Icons.print),
@@ -4961,152 +5031,131 @@ class ObjectDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<List<Tool>>(
-      stream: _getToolsStream(context),
-      builder: (context, snapshot) {
-        Provider.of<ToolsProvider>(context);
-        final toolsOnObject =
-            snapshot.data
-                ?.where((tool) => tool.currentLocation == object.id)
-                .toList() ??
-            [];
+    final toolsProvider = Provider.of<ToolsProvider>(context);
+    final toolsOnObject = toolsProvider.tools
+        .where((tool) => tool.currentLocation == object.id)
+        .toList();
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(object.name),
-            actions: [
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => AddEditObjectScreen(object: object),
-                    ),
-                  );
-                },
-              ),
-            ],
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(object.name),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => AddEditObjectScreen(object: object),
+                ),
+              );
+            },
           ),
-          body: Column(
-            children: [
-              // Object Image
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.grey.shade100, Colors.grey.shade200],
+        ],
+      ),
+      body: Column(
+        children: [
+          // Object Image
+          Container(
+            height: 200,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.grey.shade100, Colors.grey.shade200],
+              ),
+            ),
+            child: object.displayImage != null
+                ? Image(
+                    image: object.displayImage!.startsWith('http')
+                        ? NetworkImage(object.displayImage!) as ImageProvider
+                        : FileImage(File(object.displayImage!)),
+                    fit: BoxFit.cover,
+                  )
+                : Center(
+                    child: Icon(
+                      Icons.location_city,
+                      size: 80,
+                      color: Colors.grey.shade300,
+                    ),
+                  ),
+          ),
+
+          // Object Info
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  object.name,
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
-                child: object.displayImage != null
-                    ? Image(
-                        image: object.displayImage!.startsWith('http')
-                            ? NetworkImage(object.displayImage!)
-                                  as ImageProvider
-                            : FileImage(File(object.displayImage!)),
-                        fit: BoxFit.cover,
-                      )
-                    : Center(
-                        child: Icon(
-                          Icons.location_city,
-                          size: 80,
-                          color: Colors.grey.shade300,
-                        ),
-                      ),
-              ),
-
-              // Object Info
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(height: 8),
+                if (object.description.isNotEmpty)
+                  Text(
+                    object.description,
+                    style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                const SizedBox(height: 16),
+                Row(
                   children: [
+                    const Icon(Icons.build, color: Colors.grey),
+                    const SizedBox(width: 8),
                     Text(
-                      object.name,
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (object.description.isNotEmpty)
-                      Text(
-                        object.description,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        const Icon(Icons.build, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Инструментов на объекте: ${toolsOnObject.length}',
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Icon(Icons.calendar_today, color: Colors.grey),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Создан: ${DateFormat('dd.MM.yyyy').format(object.createdAt)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
+                      'Инструментов на объекте: ${toolsOnObject.length}',
+                      style: const TextStyle(fontSize: 16),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.calendar_today, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Создан: ${DateFormat('dd.MM.yyyy').format(object.createdAt)}',
+                      style: const TextStyle(fontSize: 14, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
 
-              const Divider(),
+          const Divider(),
 
-              // Tools on Object
-              Expanded(
-                child: toolsOnObject.isEmpty
-                    ? _buildEmptyObjectTools()
-                    : ListView.builder(
-                        itemCount: toolsOnObject.length,
-                        itemBuilder: (context, index) {
-                          final tool = toolsOnObject[index];
-                          return SelectionToolCard(
-                            tool: tool,
-                            selectionMode: false,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      EnhancedToolDetailsScreen(tool: tool),
-                                ),
-                              );
-                            },
+          // Tools on Object
+          Expanded(
+            child: toolsOnObject.isEmpty
+                ? _buildEmptyObjectTools()
+                : ListView.builder(
+                    itemCount: toolsOnObject.length,
+                    itemBuilder: (context, index) {
+                      final tool = toolsOnObject[index];
+                      return SelectionToolCard(
+                        tool: tool,
+                        selectionMode: false,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  EnhancedToolDetailsScreen(tool: tool),
+                            ),
                           );
                         },
-                      ),
-              ),
-            ],
+                      );
+                    },
+                  ),
           ),
-        );
-      },
+        ],
+      ),
     );
-  }
-
-  Stream<List<Tool>> _getToolsStream(BuildContext context) {
-    final provider = Provider.of<ToolsProvider>(context, listen: false);
-    return Stream.fromFuture(
-      provider.loadTools(),
-    ).asyncMap((_) => provider.tools);
   }
 
   Widget _buildEmptyObjectTools() {
@@ -5131,7 +5180,7 @@ class ObjectDetailsScreen extends StatelessWidget {
   }
 }
 
-// ========== ENHANCED OBJECTS LIST SCREEN WITH STREAM BUILDER ==========
+// ========== ENHANCED OBJECTS LIST SCREEN ==========
 class EnhancedObjectsListScreen extends StatefulWidget {
   const EnhancedObjectsListScreen({super.key});
 
@@ -5165,15 +5214,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: StreamBuilder<int>(
-          stream: Stream.fromFuture(
-            objectsProvider.loadObjects(),
-          ).asyncMap((_) => objectsProvider.totalObjects),
-          builder: (context, snapshot) {
-            final count = snapshot.data ?? 0;
-            return Text('Объекты ($count)');
-          },
-        ),
+        title: Text('Объекты (${objectsProvider.totalObjects})'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -5181,70 +5222,57 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<ConstructionObject>>(
-        stream: _getObjectsStream(objectsProvider),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingScreen();
-          }
-
-          if (snapshot.hasError) {
-            return _buildErrorScreen(snapshot.error.toString());
-          }
-
-          final objects = snapshot.data ?? [];
-
-          return Column(
-            children: [
-              // Search
-              Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Поиск объектов...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    filled: true,
-                    fillColor: Colors.grey.shade50,
-                  ),
-                  onChanged: (value) {
-                    objectsProvider.setSearchQuery(value);
-                  },
-                ),
-              ),
-
-              // Objects List
-              Expanded(
-                child: objects.isEmpty
-                    ? _buildEmptyObjectsScreen()
-                    : ListView.builder(
-                        itemCount: objects.length,
-                        itemBuilder: (context, index) {
-                          final object = objects[index];
-                          return ObjectCard(
-                            object: object,
-                            toolsProvider: toolsProvider,
-                            selectionMode: objectsProvider.selectionMode,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      ObjectDetailsScreen(object: object),
-                                ),
-                              );
-                            },
-                          );
-                        },
+      body: objectsProvider.isLoading && objectsProvider.objects.isEmpty
+          ? _buildLoadingScreen()
+          : Column(
+              children: [
+                // Search
+                Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск объектов...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
-              ),
-            ],
-          );
-        },
-      ),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    onChanged: (value) {
+                      objectsProvider.setSearchQuery(value);
+                    },
+                  ),
+                ),
+
+                // Objects List
+                Expanded(
+                  child: objectsProvider.objects.isEmpty
+                      ? _buildEmptyObjectsScreen()
+                      : ListView.builder(
+                          itemCount: objectsProvider.objects.length,
+                          itemBuilder: (context, index) {
+                            final object = objectsProvider.objects[index];
+                            return ObjectCard(
+                              object: object,
+                              toolsProvider: toolsProvider,
+                              selectionMode: objectsProvider.selectionMode,
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ObjectDetailsScreen(object: object),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
       floatingActionButton: objectsProvider.selectionMode
           ? FloatingActionButton.extended(
               onPressed: () {
@@ -5270,12 +5298,6 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
             ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
-  }
-
-  Stream<List<ConstructionObject>> _getObjectsStream(ObjectsProvider provider) {
-    return Stream.fromFuture(
-      provider.loadObjects(),
-    ).asyncMap((_) => provider.objects);
   }
 
   Widget _buildLoadingScreen() {
@@ -5620,71 +5642,31 @@ class FavoritesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
+    final favoriteTools = toolsProvider.favoriteTools;
 
     return Scaffold(
-      appBar: AppBar(
-        title: StreamBuilder<List<Tool>>(
-          stream: _getToolsStream(toolsProvider),
-          builder: (context, snapshot) {
-            final favoriteTools = toolsProvider.favoriteTools;
-            return Text('Избранное (${favoriteTools.length})');
-          },
-        ),
-      ),
-      body: StreamBuilder<List<Tool>>(
-        stream: _getToolsStream(toolsProvider),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return _buildLoadingScreen();
-          }
-
-          final favoriteTools = toolsProvider.favoriteTools;
-
-          return favoriteTools.isEmpty
-              ? _buildEmptyFavoritesScreen()
-              : ListView.builder(
-                  itemCount: favoriteTools.length,
-                  itemBuilder: (context, index) {
-                    final tool = favoriteTools[index];
-                    return SelectionToolCard(
-                      tool: tool,
-                      selectionMode: false,
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) =>
-                                EnhancedToolDetailsScreen(tool: tool),
-                          ),
-                        );
-                      },
+      appBar: AppBar(title: Text('Избранное (${favoriteTools.length})')),
+      body: favoriteTools.isEmpty
+          ? _buildEmptyFavoritesScreen()
+          : ListView.builder(
+              itemCount: favoriteTools.length,
+              itemBuilder: (context, index) {
+                final tool = favoriteTools[index];
+                return SelectionToolCard(
+                  tool: tool,
+                  selectionMode: false,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            EnhancedToolDetailsScreen(tool: tool),
+                      ),
                     );
                   },
                 );
-        },
-      ),
-    );
-  }
-
-  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
-    return Stream.fromFuture(
-      provider.loadTools(),
-    ).asyncMap((_) => provider.tools);
-  }
-
-  Widget _buildLoadingScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(),
-          const SizedBox(height: 20),
-          Text(
-            'Загрузка избранного...',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ],
-      ),
+              },
+            ),
     );
   }
 
@@ -5721,7 +5703,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _syncEnabled = true;
   bool _notificationsEnabled = true;
-  ThemeMode _themeMode = ThemeMode.light;
+  String _themeMode = 'light';
 
   @override
   void initState() {
@@ -5734,8 +5716,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       _syncEnabled = prefs.getBool('sync_enabled') ?? true;
       _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
-      final themeIndex = prefs.getInt('theme_mode') ?? 0;
-      _themeMode = ThemeMode.values[themeIndex];
+      _themeMode = prefs.getString('theme_mode') ?? 'light';
     });
   }
 
@@ -5743,17 +5724,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
     if (value is bool) {
       await prefs.setBool(key, value);
-    } else if (value is int) {
-      await prefs.setInt(key, value);
+    } else if (value is String) {
+      await prefs.setString(key, value);
     }
   }
 
-  Future<void> _changeTheme(ThemeMode mode) async {
+  Future<void> _changeTheme(String mode) async {
     setState(() {
       _themeMode = mode;
     });
-    await _saveSetting('theme_mode', mode.index);
-    // You can add theme switching logic here
+    await _saveSetting('theme_mode', mode);
+
+    // Reload the app with new theme
+    if (mounted) {
+      final context = navigatorKey.currentContext;
+      if (context != null) {
+        final myApp = MyApp();
+        runApp(myApp);
+      }
+    }
   }
 
   @override
@@ -5840,48 +5829,39 @@ class _ProfileScreenState extends State<ProfileScreen> {
             // Stats Grid
             Padding(
               padding: const EdgeInsets.all(16),
-              child: StreamBuilder<List<Tool>>(
-                stream: _getToolsStream(toolsProvider),
-                builder: (context, snapshot) {
-                  final totalTools = toolsProvider.totalTools;
-                  final garageTools = toolsProvider.garageTools.length;
-                  final favoriteTools = toolsProvider.favoriteTools.length;
-
-                  return GridView.count(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    childAspectRatio: 1.5,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                    children: [
-                      _buildStatCard(
-                        'Всего инструментов',
-                        '$totalTools',
-                        Icons.build,
-                        Colors.blue,
-                      ),
-                      _buildStatCard(
-                        'В гараже',
-                        '$garageTools',
-                        Icons.garage,
-                        Colors.green,
-                      ),
-                      _buildStatCard(
-                        'Объектов',
-                        '${objectsProvider.totalObjects}',
-                        Icons.location_city,
-                        Colors.orange,
-                      ),
-                      _buildStatCard(
-                        'Избранных',
-                        '$favoriteTools',
-                        Icons.favorite,
-                        Colors.red,
-                      ),
-                    ],
-                  );
-                },
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                childAspectRatio: 1.5,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                children: [
+                  _buildStatCard(
+                    'Всего инструментов',
+                    '${toolsProvider.totalTools}',
+                    Icons.build,
+                    Colors.blue,
+                  ),
+                  _buildStatCard(
+                    'В гараже',
+                    '${toolsProvider.garageTools.length}',
+                    Icons.garage,
+                    Colors.green,
+                  ),
+                  _buildStatCard(
+                    'Объектов',
+                    '${objectsProvider.totalObjects}',
+                    Icons.location_city,
+                    Colors.orange,
+                  ),
+                  _buildStatCard(
+                    'Избранных',
+                    '${toolsProvider.favoriteTools.length}',
+                    Icons.favorite,
+                    Colors.red,
+                  ),
+                ],
               ),
             ),
 
@@ -5944,7 +5924,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ListTile(
                       leading: const Icon(Icons.color_lens),
                       title: const Text('Тема приложения'),
-                      trailing: DropdownButton<ThemeMode>(
+                      trailing: DropdownButton<String>(
                         value: _themeMode,
                         onChanged: (value) {
                           if (value != null) {
@@ -5953,15 +5933,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                         items: const [
                           DropdownMenuItem(
-                            value: ThemeMode.light,
+                            value: 'light',
                             child: Text('Светлая'),
                           ),
                           DropdownMenuItem(
-                            value: ThemeMode.dark,
+                            value: 'dark',
                             child: Text('Темная'),
                           ),
                           DropdownMenuItem(
-                            value: ThemeMode.system,
+                            value: 'system',
                             child: Text('Системная'),
                           ),
                         ],
@@ -5979,10 +5959,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 children: [
                   ElevatedButton.icon(
                     onPressed: () async {
-                      await ReportService.shareInventoryReport(
-                        toolsProvider.tools,
-                        objectsProvider.objects,
+                      ReportService.showReportTypeDialog(
                         context,
+                        Tool(
+                          id: 'inventory',
+                          title: 'Инвентаризация',
+                          description: '',
+                          brand: '',
+                          uniqueId: '',
+                          currentLocation: '',
+                          currentLocationName: '',
+                          userId: authProvider.user?.uid ?? 'local',
+                        ),
+                        (type) async {
+                          await ReportService.shareInventoryReport(
+                            toolsProvider.tools,
+                            objectsProvider.objects,
+                            context,
+                            type,
+                          );
+                        },
                       );
                     },
                     icon: const Icon(Icons.share),
@@ -6040,12 +6036,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ),
     );
-  }
-
-  Stream<List<Tool>> _getToolsStream(ToolsProvider provider) {
-    return Stream.fromFuture(
-      provider.loadTools(),
-    ).asyncMap((_) => provider.tools);
   }
 
   Widget _buildStatCard(
@@ -6588,7 +6578,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    Provider.of<AuthProvider>(context);
+    final authProvider = Provider.of<AuthProvider>(context);
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -6807,14 +6797,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     if (_isLogin)
                       Row(
                         children: [
-                          Consumer<AuthProvider>(
-                            builder: (context, authProvider, child) {
-                              return Checkbox(
-                                value: authProvider.rememberMe,
-                                onChanged: (value) {
-                                  authProvider.setRememberMe(value!);
-                                },
-                              );
+                          Checkbox(
+                            value: authProvider.rememberMe,
+                            onChanged: (value) {
+                              authProvider.setRememberMe(value!);
                             },
                           ),
                           const Text('Запомнить меня'),
@@ -6860,8 +6846,6 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
 
               const SizedBox(height: 20),
-
-              // Remove quick login button
             ],
           ),
         ),
@@ -6963,10 +6947,26 @@ class _MainScreenState extends State<MainScreen> {
         listen: false,
       );
 
-      await ReportService.shareInventoryReport(
-        toolsProvider.tools,
-        objectsProvider.objects,
+      ReportService.showReportTypeDialog(
         context,
+        Tool(
+          id: 'inventory',
+          title: 'Инвентаризация',
+          description: '',
+          brand: '',
+          uniqueId: '',
+          currentLocation: '',
+          currentLocationName: '',
+          userId: FirebaseAuth.instance.currentUser?.uid ?? 'local',
+        ),
+        (type) async {
+          await ReportService.shareInventoryReport(
+            toolsProvider.tools,
+            objectsProvider.objects,
+            context,
+            type,
+          );
+        },
       );
     } catch (e) {
       ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
@@ -6987,7 +6987,8 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             home: Scaffold(body: Center(child: CircularProgressIndicator())),
             debugShowCheckedModeBanner: false,
-            theme: _buildThemeData(),
+            theme: _buildThemeData('light'),
+            darkTheme: _buildThemeData('dark'),
           );
         }
 
@@ -7009,83 +7010,105 @@ class MyApp extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),
             Provider.value(value: prefs),
           ],
-          child: MaterialApp(
-            title: 'Tooler',
-            theme: _buildThemeData(),
-            navigatorKey: navigatorKey,
-            home: Consumer<AuthProvider>(
-              builder: (context, authProvider, child) {
-                if (authProvider.isLoading) {
-                  return Scaffold(
-                    body: Center(child: CircularProgressIndicator()),
-                  );
-                }
+          child: Consumer<SharedPreferences>(
+            builder: (context, prefs, child) {
+              final themeMode = prefs.get('theme_mode') ?? 'light';
 
-                final seenWelcome = prefs.getBool('seen_welcome') ?? false;
-                if (!seenWelcome) {
-                  return WelcomeScreen(
-                    onContinue: () async {
-                      await prefs.setBool('seen_welcome', true);
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const AuthScreen(),
-                        ),
+              return MaterialApp(
+                title: 'Tooler',
+                theme: _buildThemeData('light'),
+                darkTheme: _buildThemeData('dark'),
+                themeMode: themeMode == 'dark'
+                    ? ThemeMode.dark
+                    : themeMode == 'system'
+                    ? ThemeMode.system
+                    : ThemeMode.light,
+                navigatorKey: navigatorKey,
+                home: Consumer<AuthProvider>(
+                  builder: (context, authProvider, child) {
+                    if (authProvider.isLoading) {
+                      return Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
                       );
-                    },
-                  );
-                }
+                    }
 
-                if (!authProvider.isLoggedIn) {
-                  final seenOnboarding =
-                      prefs.getBool('seen_onboarding') ?? false;
-                  if (!seenOnboarding) {
-                    return OnboardingScreen(
-                      onComplete: () async {
-                        await prefs.setBool('seen_onboarding', true);
-                      },
-                    );
-                  }
-                  return const AuthScreen();
-                }
+                    final seenWelcome = prefs.getBool('seen_welcome') ?? false;
+                    if (!seenWelcome) {
+                      return WelcomeScreen(
+                        onContinue: () async {
+                          await prefs.setBool('seen_welcome', true);
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const AuthScreen(),
+                            ),
+                          );
+                        },
+                      );
+                    }
 
-                return const MainScreen();
-              },
-            ),
-            debugShowCheckedModeBanner: false,
+                    if (!authProvider.isLoggedIn) {
+                      final seenOnboarding =
+                          prefs.getBool('seen_onboarding') ?? false;
+                      if (!seenOnboarding) {
+                        return OnboardingScreen(
+                          onComplete: () async {
+                            await prefs.setBool('seen_onboarding', true);
+                          },
+                        );
+                      }
+                      return const AuthScreen();
+                    }
+
+                    return const MainScreen();
+                  },
+                ),
+                debugShowCheckedModeBanner: false,
+              );
+            },
           ),
         );
       },
     );
   }
 
-  ThemeData _buildThemeData() {
+  ThemeData _buildThemeData(String mode) {
+    final isDark = mode == 'dark';
+
     return ThemeData(
-      primaryColor: const Color(0xFF4A6FA5),
-      colorScheme: const ColorScheme.light(
-        primary: Color(0xFF4A6FA5),
-        secondary: Color(0xFF6B8E23),
-        surface: Colors.white,
-        background: Color(0xFFF5F7FA),
-        error: Color(0xFFE63946),
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: Color(0xFF2D3748),
-        onBackground: Color(0xFF2D3748),
-        onError: Colors.white,
-      ),
-      appBarTheme: const AppBarTheme(
+      brightness: isDark ? Brightness.dark : Brightness.light,
+      primaryColor: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
+      colorScheme: isDark
+          ? const ColorScheme.dark(
+              primary: Color(0xFF1E88E5),
+              secondary: Color(0xFF4CAF50),
+              surface: Color(0xFF121212),
+              background: Color(0xFF121212),
+              error: Color(0xFFCF6679),
+            )
+          : const ColorScheme.light(
+              primary: Color(0xFF4A6FA5),
+              secondary: Color(0xFF6B8E23),
+              surface: Colors.white,
+              background: Color(0xFFF5F7FA),
+              error: Color(0xFFE63946),
+            ),
+      appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: Color(0xFF4A6FA5),
-        iconTheme: IconThemeData(color: Colors.white),
-        titleTextStyle: TextStyle(
+        backgroundColor: isDark
+            ? const Color(0xFF1E88E5)
+            : const Color(0xFF4A6FA5),
+        iconTheme: const IconThemeData(color: Colors.white),
+        titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 20,
           fontWeight: FontWeight.bold,
         ),
       ),
-      floatingActionButtonTheme: const FloatingActionButtonThemeData(
-        backgroundColor: Color(0xFF4A6FA5),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: isDark
+            ? const Color(0xFF1E88E5)
+            : const Color(0xFF4A6FA5),
         foregroundColor: Colors.white,
       ),
       cardTheme: CardThemeData(
@@ -7095,21 +7118,25 @@ class MyApp extends StatelessWidget {
       inputDecorationTheme: InputDecorationTheme(
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade400),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade400),
+          borderSide: BorderSide(
+            color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF4A6FA5), width: 2),
+          borderSide: BorderSide(
+            color: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
+            width: 2,
+          ),
         ),
         filled: true,
-        fillColor: Colors.white,
-      ),
-      buttonTheme: ButtonThemeData(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        fillColor: isDark ? Colors.grey.shade800 : Colors.white,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
@@ -7124,7 +7151,9 @@ class MyApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          side: const BorderSide(color: Color(0xFF4A6FA5)),
+          side: BorderSide(
+            color: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
+          ),
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
         ),
       ),
