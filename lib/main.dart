@@ -5540,7 +5540,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     shrinkWrap: true,
                     physics: NeverScrollableScrollPhysics(),
                     crossAxisCount: isTablet ? 4 : 2,
-                    childAspectRatio: isTablet ? 1.5 : 1,
+                    childAspectRatio: isTablet ? 1.5 : ,
                     crossAxisSpacing: 10,
                     mainAxisSpacing: 10,
                     children: [
