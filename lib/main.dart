@@ -1451,9 +1451,7 @@ class ToolsProvider with ChangeNotifier {
     if (_isLoading) return;
 
     _isLoading = true;
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   notifyListeners();
-    // });
+    notifyListeners();
 
     try {
       await LocalDatabase.init();
@@ -1462,9 +1460,6 @@ class ToolsProvider with ChangeNotifier {
       final cachedTools = LocalDatabase.tools.values.toList();
       if (cachedTools.isNotEmpty) {
         _tools = cachedTools.where((tool) => tool != null).toList();
-        // WidgetsBinding.instance.addPostFrameCallback((_) {
-        //   // notifyListeners();
-        // });
       }
 
       // Then sync with Firebase in background
@@ -1477,9 +1472,7 @@ class ToolsProvider with ChangeNotifier {
       print('Error loading tools: $e');
     } finally {
       _isLoading = false;
-      // WidgetsBinding.instance.addPostFrameCallback((_) {
-      //   notifyListeners();
-      // });
+      notifyListeners();
     }
   }
 
@@ -2039,9 +2032,7 @@ class ObjectsProvider with ChangeNotifier {
     if (_isLoading) return;
 
     _isLoading = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      notifyListeners();
-    });
+    notifyListeners();
 
     try {
       await LocalDatabase.init();
@@ -2050,9 +2041,6 @@ class ObjectsProvider with ChangeNotifier {
       final cachedObjects = LocalDatabase.objects.values.toList();
       if (cachedObjects.isNotEmpty) {
         _objects = cachedObjects.where((obj) => obj != null).toList();
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          notifyListeners();
-        });
       }
 
       if (forceRefresh || await LocalDatabase.shouldRefreshCache()) {
@@ -2064,9 +2052,7 @@ class ObjectsProvider with ChangeNotifier {
       print('Error loading objects: $e');
     } finally {
       _isLoading = false;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        notifyListeners();
-      });
+      notifyListeners();
     }
   }
 
@@ -3053,32 +3039,38 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                       // Stats cards
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildStatCard(
-                              context,
-                              'Всего',
-                              '${toolsProvider.totalTools}',
-                              Icons.build,
-                              Colors.white.withOpacity(0.2),
-                            ),
-                            const SizedBox(width: 10),
-                            _buildStatCard(
-                              context,
-                              'В гараже',
-                              '${garageTools.length}',
-                              Icons.garage,
-                              Colors.white.withOpacity(0.2),
-                            ),
-                            const SizedBox(width: 10),
-                            _buildStatCard(
-                              context,
-                              'Избранные',
-                              '${toolsProvider.favoriteTools.length}',
-                              Icons.favorite,
-                              Colors.white.withOpacity(0.2),
-                            ),
-                          ],
+                        child: SizedBox(
+                          width: MediaQuery.of(context).size.width,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.max,
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _buildStatCard(
+                                context,
+                                '    Всего    ',
+                                '${toolsProvider.totalTools}',
+                                Icons.build,
+                                Colors.white.withOpacity(0.2),
+                              ),
+                              const SizedBox(width: 10),
+                              _buildStatCard(
+                                context,
+                                'В гараже',
+                                '${garageTools.length}',
+                                Icons.garage,
+                                Colors.white.withOpacity(0.2),
+                              ),
+                              const SizedBox(width: 10),
+                              _buildStatCard(
+                                context,
+                                'Избранные',
+                                '${toolsProvider.favoriteTools.length}',
+                                Icons.favorite,
+                                Colors.white.withOpacity(0.2),
+                              ),
+                              const SizedBox(width: 10),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -3560,46 +3552,6 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildErrorScreen(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, size: 60, color: Colors.red),
-            const SizedBox(height: 20),
-            const Text(
-              'Ошибка загрузки',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final provider = Provider.of<ToolsProvider>(
-                  context,
-                  listen: false,
-                );
-                provider.loadTools(forceRefresh: true);
-              },
-              child: const Text('Повторить'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -5320,46 +5272,6 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     );
   }
 
-  Widget _buildErrorScreen(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error, size: 60, color: Colors.red),
-            const SizedBox(height: 20),
-            const Text(
-              'Ошибка загрузки',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              error,
-              textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                final provider = Provider.of<ObjectsProvider>(
-                  context,
-                  listen: false,
-                );
-                provider.loadObjects(forceRefresh: true);
-              },
-              child: const Text('Повторить'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildEmptyObjectsScreen() {
     return Center(
       child: Column(
@@ -5833,7 +5745,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: 1.5,
+                childAspectRatio: 1,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 children: [
@@ -6329,7 +6241,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     {
       'title': 'Работа с объектами',
       'description':
-          'Создавайте объекты и перемещайте инструменты между гаражом и объектами',
+          'Создавайте объекты и перемещаете инструменты между гаражом и объектами',
       'icon': Icons.location_city,
       'color': Colors.orange,
     },
@@ -6557,7 +6469,7 @@ class _AuthScreenState extends State<AuthScreen> {
               profileImage: _profileImage,
             );
 
-      if (success) {
+      if (success && authProvider.isLoggedIn) {
         // Navigate directly to main screen
         Navigator.pushReplacement(
           context,
@@ -6987,8 +6899,8 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             home: Scaffold(body: Center(child: CircularProgressIndicator())),
             debugShowCheckedModeBanner: false,
-            theme: _buildThemeData('light'),
-            darkTheme: _buildThemeData('dark'),
+            theme: _buildLightTheme(),
+            darkTheme: _buildDarkTheme(),
           );
         }
 
@@ -7012,12 +6924,12 @@ class MyApp extends StatelessWidget {
           ],
           child: Consumer<SharedPreferences>(
             builder: (context, prefs, child) {
-              final themeMode = prefs.get('theme_mode') ?? 'light';
+              final themeMode = prefs.getString('theme_mode') ?? 'light';
 
               return MaterialApp(
                 title: 'Tooler',
-                theme: _buildThemeData('light'),
-                darkTheme: _buildThemeData('dark'),
+                theme: _buildLightTheme(),
+                darkTheme: _buildDarkTheme(),
                 themeMode: themeMode == 'dark'
                     ? ThemeMode.dark
                     : themeMode == 'system'
@@ -7072,89 +6984,310 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  ThemeData _buildThemeData(String mode) {
-    final isDark = mode == 'dark';
-
+  // GitHub-like Light Theme
+  ThemeData _buildLightTheme() {
     return ThemeData(
-      brightness: isDark ? Brightness.dark : Brightness.light,
-      primaryColor: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
-      colorScheme: isDark
-          ? const ColorScheme.dark(
-              primary: Color(0xFF1E88E5),
-              secondary: Color(0xFF4CAF50),
-              surface: Color(0xFF121212),
-              background: Color(0xFF121212),
-              error: Color(0xFFCF6679),
-            )
-          : const ColorScheme.light(
-              primary: Color(0xFF4A6FA5),
-              secondary: Color(0xFF6B8E23),
-              surface: Colors.white,
-              background: Color(0xFFF5F7FA),
-              error: Color(0xFFE63946),
-            ),
+      brightness: Brightness.light,
+      primaryColor: const Color(0xFF24292e), // GitHub dark header
+      colorScheme: const ColorScheme.light(
+        primary: Color(0xFF24292e), // GitHub dark
+        secondary: Color(0xFF0366d6), // GitHub blue
+        surface: Color(0xFFffffff),
+        background: Color(0xFFf6f8fa), // GitHub light background
+        error: Color(0xFFd73a49), // GitHub red
+      ),
       appBarTheme: AppBarTheme(
         elevation: 0,
-        backgroundColor: isDark
-            ? const Color(0xFF1E88E5)
-            : const Color(0xFF4A6FA5),
+        backgroundColor: const Color(0xFF24292e), // GitHub dark header
         iconTheme: const IconThemeData(color: Colors.white),
         titleTextStyle: const TextStyle(
           color: Colors.white,
           fontSize: 20,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
         ),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF0366d6), // GitHub blue
+        unselectedItemColor: const Color(0xFF586069), // GitHub gray
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: isDark
-            ? const Color(0xFF1E88E5)
-            : const Color(0xFF4A6FA5),
+        backgroundColor: const Color(0xFF2ea44f), // GitHub green
         foregroundColor: Colors.white,
-      ),
-      cardTheme: CardThemeData(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
-          ),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: isDark ? Colors.grey.shade700 : Colors.grey.shade400,
-          ),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(
-            color: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
-            width: 2,
-          ),
-        ),
-        filled: true,
-        fillColor: isDark ? Colors.grey.shade800 : Colors.white,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          foregroundColor: Colors.white,
+          backgroundColor: const Color(0xFF2ea44f), // GitHub green
+          textStyle: const TextStyle(fontWeight: FontWeight.w500),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          side: BorderSide(
-            color: isDark ? const Color(0xFF1E88E5) : const Color(0xFF4A6FA5),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+          foregroundColor: const Color(0xFF24292e),
+          side: const BorderSide(color: Color(0xFFe1e4e8)), // GitHub border
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFFe1e4e8)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFFe1e4e8)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF0366d6), width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0xFFe1e4e8)),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFFe1e4e8),
+        thickness: 1,
+        space: 0,
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Color(0xFF24292e),
+        unselectedLabelColor: Color(0xFF586069),
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: Color(0xFFf9826c), width: 2),
+        ),
+      ),
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          color: Color(0xFF24292e),
+          fontWeight: FontWeight.w600,
+          fontSize: 32,
+        ),
+        displayMedium: TextStyle(
+          color: Color(0xFF24292e),
+          fontWeight: FontWeight.w600,
+          fontSize: 24,
+        ),
+        displaySmall: TextStyle(
+          color: Color(0xFF24292e),
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+        ),
+        titleLarge: TextStyle(
+          color: Color(0xFF24292e),
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
+        ),
+        titleMedium: TextStyle(
+          color: Color(0xFF24292e),
+          fontWeight: FontWeight.w500,
+          fontSize: 16,
+        ),
+        titleSmall: TextStyle(
+          color: Color(0xFF586069),
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+        bodyLarge: TextStyle(
+          color: Color(0xFF24292e),
+          fontSize: 16,
+          height: 1.5,
+        ),
+        bodyMedium: TextStyle(
+          color: Color(0xFF24292e),
+          fontSize: 14,
+          height: 1.5,
+        ),
+        bodySmall: TextStyle(
+          color: Color(0xFF586069),
+          fontSize: 12,
+          height: 1.5,
+        ),
+        labelLarge: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: const Color(0xFFf6f8fa),
+        labelStyle: const TextStyle(color: Color(0xFF24292e), fontSize: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0xFFe1e4e8)),
+        ),
+      ),
+    );
+  }
+
+  // GitHub Dark Theme
+  ThemeData _buildDarkTheme() {
+    return ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: const Color(0xFF0d1117), // GitHub dark background
+      colorScheme: const ColorScheme.dark(
+        primary: Color(0xFF58a6ff), // GitHub dark blue
+        secondary: Color(0xFF1f6feb), // GitHub dark accent
+        surface: Color(0xFF161b22), // GitHub dark surface
+        background: Color(0xFF0d1117), // GitHub dark background
+        error: Color(0xFFf85149), // GitHub dark red
+      ),
+      appBarTheme: AppBarTheme(
+        elevation: 0,
+        backgroundColor: const Color(0xFF161b22), // GitHub dark surface
+        iconTheme: const IconThemeData(color: Color(0xFFc9d1d9)),
+        titleTextStyle: const TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.5,
+        ),
+      ),
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: const Color(0xFF161b22),
+        selectedItemColor: const Color(0xFF58a6ff), // GitHub dark blue
+        unselectedItemColor: const Color(0xFF8b949e), // GitHub dark gray
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w500),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: const Color(0xFF238636), // GitHub dark green
+        foregroundColor: Colors.white,
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          foregroundColor: Colors.white,
+          backgroundColor: const Color(0xFF238636), // GitHub dark green
+          textStyle: const TextStyle(fontWeight: FontWeight.w500),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFFc9d1d9),
+          side: const BorderSide(
+            color: Color(0xFF30363d),
+          ), // GitHub dark border
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFF0d1117),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF30363d)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF30363d)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(6),
+          borderSide: const BorderSide(color: Color(0xFF58a6ff), width: 2),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 14,
+        ),
+      ),
+      cardTheme: CardThemeData(
+        elevation: 0,
+        color: const Color(0xFF161b22),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0xFF30363d)),
+        ),
+      ),
+      dividerTheme: const DividerThemeData(
+        color: Color(0xFF21262d),
+        thickness: 1,
+        space: 0,
+      ),
+      tabBarTheme: const TabBarThemeData(
+        labelColor: Color(0xFF58a6ff),
+        unselectedLabelColor: Color(0xFF8b949e),
+        indicator: UnderlineTabIndicator(
+          borderSide: BorderSide(color: Color(0xFFf78166), width: 2),
+        ),
+      ),
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontWeight: FontWeight.w600,
+          fontSize: 32,
+        ),
+        displayMedium: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontWeight: FontWeight.w600,
+          fontSize: 24,
+        ),
+        displaySmall: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontWeight: FontWeight.w600,
+          fontSize: 20,
+        ),
+        titleLarge: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontWeight: FontWeight.w600,
+          fontSize: 18,
+        ),
+        titleMedium: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontWeight: FontWeight.w500,
+          fontSize: 16,
+        ),
+        titleSmall: TextStyle(
+          color: Color(0xFF8b949e),
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+        bodyLarge: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontSize: 16,
+          height: 1.5,
+        ),
+        bodyMedium: TextStyle(
+          color: Color(0xFFc9d1d9),
+          fontSize: 14,
+          height: 1.5,
+        ),
+        bodySmall: TextStyle(
+          color: Color(0xFF8b949e),
+          fontSize: 12,
+          height: 1.5,
+        ),
+        labelLarge: TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w500,
+          fontSize: 14,
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: const Color(0xFF21262d),
+        labelStyle: const TextStyle(color: Color(0xFFc9d1d9), fontSize: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: const BorderSide(color: Color(0xFF30363d)),
         ),
       ),
     );
