@@ -1784,7 +1784,19 @@ class ToolsProvider with ChangeNotifier {
 
       final tool = _tools[toolIndex];
       final updatedTool = tool.copyWith(isFavorite: !tool.isFavorite);
-      await updateTool(updatedTool);
+      
+      // Update locally without showing dialog or loading state
+      _tools[toolIndex] = updatedTool;
+      await LocalDatabase.tools.put(updatedTool.id, updatedTool);
+      
+      // Add to sync queue
+      await _addToSyncQueue(
+        action: 'update',
+        collection: 'tools',
+        data: updatedTool.toJson(),
+      );
+      
+      notifyListeners();
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
@@ -6434,6 +6446,14 @@ class _AuthScreenState extends State<AuthScreen> {
         _emailController.text = savedEmail;
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   Future<void> _pickProfileImage() async {
