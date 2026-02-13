@@ -1262,6 +1262,8 @@ class AuthProvider with ChangeNotifier {
       await _auth.signOut();
       _user = null;
       _profileImage = null;
+      _userRole = 'user'; // Reset role
+      _isAdmin = false; // Reset admin status
       await _prefs.remove('profile_image_url');
       notifyListeners();
     } catch (e) {
@@ -5785,9 +5787,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Менеджер инструментов',
-                      style: TextStyle(color: Colors.white70),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          authProvider.isAdmin ? 'Администратор' : 'Менеджер инструментов',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        if (authProvider.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
