@@ -1077,6 +1077,14 @@ class AuthConstants {
   static const String roleUser = 'user';
   static const List<String> adminPermissions = ['read', 'write', 'delete', 'manage_users'];
   static const List<String> userPermissions = ['read', 'write'];
+  
+  // SECURITY NOTE: This client-side admin key is for initial development/testing only.
+  // In production, admin privilege assignment should be:
+  // 1. Verified server-side (Cloud Functions or backend API)
+  // 2. Protected by Firestore Security Rules
+  // 3. Managed through a secure admin portal
+  // The current implementation provides basic admin functionality but should not be
+  // considered secure for production use without proper backend validation.
 }
 
 // ========== AUTH PROVIDER ==========
@@ -6512,7 +6520,9 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _showAdminKeyField = false; // Show/hide admin key field
   File? _profileImage;
   
-  // Admin secret key - in production, this should be in environment variables
+  // SECURITY NOTE: Admin secret key for development/testing only.
+  // Production apps should verify admin privileges server-side.
+  // See AuthConstants class for security recommendations.
   static const String _adminSecretKey = 'TOOLER_ADMIN_2024';
 
   @override
