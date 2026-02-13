@@ -76,7 +76,7 @@ Future<void> main() async {
 
     // Initialize Firebase
     await Firebase.initializeApp(
-      options: FirebaseConfig.currentPlatform,
+      options: FirebaseConfig.options,
     );
 
     print('Firebase initialized successfully');
