@@ -26,7 +26,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     {
       'title': 'Работа с объектами',
       'description':
-          'Создавайте объекты и перемещаете инструменты между гаражом и объектами',
+          'Создавайте объекты и перемещайте инструменты между гаражом и объектами',
       'icon': Icons.location_city,
       'color': Colors.orange,
     },

@@ -59,6 +59,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
     await _saveSetting('theme_mode', mode);
 
+    // TODO: Improve theme change implementation
+    // Current approach reinitializes the entire app, which can cause unexpected behavior.
+    // Consider using a ThemeProvider/ThemeNotifier to allow MaterialApp to rebuild
+    // with the new theme without restarting the app.
     // Reload the app with new theme
     if (mounted) {
       final context = navigatorKey.currentContext;

@@ -1,5 +1,10 @@
 import 'package:firebase_core/firebase_core.dart';
 
+/// Firebase Configuration
+/// 
+/// WARNING: These are placeholder credentials for development.
+/// Replace with actual Firebase project credentials before deployment.
+/// Keep actual credentials secure and use environment variables for production.
 class FirebaseConfig {
   static const FirebaseOptions options = FirebaseOptions(
     apiKey: 'AIzaSyDummyKeyForDevelopment',
