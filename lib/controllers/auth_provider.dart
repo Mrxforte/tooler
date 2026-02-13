@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/image_service.dart';
+import '../config/constants.dart';
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -12,12 +13,16 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _rememberMe = false;
   File? _profileImage;
+  String _userRole = AuthConstants.roleUser; // Default role
+  bool _isAdmin = false;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _user != null;
   bool get rememberMe => _rememberMe;
   File? get profileImage => _profileImage;
+  String get userRole => _userRole;
+  bool get isAdmin => _isAdmin;
 
   AuthProvider(this._prefs) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
@@ -32,6 +37,23 @@ class AuthProvider with ChangeNotifier {
       final savedUser = _auth.currentUser;
       if (savedUser != null && _rememberMe) {
         _user = savedUser;
+        
+        // Load user role from Firestore
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User role loaded: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role: $e');
+        }
       }
     } catch (e) {
       print('Auth initialization error: $e');
@@ -52,6 +74,28 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
+      
+      // Load user role from Firestore
+      if (_user != null) {
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User signed in with role: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role: $e');
+          // Default to regular user if can't load role
+          _userRole = AuthConstants.roleUser;
+          _isAdmin = false;
+        }
+      }
 
       if (_rememberMe) {
         await _prefs.setString('saved_email', email);
@@ -76,6 +120,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String password, {
     File? profileImage,
+    bool isAdmin = false,
   }) async {
     try {
       _isLoading = true;
@@ -87,10 +132,15 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
+      
+      // Set user role
+      _userRole = isAdmin ? AuthConstants.roleAdmin : AuthConstants.roleUser;
+      _isAdmin = isAdmin;
 
       // Save profile image
+      String? imageUrl;
       if (profileImage != null && _user != null) {
-        final imageUrl = await ImageService.uploadImage(
+        imageUrl = await ImageService.uploadImage(
           profileImage,
           _user!.uid,
         );
@@ -109,10 +159,12 @@ class AuthProvider with ChangeNotifier {
                 'email': email,
                 'createdAt': FieldValue.serverTimestamp(),
                 'userId': _user!.uid,
-                'profileImageUrl': _profileImage != null
-                    ? await ImageService.uploadImage(_profileImage!, _user!.uid)
-                    : null,
+                'profileImageUrl': imageUrl,
+                'role': _userRole,
+                'isAdmin': _isAdmin,
+                'permissions': _isAdmin ? AuthConstants.adminPermissions : AuthConstants.userPermissions,
               });
+          print('User created with role: $_userRole');
         } catch (e) {
           print('Firestore user creation error: $e');
         }
@@ -140,6 +192,8 @@ class AuthProvider with ChangeNotifier {
       await _auth.signOut();
       _user = null;
       _profileImage = null;
+      _userRole = AuthConstants.roleUser; // Reset role
+      _isAdmin = false; // Reset admin status
       await _prefs.remove('profile_image_url');
       notifyListeners();
     } catch (e) {

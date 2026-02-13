@@ -141,10 +141,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Менеджер инструментов',
-                      style: TextStyle(color: Colors.white70),
+                    Text(
+                      authProvider.isAdmin ? 'Администратор' : 'Менеджер инструментов',
+                      style: const TextStyle(color: Colors.white70),
                     ),
+                    if (authProvider.isAdmin) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.admin_panel_settings, size: 16, color: Colors.black87),
+                            SizedBox(width: 4),
+                            Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

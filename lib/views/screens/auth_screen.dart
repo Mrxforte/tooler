@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../controllers/auth_provider.dart';
 import '../../services/image_service.dart';
 import '../../services/error_handler.dart';
+import '../../config/constants.dart';
 import 'main_screen.dart';
 
 // ========== MODERN AUTH SCREEN ==========
@@ -20,10 +21,12 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _adminKeyController = TextEditingController(); // Admin secret key
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _showAdminKeyField = false; // Show/hide admin key field
   File? _profileImage;
 
   @override
@@ -51,6 +54,15 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    _adminKeyController.dispose();
+    super.dispose();
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -64,6 +76,16 @@ class _AuthScreenState extends State<AuthScreen> {
         throw Exception('Пароли не совпадают');
       }
 
+      // Check admin key if admin field is shown
+      bool isAdmin = false;
+      if (!_isLogin && _showAdminKeyField) {
+        if (_adminKeyController.text.trim() == AuthConstants.adminSecretKey) {
+          isAdmin = true;
+        } else if (_adminKeyController.text.trim().isNotEmpty) {
+          throw Exception('Неверный ключ администратора');
+        }
+      }
+
       final success = _isLogin
           ? await authProvider.signInWithEmail(
               _emailController.text.trim(),
@@ -73,6 +95,7 @@ class _AuthScreenState extends State<AuthScreen> {
               _emailController.text.trim(),
               _passwordController.text.trim(),
               profileImage: _profileImage,
+              isAdmin: isAdmin,
             );
 
       if (success && authProvider.isLoggedIn) {
@@ -308,6 +331,42 @@ class _AuthScreenState extends State<AuthScreen> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 8),
+                      if (!_showAdminKeyField)
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = true;
+                            });
+                          },
+                          child: const Text('Есть ключ администратора?'),
+                        ),
+                      if (_showAdminKeyField) ...[
+                        TextFormField(
+                          controller: _adminKeyController,
+                          decoration: InputDecoration(
+                            labelText: 'Ключ администратора (необязательно)',
+                            helperText: 'Оставьте пустым для регистрации как обычный пользователь',
+                            prefixIcon: const Icon(Icons.admin_panel_settings),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = false;
+                              _adminKeyController.clear();
+                            });
+                          },
+                          child: const Text('Скрыть'),
+                        ),
+                      ],
                     ],
 
                     const SizedBox(height: 20),
@@ -354,6 +413,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   setState(() {
                     _isLogin = !_isLogin;
                     _profileImage = null;
+                    _showAdminKeyField = false; // Reset admin field visibility
+                    _adminKeyController.clear(); // Clear admin key
                   });
                 },
                 child: Text(
