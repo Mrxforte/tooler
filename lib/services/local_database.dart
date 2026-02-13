@@ -2,12 +2,13 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../models/tool.dart';
 import '../models/construction_object.dart';
 import '../models/sync_item.dart';
+import '../config/constants.dart';
 
 class LocalDatabase {
-  static const String toolsBox = 'tools';
-  static const String objectsBox = 'objects';
-  static const String syncQueueBox = 'sync_queue';
-  static const String appSettingsBox = 'app_settings';
+  static const String toolsBox = HiveBoxNames.toolsBox;
+  static const String objectsBox = HiveBoxNames.objectsBox;
+  static const String syncQueueBox = HiveBoxNames.syncQueueBox;
+  static const String appSettingsBox = HiveBoxNames.appSettingsBox;
 
   static Future<void> init() async {
     try {
