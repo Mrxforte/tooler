@@ -276,13 +276,13 @@ class ToolsProvider with ChangeNotifier {
       );
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Инструмент успешно добавлен',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось добавить инструмент: ${e.toString()}',
       );
     } finally {
@@ -324,7 +324,7 @@ class ToolsProvider with ChangeNotifier {
         );
 
         ErrorHandler.showSuccessDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Инструмент успешно обновлен',
         );
       } else {
@@ -333,7 +333,7 @@ class ToolsProvider with ChangeNotifier {
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось обновить инструмент: ${e.toString()}',
       );
     } finally {
@@ -347,7 +347,7 @@ class ToolsProvider with ChangeNotifier {
       final toolIndex = _tools.indexWhere((t) => t.id == toolId);
       if (toolIndex == -1) {
         ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Инструмент не найден',
         );
         return;
@@ -363,13 +363,13 @@ class ToolsProvider with ChangeNotifier {
       );
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Инструмент успешно удален',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось удалить инструмент: ${e.toString()}',
       );
     } finally {
@@ -383,7 +383,7 @@ class ToolsProvider with ChangeNotifier {
 
       if (selectedTools.isEmpty) {
         ErrorHandler.showWarningDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Выберите инструменты для удаления',
         );
         return;
@@ -402,13 +402,13 @@ class ToolsProvider with ChangeNotifier {
       _selectionMode = false;
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Удалено ${selectedTools.length} инструментов',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось удалить инструменты: ${e.toString()}',
       );
     } finally {
@@ -434,7 +434,7 @@ class ToolsProvider with ChangeNotifier {
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось дублировать инструмент: ${e.toString()}',
       );
     }
@@ -449,7 +449,7 @@ class ToolsProvider with ChangeNotifier {
       final toolIndex = _tools.indexWhere((t) => t.id == toolId);
       if (toolIndex == -1) {
         ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Инструмент не найден',
         );
         return;
@@ -477,13 +477,13 @@ class ToolsProvider with ChangeNotifier {
       await updateTool(updatedTool);
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Инструмент перемещен в $newLocationName',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось переместить инструмент: ${e.toString()}',
       );
     }
@@ -498,7 +498,7 @@ class ToolsProvider with ChangeNotifier {
 
       if (selectedTools.isEmpty) {
         ErrorHandler.showWarningDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Выберите инструменты для перемещения',
         );
         return;
@@ -534,13 +534,13 @@ class ToolsProvider with ChangeNotifier {
       _selectionMode = false;
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Перемещено ${selectedTools.length} инструментов в $newLocationName',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось переместить инструменты: ${e.toString()}',
       );
     }
@@ -569,7 +569,7 @@ class ToolsProvider with ChangeNotifier {
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось обновить статус избранного',
       );
     }
@@ -580,7 +580,7 @@ class ToolsProvider with ChangeNotifier {
       final selectedTools = _tools.where((t) => t.isSelected).toList();
       if (selectedTools.isEmpty) {
         ErrorHandler.showWarningDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Выберите инструменты',
         );
         return;
@@ -598,13 +598,13 @@ class ToolsProvider with ChangeNotifier {
 
       await loadTools();
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Обновлено ${selectedTools.length} инструментов',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось обновить статус избранного',
       );
     }

@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 class ErrorHandler {
-  static void showErrorDialog(BuildContext context, String message) {
+  static void showErrorDialog(BuildContext? context, String message) {
+    if (context == null) {
+      print('Error (no context): $message');
+      return;
+    }
     try {
       showDialog(
         context: context,
@@ -21,7 +25,11 @@ class ErrorHandler {
     }
   }
 
-  static void showSuccessDialog(BuildContext context, String message) {
+  static void showSuccessDialog(BuildContext? context, String message) {
+    if (context == null) {
+      print('Success (no context): $message');
+      return;
+    }
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -35,7 +43,11 @@ class ErrorHandler {
     }
   }
 
-  static void showWarningDialog(BuildContext context, String message) {
+  static void showWarningDialog(BuildContext? context, String message) {
+    if (context == null) {
+      print('Warning (no context): $message');
+      return;
+    }
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

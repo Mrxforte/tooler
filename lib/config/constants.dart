@@ -14,5 +14,10 @@ class AuthConstants {
   static const String roleUser = 'user';
   static const List<String> adminPermissions = ['read', 'write', 'delete', 'manage_users'];
   static const List<String> userPermissions = ['read', 'write'];
-  static const String adminSecretKey = 'TOOLER_ADMIN_2024'; // In production, use environment variables
+  
+  // WARNING: This is for DEMO/DEVELOPMENT purposes only!
+  // In production, admin verification MUST be done server-side (Firebase Cloud Functions)
+  // Never store admin keys in client code - they can be easily extracted from compiled apps
+  // This key should be removed and admin role assignment should require backend validation
+  static const String adminSecretKey = 'TOOLER_ADMIN_2024';
 }

@@ -197,13 +197,13 @@ class ObjectsProvider with ChangeNotifier {
       );
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Объект успешно добавлен',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось добавить объект: ${e.toString()}',
       );
     } finally {
@@ -236,7 +236,7 @@ class ObjectsProvider with ChangeNotifier {
       final index = _objects.indexWhere((o) => o.id == obj.id);
       if (index == -1) {
         ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Объект не найден',
         );
         return;
@@ -252,13 +252,13 @@ class ObjectsProvider with ChangeNotifier {
       );
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Объект успешно обновлен',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось обновить объект: ${e.toString()}',
       );
     } finally {
@@ -272,7 +272,7 @@ class ObjectsProvider with ChangeNotifier {
       final objectIndex = _objects.indexWhere((o) => o.id == objectId);
       if (objectIndex == -1) {
         ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Объект не найден',
         );
         return;
@@ -288,13 +288,13 @@ class ObjectsProvider with ChangeNotifier {
       );
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Объект успешно удален',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось удалить объект: ${e.toString()}',
       );
     } finally {
@@ -308,7 +308,7 @@ class ObjectsProvider with ChangeNotifier {
 
       if (selectedObjects.isEmpty) {
         ErrorHandler.showWarningDialog(
-          navigatorKey.currentContext!,
+          navigatorKey.currentContext,
           'Выберите объекты для удаления',
         );
         return;
@@ -327,13 +327,13 @@ class ObjectsProvider with ChangeNotifier {
       _selectionMode = false;
 
       ErrorHandler.showSuccessDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Удалено ${selectedObjects.length} объектов',
       );
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
       ErrorHandler.showErrorDialog(
-        navigatorKey.currentContext!,
+        navigatorKey.currentContext,
         'Не удалось удалить объекты: ${e.toString()}',
       );
     } finally {
