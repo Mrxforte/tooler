@@ -41,11 +41,12 @@ Future<void> main() async {
     Hive.registerAdapter(ConstructionObjectAdapter());
     Hive.registerAdapter(SyncItemAdapter());
     Hive.registerAdapter(MoveRequestAdapter());
+    Hive.registerAdapter(BatchMoveRequestAdapter()); // New adapter
     Hive.registerAdapter(NotificationAdapter());
 
     await Firebase.initializeApp(
       options: FirebaseOptions(
-        apiKey: 'AIzaSyDummyKeyForDevelopment',
+        apiKey: 'AIzaSyDummyKeyForDevelopment', // Replace with your actual Firebase config
         appId: '1:1234567890:android:abcdef123456',
         messagingSenderId: '1234567890',
         projectId: 'tooler-dev',
@@ -126,6 +127,29 @@ class MoveRequestAdapter extends TypeAdapter<MoveRequest> {
   }
   @override
   void write(BinaryWriter writer, MoveRequest obj) => writer.writeMap(obj.toJson());
+}
+
+// New adapter for BatchMoveRequest
+class BatchMoveRequestAdapter extends TypeAdapter<BatchMoveRequest> {
+  @override
+  final int typeId = 6;
+  @override
+  BatchMoveRequest read(BinaryReader reader) {
+    final map = reader.readMap().map((key, value) => MapEntry(key.toString(), value));
+    return BatchMoveRequest(
+      id: map['id'] as String,
+      toolIds: List<String>.from(map['toolIds']),
+      fromLocationId: map['fromLocationId'] as String,
+      fromLocationName: map['fromLocationName'] as String,
+      toLocationId: map['toLocationId'] as String,
+      toLocationName: map['toLocationName'] as String,
+      requestedBy: map['requestedBy'] as String,
+      status: map['status'] as String,
+      timestamp: DateTime.parse(map['timestamp'] as String),
+    );
+  }
+  @override
+  void write(BinaryWriter writer, BatchMoveRequest obj) => writer.writeMap(obj.toJson());
 }
 
 class NotificationAdapter extends TypeAdapter<AppNotification> {
@@ -391,6 +415,55 @@ class MoveRequest {
   );
 }
 
+// New model for batch move requests
+class BatchMoveRequest {
+  String id;
+  List<String> toolIds;
+  String fromLocationId;   // could be 'multiple' or actual origin
+  String fromLocationName;
+  String toLocationId;
+  String toLocationName;
+  String requestedBy;
+  String status;            // pending, approved, rejected
+  DateTime timestamp;
+
+  BatchMoveRequest({
+    required this.id,
+    required this.toolIds,
+    required this.fromLocationId,
+    required this.fromLocationName,
+    required this.toLocationId,
+    required this.toLocationName,
+    required this.requestedBy,
+    required this.status,
+    DateTime? timestamp,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'toolIds': toolIds,
+    'fromLocationId': fromLocationId,
+    'fromLocationName': fromLocationName,
+    'toLocationId': toLocationId,
+    'toLocationName': toLocationName,
+    'requestedBy': requestedBy,
+    'status': status,
+    'timestamp': timestamp.toIso8601String(),
+  };
+
+  factory BatchMoveRequest.fromJson(Map<String, dynamic> json) => BatchMoveRequest(
+    id: json['id'] as String,
+    toolIds: List<String>.from(json['toolIds']),
+    fromLocationId: json['fromLocationId'] as String,
+    fromLocationName: json['fromLocationName'] as String,
+    toLocationId: json['toLocationId'] as String,
+    toLocationName: json['toLocationName'] as String,
+    requestedBy: json['requestedBy'] as String,
+    status: json['status'] as String,
+    timestamp: DateTime.parse(json['timestamp'] as String),
+  );
+}
+
 class AppNotification {
   String id;
   String title;
@@ -446,6 +519,7 @@ class IdGenerator {
     return '$timestamp-$randomStr';
   }
   static String generateRequestId() => 'REQ-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+  static String generateBatchRequestId() => 'BATCH-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
   static String generateNotificationId() => 'NOT-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
 }
 
@@ -456,6 +530,7 @@ class LocalDatabase {
   static const String syncQueueBox = 'sync_queue';
   static const String appSettingsBox = 'app_settings';
   static const String moveRequestsBox = 'move_requests';
+  static const String batchMoveRequestsBox = 'batch_move_requests';
   static const String notificationsBox = 'notifications';
 
   static Future<void> init() async {
@@ -465,6 +540,7 @@ class LocalDatabase {
       await Hive.openBox<SyncItem>(syncQueueBox);
       await Hive.openBox<String>(appSettingsBox);
       await Hive.openBox<MoveRequest>(moveRequestsBox);
+      await Hive.openBox<BatchMoveRequest>(batchMoveRequestsBox);
       await Hive.openBox<AppNotification>(notificationsBox);
     } catch (e) {
       print('Error opening Hive boxes: $e');
@@ -476,6 +552,7 @@ class LocalDatabase {
   static Box<SyncItem> get syncQueue => Hive.box<SyncItem>(syncQueueBox);
   static Box<String> get appSettings => Hive.box<String>(appSettingsBox);
   static Box<MoveRequest> get moveRequests => Hive.box<MoveRequest>(moveRequestsBox);
+  static Box<BatchMoveRequest> get batchMoveRequests => Hive.box<BatchMoveRequest>(batchMoveRequestsBox);
   static Box<AppNotification> get notifications => Hive.box<AppNotification>(notificationsBox);
 
   static Future<void> saveCacheTimestamp() async {
@@ -518,35 +595,125 @@ class ImageService {
 // ========== REPORT TYPES ==========
 enum ReportType { pdf, text, screenshot }
 
-// ========== ENHANCED PDF REPORT SERVICE WITH SHARE AND PRINT ==========
+// ========== ENHANCED PDF REPORT SERVICE WITH COLOR AND STYLE ==========
 class ReportService {
   static Future<Uint8List> _generateToolReportPdf(Tool tool) async {
-    final pdf = pw.Document(); final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-    pdf.addPage(pw.Page(pageFormat: PdfPageFormat.a4, build: (pw.Context context) {
-      return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-        pw.Header(level: 0, child: pw.Text('TOOLER - ОТЧЕТ ОБ ИНСТРУМЕНТЕ', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold))),
-        pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'), pw.SizedBox(height: 20),
-        pw.Text('ОСНОВНАЯ ИНФОРМАЦИЯ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)), pw.SizedBox(height: 10),
-        pw.Table.fromTextArray(context: context, data: [
-          ['Название:', tool.title],
-          ['Бренд:', tool.brand],
-          ['Уникальный ID:', tool.uniqueId],
-          ['Модель:', tool.description.isNotEmpty ? tool.description : 'Не указана'],
-          ['Местоположение:', tool.currentLocationName],
-          ['Статус:', tool.isFavorite ? '⭐ В избранном' : '📦 В наличии'],
-          ['Дата добавления:', DateFormat('dd.MM.yyyy').format(tool.createdAt)],
-          ['Последнее обновление:', DateFormat('dd.MM.yyyy').format(tool.updatedAt)],
-        ]),
-        if (tool.locationHistory.isNotEmpty) ...[
-          pw.SizedBox(height: 20),
-          pw.Text('ИСТОРИЯ ПЕРЕМЕЩЕНИЙ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
-          pw.SizedBox(height: 10),
-          ...tool.locationHistory.map((history) => pw.Padding(padding: pw.EdgeInsets.only(bottom: 8), child: pw.Row(children: [pw.Text('• '), pw.Expanded(child: pw.Text('${history.locationName} (${DateFormat('dd.MM.yyyy').format(history.date)})'))]))),
-        ],
-        pw.Spacer(),
-        pw.Container(margin: pw.EdgeInsets.only(top: 30), padding: pw.EdgeInsets.all(10), decoration: pw.BoxDecoration(color: PdfColors.grey100, borderRadius: pw.BorderRadius.circular(5)), child: pw.Center(child: pw.Text('© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\nГенерация отчета: ${dateFormat.format(DateTime.now())}', style: pw.TextStyle(fontSize: 10, color: PdfColors.grey), textAlign: pw.TextAlign.center))),
-      ]);
-    }));
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final primaryColor = PdfColors.blue700;
+    final secondaryColor = PdfColors.orange600;
+
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                gradient: pw.LinearGradient(
+                  colors: [primaryColor, secondaryColor],
+                  begin: pw.Alignment.topLeft,
+                  end: pw.Alignment.bottomRight,
+                ),
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Row(
+                children: [
+                  pw.Icon(Icons.build as pw.IconData, size: 40, color: PdfColors.white), // Fixed
+                  pw.SizedBox(width: 10),
+                  pw.Text('TOOLER - ОТЧЕТ ОБ ИНСТРУМЕНТЕ',
+                      style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ОСНОВНАЯ ИНФОРМАЦИЯ',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+                  pw.SizedBox(height: 10),
+                  pw.Table.fromTextArray(
+                    context: context,
+                    data: [
+                      ['Название:', tool.title],
+                      ['Бренд:', tool.brand],
+                      ['Уникальный ID:', tool.uniqueId],
+                      ['Модель:', tool.description.isNotEmpty ? tool.description : 'Не указана'],
+                      ['Местоположение:', tool.currentLocationName],
+                      ['Статус:', tool.isFavorite ? '⭐ В избранном' : '📦 В наличии'],
+                      ['Дата добавления:', DateFormat('dd.MM.yyyy').format(tool.createdAt)],
+                      ['Последнее обновление:', DateFormat('dd.MM.yyyy').format(tool.updatedAt)],
+                    ],
+                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    headerDecoration: pw.BoxDecoration(color: primaryColor),
+                    cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
+                  ),
+                ],
+              ),
+            ),
+            if (tool.locationHistory.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(15),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('ИСТОРИЯ ПЕРЕМЕЩЕНИЙ',
+                        style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: secondaryColor)),
+                    pw.SizedBox(height: 10),
+                    ...tool.locationHistory.map((history) => pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 8),
+                          child: pw.Row(
+                            children: [
+                              pw.Text('• ', style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                              pw.Expanded(
+                                child: pw.Text(
+                                  '${history.locationName} (${DateFormat('dd.MM.yyyy').format(history.date)})',
+                                  style: const pw.TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ],
+            pw.Spacer(),
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 30),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey200,
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
+                  'Генерация отчета: ${dateFormat.format(DateTime.now())}',
+                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ));
     return await pdf.save();
   }
 
@@ -582,29 +749,126 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
     return report;
   }
 
-  static Future<void> shareToolReport(Tool tool, BuildContext context, ReportType reportType) async {
-    try {
-      switch (reportType) {
-        case ReportType.pdf:
-          final pdfBytes = await _generateToolReportPdf(tool);
-          final tempDir = await getTemporaryDirectory();
-          final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
-          await pdfFile.writeAsBytes(pdfBytes);
-          await Share.shareXFiles([XFile(pdfFile.path)], text: '📋 Отчет об инструменте: ${tool.title}');
-          break;
-        case ReportType.text:
-        case ReportType.screenshot:
-          await Share.share(_generateToolReportText(tool));
-          break;
-      }
-    } catch (e) {
-      await Share.share(_generateToolReportText(tool));
-    }
+  static Future<Uint8List> _generateObjectReportPdf(ConstructionObject object, List<Tool> toolsOnObject) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final primaryColor = PdfColors.orange700;
+    final secondaryColor = PdfColors.green600;
+
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                gradient: pw.LinearGradient(
+                  colors: [primaryColor, secondaryColor],
+                  begin: pw.Alignment.topLeft,
+                  end: pw.Alignment.bottomRight,
+                ),
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Row(
+                children: [
+                  pw.Icon(Icons.location_city as pw.IconData, size: 40, color: PdfColors.white), // Fixed
+                  pw.SizedBox(width: 10),
+                  pw.Text('TOOLER - ОТЧЕТ ОБ ОБЪЕКТЕ',
+                      style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ОСНОВНАЯ ИНФОРМАЦИЯ',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+                  pw.SizedBox(height: 10),
+                  pw.Table.fromTextArray(
+                    context: context,
+                    data: [
+                      ['Название:', object.name],
+                      ['Описание:', object.description.isNotEmpty ? object.description : 'Нет'],
+                      ['Инструментов:', '${toolsOnObject.length}'],
+                      ['Создан:', DateFormat('dd.MM.yyyy').format(object.createdAt)],
+                    ],
+                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    headerDecoration: pw.BoxDecoration(color: primaryColor),
+                    cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ИНСТРУМЕНТЫ НА ОБЪЕКТЕ',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: secondaryColor)),
+                  pw.SizedBox(height: 10),
+                  if (toolsOnObject.isEmpty)
+                    pw.Text('Нет инструментов', style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey))
+                  else
+                    ...toolsOnObject.map((t) => pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 8),
+                          child: pw.Row(
+                            children: [
+                              pw.Text('• ', style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                              pw.Expanded(
+                                child: pw.Text(
+                                  '${t.title} (${t.brand})${t.isFavorite ? ' ⭐' : ''}',
+                                  style: const pw.TextStyle(fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )),
+                ],
+              ),
+            ),
+            pw.Spacer(),
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 30),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey200,
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
+                  'Генерация отчета: ${dateFormat.format(DateTime.now())}',
+                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ));
+    return await pdf.save();
   }
 
-  static Future<void> shareObjectReport(ConstructionObject object, List<Tool> toolsOnObject, BuildContext context, ReportType reportType) async {
+  static String _generateObjectReportText(ConstructionObject object, List<Tool> toolsOnObject) {
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-    String textReport = '''
+    return '''
 📋 ОТЧЕТ ОБ ОБЪЕКТЕ - ${object.name}
 
 🏢 ОСНОВНАЯ ИНФОРМАЦИЯ:
@@ -622,60 +886,126 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
 📅 Отчет сгенерирован: ${dateFormat.format(DateTime.now())}
 © ${DateTime.now().year} Tooler App
 ''';
-
-    if (reportType == ReportType.pdf) {
-      final pdf = pw.Document();
-      pdf.addPage(pw.Page(pageFormat: PdfPageFormat.a4, build: (pw.Context context) {
-        return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Header(level: 0, child: pw.Text('TOOLER - ОТЧЕТ ОБ ОБЪЕКТЕ', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold))),
-          pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'), pw.SizedBox(height: 20),
-          pw.Text('ОСНОВНАЯ ИНФОРМАЦИЯ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)), pw.SizedBox(height: 10),
-          pw.Table.fromTextArray(context: context, data: [
-            ['Название:', object.name],
-            ['Описание:', object.description.isNotEmpty ? object.description : 'Нет'],
-            ['Инструментов:', '${toolsOnObject.length}'],
-            ['Создан:', DateFormat('dd.MM.yyyy').format(object.createdAt)],
-          ]),
-          pw.SizedBox(height: 20),
-          pw.Text('ИНСТРУМЕНТЫ НА ОБЪЕКТЕ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)), pw.SizedBox(height: 10),
-          ...toolsOnObject.map((t) => pw.Padding(padding: pw.EdgeInsets.only(bottom: 8), child: pw.Row(children: [pw.Text('• '), pw.Expanded(child: pw.Text('${t.title} (${t.brand})'))]))),
-        ]);
-      }));
-      final pdfBytes = await pdf.save();
-      final tempDir = await getTemporaryDirectory();
-      final pdfFile = File('${tempDir.path}/object_report_${object.id}.pdf');
-      await pdfFile.writeAsBytes(pdfBytes);
-      await Share.shareXFiles([XFile(pdfFile.path)], text: '📋 Отчет об объекте: ${object.name}');
-    } else {
-      await Share.share(textReport);
-    }
   }
 
-  static void showReportTypeDialog(BuildContext context, Tool tool, Function(ReportType) onTypeSelected) {
-    showModalBottomSheet(context: context, builder: (context) {
-      return Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Выберите тип отчета', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.red), title: const Text('PDF отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.pdf); }),
-        ListTile(leading: const Icon(Icons.text_fields, color: Colors.blue), title: const Text('Текстовый отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.text); }),
-        ListTile(leading: const Icon(Icons.screenshot, color: Colors.green), title: const Text('Скриншот отчета'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.screenshot); }),
-      ]));
-    });
-  }
+  static Future<Uint8List> _generateInventoryReportPdf(List<Tool> tools, List<ConstructionObject> objects) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final primaryColor = PdfColors.green700;
+    final secondaryColor = PdfColors.purple600;
 
-  static void showObjectReportTypeDialog(BuildContext context, ConstructionObject object, List<Tool> toolsOnObject, Function(ReportType) onTypeSelected) {
-    showModalBottomSheet(context: context, builder: (context) {
-      return Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-        const Text('Выберите тип отчета', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 20),
-        ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.red), title: const Text('PDF отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.pdf); }),
-        ListTile(leading: const Icon(Icons.text_fields, color: Colors.blue), title: const Text('Текстовый отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.text); }),
-      ]));
-    });
-  }
-
-  static Future<void> printToolReport(Tool tool, BuildContext context) async {
-    try { final pdfBytes = await _generateToolReportPdf(tool); await Printing.layoutPdf(onLayout: (_) => pdfBytes); } catch (e) { ErrorHandler.showErrorDialog(context, 'Не удалось напечатать отчет: $e'); }
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                gradient: pw.LinearGradient(
+                  colors: [primaryColor, secondaryColor],
+                  begin: pw.Alignment.topLeft,
+                  end: pw.Alignment.bottomRight,
+                ),
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Row(
+                children: [
+                  pw.Icon(Icons.inventory as pw.IconData, size: 40, color: PdfColors.white), // Fixed (use Icons.inventory or Icons.list)
+                  pw.SizedBox(width: 10),
+                  pw.Text('TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
+                      style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.white)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('СВОДКА',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: primaryColor)),
+                  pw.SizedBox(height: 10),
+                  pw.Table.fromTextArray(
+                    context: context,
+                    data: [
+                      ['Всего инструментов', '${tools.length}'],
+                      ['В гараже', '${tools.where((t) => t.currentLocation == "garage").length}'],
+                      ['На объектах', '${tools.where((t) => t.currentLocation != "garage").length}'],
+                      ['Избранных', '${tools.where((t) => t.isFavorite).length}'],
+                      ['Всего объектов', '${objects.length}'],
+                      ['С инструментами', '${objects.where((o) => o.toolIds.isNotEmpty).length}'],
+                      ['Пустых', '${objects.where((o) => o.toolIds.isEmpty).length}'],
+                    ],
+                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                    headerDecoration: pw.BoxDecoration(color: primaryColor),
+                    cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('СПИСОК ИНСТРУМЕНТОВ',
+                      style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: secondaryColor)),
+                  pw.SizedBox(height: 10),
+                  ...tools.take(50).map((tool) => pw.Padding(
+                        padding: const pw.EdgeInsets.only(bottom: 8),
+                        child: pw.Row(
+                          children: [
+                            pw.Text('• ', style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                            pw.Expanded(
+                              child: pw.Text(
+                                '${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}',
+                                style: const pw.TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )),
+                  if (tools.length > 50)
+                    pw.Text('... и еще ${tools.length - 50} инструментов',
+                        style:  pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic)),
+                ],
+              ),
+            ),
+            pw.Spacer(),
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 30),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey200,
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
+                  'Генерация отчета: ${dateFormat.format(DateTime.now())}',
+                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ));
+    return await pdf.save();
   }
 
   static String _generateInventoryReportText(List<Tool> tools, List<ConstructionObject> objects) {
@@ -711,30 +1041,76 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
 ''';
   }
 
+  static Future<void> shareToolReport(Tool tool, BuildContext context, ReportType reportType) async {
+    try {
+      switch (reportType) {
+        case ReportType.pdf:
+          final pdfBytes = await _generateToolReportPdf(tool);
+          final tempDir = await getTemporaryDirectory();
+          final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
+          await pdfFile.writeAsBytes(pdfBytes);
+          await Share.shareXFiles([XFile(pdfFile.path)], text: '📋 Отчет об инструменте: ${tool.title}');
+          break;
+        case ReportType.text:
+        case ReportType.screenshot:
+          await Share.share(_generateToolReportText(tool));
+          break;
+      }
+    } catch (e) {
+      await Share.share(_generateToolReportText(tool));
+    }
+  }
+
+  static Future<void> shareObjectReport(ConstructionObject object, List<Tool> toolsOnObject, BuildContext context, ReportType reportType) async {
+    try {
+      switch (reportType) {
+        case ReportType.pdf:
+          final pdfBytes = await _generateObjectReportPdf(object, toolsOnObject);
+          final tempDir = await getTemporaryDirectory();
+          final pdfFile = File('${tempDir.path}/object_report_${object.id}.pdf');
+          await pdfFile.writeAsBytes(pdfBytes);
+          await Share.shareXFiles([XFile(pdfFile.path)], text: '📋 Отчет об объекте: ${object.name}');
+          break;
+        case ReportType.text:
+        case ReportType.screenshot:
+          await Share.share(_generateObjectReportText(object, toolsOnObject));
+          break;
+      }
+    } catch (e) {
+      await Share.share(_generateObjectReportText(object, toolsOnObject));
+    }
+  }
+
+  static void showReportTypeDialog(BuildContext context, Tool tool, Function(ReportType) onTypeSelected) {
+    showModalBottomSheet(context: context, builder: (context) {
+      return Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Выберите тип отчета', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.red), title: const Text('PDF отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.pdf); }),
+        ListTile(leading: const Icon(Icons.text_fields, color: Colors.blue), title: const Text('Текстовый отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.text); }),
+        ListTile(leading: const Icon(Icons.screenshot, color: Colors.green), title: const Text('Скриншот отчета'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.screenshot); }),
+      ]));
+    });
+  }
+
+  static void showObjectReportTypeDialog(BuildContext context, ConstructionObject object, List<Tool> toolsOnObject, Function(ReportType) onTypeSelected) {
+    showModalBottomSheet(context: context, builder: (context) {
+      return Container(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Выберите тип отчета', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 20),
+        ListTile(leading: const Icon(Icons.picture_as_pdf, color: Colors.red), title: const Text('PDF отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.pdf); }),
+        ListTile(leading: const Icon(Icons.text_fields, color: Colors.blue), title: const Text('Текстовый отчет'), onTap: () { Navigator.pop(context); onTypeSelected(ReportType.text); }),
+      ]));
+    });
+  }
+
+  static Future<void> printToolReport(Tool tool, BuildContext context) async {
+    try { final pdfBytes = await _generateToolReportPdf(tool); await Printing.layoutPdf(onLayout: (_) => pdfBytes); } catch (e) { ErrorHandler.showErrorDialog(context, 'Не удалось напечатать отчет: $e'); }
+  }
+
   static Future<void> shareInventoryReport(List<Tool> tools, List<ConstructionObject> objects, BuildContext context, ReportType reportType) async {
     if (reportType == ReportType.pdf) {
-      final pdf = pw.Document(); final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
-      pdf.addPage(pw.Page(pageFormat: PdfPageFormat.a4, build: (pw.Context context) {
-        return pw.Column(crossAxisAlignment: pw.CrossAxisAlignment.start, children: [
-          pw.Header(level: 0, child: pw.Text('TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ', style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold))),
-          pw.Text('Сгенерировано: ${dateFormat.format(DateTime.now())}'), pw.SizedBox(height: 20),
-          pw.Text('СВОДКА ИНВЕНТАРИЗАЦИИ', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)), pw.SizedBox(height: 15),
-          pw.Table.fromTextArray(context: context, data: [
-            ['Всего инструментов', '${tools.length}'],
-            ['В гараже', '${tools.where((t) => t.currentLocation == "garage").length}'],
-            ['На объектах', '${tools.where((t) => t.currentLocation != "garage").length}'],
-            ['Избранных', '${tools.where((t) => t.isFavorite).length}'],
-            ['Всего объектов', '${objects.length}'],
-            ['С инструментами', '${objects.where((o) => o.toolIds.isNotEmpty).length}'],
-            ['Пустых', '${objects.where((o) => o.toolIds.isEmpty).length}'],
-          ]),
-          pw.SizedBox(height: 30),
-          pw.Text('СПИСОК ИНСТРУМЕНТОВ', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)), pw.SizedBox(height: 10),
-          ...tools.take(50).map((tool) => pw.Padding(padding: pw.EdgeInsets.only(bottom: 8), child: pw.Row(children: [pw.Text('• '), pw.Expanded(child: pw.Text('${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}'))]))),
-          if (tools.length > 50) pw.Text('... и еще ${tools.length - 50} инструментов', style: pw.TextStyle(fontSize: 12, fontStyle: pw.FontStyle.italic)),
-        ]);
-      }));
-      final pdfBytes = await pdf.save();
+      final pdfBytes = await _generateInventoryReportPdf(tools, objects);
       final tempDir = await getTemporaryDirectory();
       final pdfFile = File('${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
       await pdfFile.writeAsBytes(pdfBytes);
@@ -745,7 +1121,7 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
   }
 }
 
-// ========== ERROR HANDLER ==========
+// ========== ERROR HANDLER (with Russian messages) ==========
 class ErrorHandler {
   static void showErrorDialog(BuildContext context, String message) {
     showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Ошибка'), content: Text(message), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))]));
@@ -757,6 +1133,26 @@ class ErrorHandler {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message), backgroundColor: Colors.orange, duration: const Duration(seconds: 2)));
   }
   static void handleError(Object error, StackTrace stackTrace) { print('Error: $error'); print('Stack trace: $stackTrace'); }
+  static String getFirebaseErrorMessage(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'email-already-in-use':
+        return 'Этот email уже зарегистрирован.';
+      case 'invalid-email':
+        return 'Некорректный email адрес.';
+      case 'operation-not-allowed':
+        return 'Операция не разрешена.';
+      case 'weak-password':
+        return 'Слишком простой пароль.';
+      case 'user-disabled':
+        return 'Пользователь отключен.';
+      case 'user-not-found':
+        return 'Пользователь не найден.';
+      case 'wrong-password':
+        return 'Неверный пароль.';
+      default:
+        return 'Ошибка: ${e.message}';
+    }
+  }
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -813,7 +1209,7 @@ extension NotificationCopy on AppNotification {
   }
 }
 
-// ========== MOVE REQUEST PROVIDER ==========
+// ========== MOVE REQUEST PROVIDER (single) ==========
 class MoveRequestProvider with ChangeNotifier {
   List<MoveRequest> _requests = [];
 
@@ -852,7 +1248,132 @@ class MoveRequestProvider with ChangeNotifier {
   }
 }
 
-// ========== AUTH PROVIDER with ROLE ==========
+// ========== BATCH MOVE REQUEST PROVIDER (multiple tools) ==========
+class BatchMoveRequestProvider with ChangeNotifier {
+  List<BatchMoveRequest> _requests = [];
+
+  List<BatchMoveRequest> get pendingRequests => _requests.where((r) => r.status == 'pending').toList();
+  List<BatchMoveRequest> get userRequests => _requests.where((r) => r.requestedBy == FirebaseAuth.instance.currentUser?.uid).toList();
+
+  Future<void> loadRequests() async {
+    await LocalDatabase.init();
+    _requests = LocalDatabase.batchMoveRequests.values.toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    notifyListeners();
+  }
+
+  Future<void> createRequest(BatchMoveRequest request) async {
+    _requests.add(request);
+    await LocalDatabase.batchMoveRequests.put(request.id, request);
+    notifyListeners();
+  }
+
+  Future<void> updateRequestStatus(String requestId, String status) async {
+    final index = _requests.indexWhere((r) => r.id == requestId);
+    if (index != -1) {
+      _requests[index] = BatchMoveRequest(
+        id: _requests[index].id,
+        toolIds: _requests[index].toolIds,
+        fromLocationId: _requests[index].fromLocationId,
+        fromLocationName: _requests[index].fromLocationName,
+        toLocationId: _requests[index].toLocationId,
+        toLocationName: _requests[index].toLocationName,
+        requestedBy: _requests[index].requestedBy,
+        status: status,
+        timestamp: _requests[index].timestamp,
+      );
+      await LocalDatabase.batchMoveRequests.put(requestId, _requests[index]);
+      notifyListeners();
+    }
+  }
+}
+
+// ========== USER MODEL WITH PERMISSIONS ==========
+class AppUser {
+  final String uid;
+  final String email;
+  final String role;
+  final bool canMoveTools;
+  final bool canControlObjects;
+  final DateTime createdAt;
+
+  AppUser({
+    required this.uid,
+    required this.email,
+    required this.role,
+    this.canMoveTools = false,
+    this.canControlObjects = false,
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  factory AppUser.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+    return AppUser(
+      uid: doc.id,
+      email: data['email'] ?? '',
+      role: data['role'] ?? 'user',
+      canMoveTools: data['canMoveTools'] ?? false,
+      canControlObjects: data['canControlObjects'] ?? false,
+      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+    );
+  }
+
+  Map<String, dynamic> toFirestore() => {
+    'email': email,
+    'role': role,
+    'canMoveTools': canMoveTools,
+    'canControlObjects': canControlObjects,
+    'createdAt': Timestamp.fromDate(createdAt),
+  };
+}
+
+// ========== USERS PROVIDER (for admin) ==========
+class UsersProvider with ChangeNotifier {
+  List<AppUser> _users = [];
+  bool _isLoading = false;
+
+  List<AppUser> get users => List.unmodifiable(_users);
+  bool get isLoading => _isLoading;
+
+  Future<void> loadUsers() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('users').get();
+      _users = snapshot.docs.map((doc) => AppUser.fromFirestore(doc)).toList()
+        ..sort((a, b) => a.email.compareTo(b.email));
+    } catch (e) {
+      print('Error loading users: $e');
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> updateUserPermissions(String uid, {bool? canMoveTools, bool? canControlObjects}) async {
+    try {
+      final Map<String, dynamic> updates = {};
+      if (canMoveTools != null) updates['canMoveTools'] = canMoveTools;
+      if (canControlObjects != null) updates['canControlObjects'] = canControlObjects;
+      await FirebaseFirestore.instance.collection('users').doc(uid).update(updates);
+      final index = _users.indexWhere((u) => u.uid == uid);
+      if (index != -1) {
+        _users[index] = AppUser(
+          uid: _users[index].uid,
+          email: _users[index].email,
+          role: _users[index].role,
+          canMoveTools: canMoveTools ?? _users[index].canMoveTools,
+          canControlObjects: canControlObjects ?? _users[index].canControlObjects,
+          createdAt: _users[index].createdAt,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Error updating user permissions: $e');
+    }
+  }
+}
+
+// ========== AUTH PROVIDER with ROLE and PERMISSIONS ==========
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
@@ -861,6 +1382,8 @@ class AuthProvider with ChangeNotifier {
   bool _rememberMe = false;
   File? _profileImage;
   String? _role;
+  bool _canMoveTools = false;
+  bool _canControlObjects = false;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -869,10 +1392,23 @@ class AuthProvider with ChangeNotifier {
   File? get profileImage => _profileImage;
   String? get role => _role;
   bool get isAdmin => _role == 'admin';
+  bool get canMoveTools => _canMoveTools || isAdmin;
+  bool get canControlObjects => _canControlObjects || isAdmin;
 
   AuthProvider(this._prefs) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
     _initializeAuth();
+    _auth.authStateChanges().listen((user) {
+      _user = user;
+      if (user != null) {
+        _fetchUserData(user.uid);
+      } else {
+        _role = null;
+        _canMoveTools = false;
+        _canControlObjects = false;
+      }
+      notifyListeners();
+    });
   }
 
   Future<void> _initializeAuth() async {
@@ -881,25 +1417,33 @@ class AuthProvider with ChangeNotifier {
       final savedUser = _auth.currentUser;
       if (savedUser != null && _rememberMe) {
         _user = savedUser;
-        await _fetchUserRole(savedUser.uid);
+        await _fetchUserData(savedUser.uid);
       }
     } catch (e) { print('Auth initialization error: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
-  Future<void> _fetchUserRole(String uid) async {
+  Future<void> _fetchUserData(String uid) async {
     try {
       final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
       if (doc.exists) {
-        _role = doc.data()?['role'] ?? 'user';
+        final data = doc.data()!;
+        _role = data['role'] ?? 'user';
+        _canMoveTools = data['canMoveTools'] ?? false;
+        _canControlObjects = data['canControlObjects'] ?? false;
       } else {
+        // Create default user doc if missing
         await FirebaseFirestore.instance.collection('users').doc(uid).set({
           'email': _user!.email,
           'role': 'user',
+          'canMoveTools': false,
+          'canControlObjects': false,
           'createdAt': FieldValue.serverTimestamp(),
         });
         _role = 'user';
+        _canMoveTools = false;
+        _canControlObjects = false;
       }
-    } catch (e) { print('Error fetching role: $e'); _role = 'user'; }
+    } catch (e) { print('Error fetching user data: $e'); _role = 'user'; }
     notifyListeners();
   }
 
@@ -908,10 +1452,16 @@ class AuthProvider with ChangeNotifier {
       _isLoading = true; notifyListeners();
       final userCredential = await _auth.signInWithEmailAndPassword(email: email, password: password);
       _user = userCredential.user;
-      if (_user != null) await _fetchUserRole(_user!.uid);
+      if (_user != null) await _fetchUserData(_user!.uid);
       if (_rememberMe) await _prefs.setString('saved_email', email);
       return true;
-    } catch (e) { return false; } finally { _isLoading = false; notifyListeners(); }
+    } on FirebaseAuthException catch (e) {
+      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, ErrorHandler.getFirebaseErrorMessage(e));
+      return false;
+    } catch (e) {
+      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Неизвестная ошибка');
+      return false;
+    } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<bool> signUpWithEmail(String email, String password, {File? profileImage, String? adminPhrase}) async {
@@ -929,19 +1479,28 @@ class AuthProvider with ChangeNotifier {
         await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
           'email': email,
           'role': role,
+          'canMoveTools': false,
+          'canControlObjects': false,
           'createdAt': FieldValue.serverTimestamp(),
-          'userId': _user!.uid,
         });
         _role = role;
+        _canMoveTools = false;
+        _canControlObjects = false;
       }
       if (_rememberMe) await _prefs.setString('saved_email', email);
       return true;
-    } catch (e) { return false; } finally { _isLoading = false; notifyListeners(); }
+    } on FirebaseAuthException catch (e) {
+      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, ErrorHandler.getFirebaseErrorMessage(e));
+      return false;
+    } catch (e) {
+      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Неизвестная ошибка');
+      return false;
+    } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<void> signOut() async {
     await _auth.signOut();
-    _user = null; _profileImage = null; _role = null;
+    _user = null; _profileImage = null; _role = null; _canMoveTools = false; _canControlObjects = false;
     notifyListeners();
   }
 
@@ -967,7 +1526,7 @@ class AuthProvider with ChangeNotifier {
   }
 }
 
-// ========== ENHANCED TOOLS PROVIDER (with admin checks and move request) ==========
+// ========== ENHANCED TOOLS PROVIDER (with permission checks) ==========
 class ToolsProvider with ChangeNotifier {
   List<Tool> _tools = [];
   bool _isLoading = false;
@@ -1047,13 +1606,13 @@ class ToolsProvider with ChangeNotifier {
     } catch (e) { print('Error loading tools: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
-  // Admin-only methods
+  // Admin or user with permission checks
   Future<void> addTool(Tool tool, {File? imageFile}) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can add tools'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Только администратор может добавлять инструменты'); return; }
     try {
       _isLoading = true; notifyListeners();
-      if (tool.title.isEmpty || tool.brand.isEmpty || tool.uniqueId.isEmpty) throw Exception('Fill required fields');
+      if (tool.title.isEmpty || tool.brand.isEmpty || tool.uniqueId.isEmpty) throw Exception('Заполните обязательные поля');
       if (imageFile != null) {
         final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
@@ -1063,16 +1622,16 @@ class ToolsProvider with ChangeNotifier {
       _tools.add(tool);
       await LocalDatabase.tools.put(tool.id, tool);
       await _addToSyncQueue(action: 'create', collection: 'tools', data: tool.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Tool added');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { _isLoading = false; notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент добавлен');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<void> updateTool(Tool tool, {File? imageFile}) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can edit tools'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Только администратор может редактировать инструменты'); return; }
     try {
       _isLoading = true; notifyListeners();
-      if (tool.title.isEmpty || tool.brand.isEmpty || tool.uniqueId.isEmpty) throw Exception('Fill required fields');
+      if (tool.title.isEmpty || tool.brand.isEmpty || tool.uniqueId.isEmpty) throw Exception('Заполните обязательные поля');
       if (imageFile != null) {
         final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
@@ -1084,48 +1643,48 @@ class ToolsProvider with ChangeNotifier {
         _tools[index] = tool;
         await LocalDatabase.tools.put(tool.id, tool);
         await _addToSyncQueue(action: 'update', collection: 'tools', data: tool.toJson());
-        ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Tool updated');
-      } else throw Exception('Tool not found');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { _isLoading = false; notifyListeners(); }
+        ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент обновлён');
+      } else throw Exception('Инструмент не найден');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<void> deleteTool(String toolId) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can delete tools'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Только администратор может удалять инструменты'); return; }
     try {
       final index = _tools.indexWhere((t) => t.id == toolId);
-      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Tool not found'); return; }
+      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден'); return; }
       _tools.removeAt(index);
       await LocalDatabase.tools.delete(toolId);
       await _addToSyncQueue(action: 'delete', collection: 'tools', data: {'id': toolId});
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Tool deleted');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент удалён');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { notifyListeners(); }
   }
 
   Future<void> deleteSelectedTools() async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can delete tools'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Только администратор может удалять инструменты'); return; }
     try {
       final selected = _tools.where((t) => t.isSelected).toList();
-      if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Select tools'); return; }
+      if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты'); return; }
       for (final tool in selected) {
         await LocalDatabase.tools.delete(tool.id);
         await _addToSyncQueue(action: 'delete', collection: 'tools', data: {'id': tool.id});
       }
       _tools.removeWhere((t) => t.isSelected);
       _selectionMode = false;
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Deleted ${selected.length} tools');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Удалено ${selected.length} инструментов');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { notifyListeners(); }
   }
 
   Future<void> duplicateTool(Tool original) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can duplicate tools'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Только администратор может копировать инструменты'); return; }
     try {
       final copyCount = _tools.where((t) => t.title.startsWith(original.title) && t.title.contains('Копия')).length + 1;
       final newTool = original.duplicate(copyCount);
       await addTool(newTool);
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); }
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); }
   }
 
   // Favorites - available to all users
@@ -1141,25 +1700,26 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> toggleFavoriteForSelected() async {
     final selected = _tools.where((t) => t.isSelected).toList();
-    if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Select tools'); return; }
+    if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты'); return; }
     for (final tool in selected) {
       final updated = tool.copyWith(isFavorite: !tool.isFavorite);
       await LocalDatabase.tools.put(updated.id, updated);
       await _addToSyncQueue(action: 'update', collection: 'tools', data: updated.toJson());
     }
     await loadTools();
-    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Updated ${selected.length} tools');
+    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Обновлено ${selected.length} инструментов');
   }
 
-  // Move logic with admin approval for non-admins
+  // Move logic with permissions
   Future<void> requestMoveTool(String toolId, String toLocationId, String toLocationName) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (auth.isAdmin) {
+    if (auth.canMoveTools) {
+      // User has permission to move directly
       await moveTool(toolId, toLocationId, toLocationName);
       return;
     }
     final toolIndex = _tools.indexWhere((t) => t.id == toolId);
-    if (toolIndex == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Tool not found'); return; }
+    if (toolIndex == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден'); return; }
     final tool = _tools[toolIndex];
     final request = MoveRequest(
       id: IdGenerator.generateRequestId(),
@@ -1188,10 +1748,10 @@ class ToolsProvider with ChangeNotifier {
     ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Запрос отправлен администратору');
   }
 
-  // Admin directly moves tool (internal method)
+  // Internal move method
   Future<void> moveTool(String toolId, String newLocationId, String newLocationName) async {
     final toolIndex = _tools.indexWhere((t) => t.id == toolId);
-    if (toolIndex == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Tool not found'); return; }
+    if (toolIndex == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден'); return; }
     final tool = _tools[toolIndex];
     final oldLocationId = tool.currentLocation;
     final oldLocationName = tool.currentLocationName;
@@ -1203,14 +1763,14 @@ class ToolsProvider with ChangeNotifier {
       isSelected: false,
     );
     await updateTool(updatedTool);
-    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Tool moved to $newLocationName');
+    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент перемещён в $newLocationName');
   }
 
   Future<void> moveSelectedTools(String newLocationId, String newLocationName) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can move multiple tools'); return; }
+    if (!auth.canMoveTools) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'У вас нет прав на перемещение нескольких инструментов'); return; }
     final selected = _tools.where((t) => t.isSelected).toList();
-    if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Select tools'); return; }
+    if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты'); return; }
     for (final tool in selected) {
       final updatedTool = tool.copyWith(
         locationHistory: [...tool.locationHistory, LocationHistory(date: DateTime.now(), locationId: tool.currentLocation, locationName: tool.currentLocationName)],
@@ -1223,7 +1783,43 @@ class ToolsProvider with ChangeNotifier {
       await _addToSyncQueue(action: 'update', collection: 'tools', data: updatedTool.toJson());
     }
     await loadTools(); _selectionMode = false;
-    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Moved ${selected.length} tools to $newLocationName');
+    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Перемещено ${selected.length} инструментов в $newLocationName');
+  }
+
+  Future<void> requestMoveSelectedTools(List<Tool> selectedTools, String toLocationId, String toLocationName) async {
+    final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
+    if (auth.canMoveTools) {
+      // User can move directly
+      await moveSelectedTools(toLocationId, toLocationName);
+      return;
+    }
+    // Create batch request
+    final request = BatchMoveRequest(
+      id: IdGenerator.generateBatchRequestId(),
+      toolIds: selectedTools.map((t) => t.id).toList(),
+      fromLocationId: 'multiple',
+      fromLocationName: 'Разные',
+      toLocationId: toLocationId,
+      toLocationName: toLocationName,
+      requestedBy: auth.user!.uid,
+      status: 'pending',
+    );
+    final batchProvider = Provider.of<BatchMoveRequestProvider>(navigatorKey.currentContext!, listen: false);
+    await batchProvider.createRequest(request);
+    // Notify admins
+    final adminSnapshot = await FirebaseFirestore.instance.collection('users').where('role', isEqualTo: 'admin').get();
+    for (var doc in adminSnapshot.docs) {
+      final notif = AppNotification(
+        id: IdGenerator.generateNotificationId(),
+        title: 'Новый групповой запрос',
+        body: '${selectedTools.length} инструментов → $toLocationName',
+        type: 'batch_move_request',
+        relatedId: request.id,
+        userId: doc.id,
+      );
+      await Provider.of<NotificationProvider>(navigatorKey.currentContext!, listen: false).addNotification(notif);
+    }
+    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Запрос отправлен администратору');
   }
 
   Future<void> _addToSyncQueue({required String action, required String collection, required Map<String, dynamic> data}) async {
@@ -1251,7 +1847,7 @@ class ToolsProvider with ChangeNotifier {
   }
 }
 
-// ========== ENHANCED OBJECTS PROVIDER (with admin checks) ==========
+// ========== ENHANCED OBJECTS PROVIDER (with permission checks) ==========
 class ObjectsProvider with ChangeNotifier {
   List<ConstructionObject> _objects = [];
   bool _isLoading = false;
@@ -1308,10 +1904,10 @@ class ObjectsProvider with ChangeNotifier {
 
   Future<void> addObject(ConstructionObject obj, {File? imageFile}) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can add objects'); return; }
+    if (!auth.canControlObjects) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'У вас нет прав на добавление объектов'); return; }
     try {
       _isLoading = true; notifyListeners();
-      if (obj.name.isEmpty) throw Exception('Name required');
+      if (obj.name.isEmpty) throw Exception('Введите название');
       if (imageFile != null) {
         final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
@@ -1321,16 +1917,16 @@ class ObjectsProvider with ChangeNotifier {
       _objects.add(obj);
       await LocalDatabase.objects.put(obj.id, obj);
       await _addToSyncQueue(action: 'create', collection: 'objects', data: obj.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Object added');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { _isLoading = false; notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект добавлен');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<void> updateObject(ConstructionObject obj, {File? imageFile}) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can edit objects'); return; }
+    if (!auth.canControlObjects) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'У вас нет прав на редактирование объектов'); return; }
     try {
       _isLoading = true; notifyListeners();
-      if (obj.name.isEmpty) throw Exception('Name required');
+      if (obj.name.isEmpty) throw Exception('Введите название');
       if (imageFile != null) {
         final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
@@ -1338,41 +1934,41 @@ class ObjectsProvider with ChangeNotifier {
         else obj = obj.copyWith(localImagePath: imageFile.path, imageUrl: null);
       }
       final index = _objects.indexWhere((o) => o.id == obj.id);
-      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Object not found'); return; }
+      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Объект не найден'); return; }
       _objects[index] = obj;
       await LocalDatabase.objects.put(obj.id, obj);
       await _addToSyncQueue(action: 'update', collection: 'objects', data: obj.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Object updated');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { _isLoading = false; notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект обновлён');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { _isLoading = false; notifyListeners(); }
   }
 
   Future<void> deleteObject(String objectId) async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can delete objects'); return; }
+    if (!auth.canControlObjects) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'У вас нет прав на удаление объектов'); return; }
     try {
       final index = _objects.indexWhere((o) => o.id == objectId);
-      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Object not found'); return; }
+      if (index == -1) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Объект не найден'); return; }
       _objects.removeAt(index);
       await LocalDatabase.objects.delete(objectId);
       await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': objectId});
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Object deleted');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект удалён');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { notifyListeners(); }
   }
 
   Future<void> deleteSelectedObjects() async {
     final auth = Provider.of<AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Only admin can delete objects'); return; }
+    if (!auth.canControlObjects) { ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'У вас нет прав на удаление объектов'); return; }
     try {
       final selected = _objects.where((o) => o.isSelected).toList();
-      if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Select objects'); return; }
+      if (selected.isEmpty) { ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите объекты'); return; }
       for (final obj in selected) {
         await LocalDatabase.objects.delete(obj.id);
         await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': obj.id});
       }
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Deleted ${selected.length} objects');
-    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Failed: $e'); } finally { notifyListeners(); }
+      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Удалено ${selected.length} объектов');
+    } catch (e, s) { ErrorHandler.handleError(e, s); ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e'); } finally { notifyListeners(); }
   }
 
   Future<void> _addToSyncQueue({required String action, required String collection, required Map<String, dynamic> data}) async {
@@ -1392,7 +1988,7 @@ class ObjectsProvider with ChangeNotifier {
   }
 }
 
-// ========== SELECTION TOOL CARD (updated to conditionally show admin actions) ==========
+// ========== SELECTION TOOL CARD (updated with permission checks) ==========
 class SelectionToolCard extends StatelessWidget {
   final Tool tool;
   final bool selectionMode;
@@ -1436,7 +2032,7 @@ class SelectionToolCard extends StatelessWidget {
                     }
                     items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.share), title: const Text('Поделиться отчетом'), onTap: () { Navigator.pop(context); ReportService.showReportTypeDialog(context, tool, (type) => ReportService.shareToolReport(tool, context, type)); })));
                     items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.print), title: const Text('Печать отчета'), onTap: () { Navigator.pop(context); ReportService.printToolReport(tool, context); })));
-                    items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.blue), title: Text(authProvider.isAdmin ? 'Переместить' : 'Запросить перемещение'), onTap: () { Navigator.pop(context); _showMoveDialog(context, tool, authProvider.isAdmin); })));
+                    items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.blue), title: Text(authProvider.canMoveTools ? 'Переместить' : 'Запросить перемещение'), onTap: () { Navigator.pop(context); _showMoveDialog(context, tool, authProvider); })));
                     if (authProvider.isAdmin) {
                       items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Удалить', style: TextStyle(color: Colors.red)), onTap: () { Navigator.pop(context); _showDeleteDialog(context, tool); })));
                     }
@@ -1451,17 +2047,15 @@ class SelectionToolCard extends StatelessWidget {
     );
   }
 
-  void _showMoveDialog(BuildContext context, Tool tool, bool isAdmin) {
+  void _showMoveDialog(BuildContext context, Tool tool, AuthProvider auth) {
     final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
     String? selectedId = tool.currentLocation;
     String? selectedName = tool.currentLocationName;
     showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) {
       return StatefulBuilder(builder: (context, setState) {
-        return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius:  BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade100] ,
-         
-        )), child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(isAdmin ? 'Переместить инструмент' : 'Запросить перемещение', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+        return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius:  BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade100] ,)), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(auth.canMoveTools ? 'Переместить инструмент' : 'Запросить перемещение', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 20),
             ListTile(leading: const Icon(Icons.garage, color: Colors.blue), title: const Text('Гараж'), trailing: selectedId == 'garage' ? const Icon(Icons.check, color: Colors.green) : null, onTap: () { setState(() { selectedId = 'garage'; selectedName = 'Гараж'; }); }),
             const Divider(),
@@ -1472,14 +2066,14 @@ class SelectionToolCard extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(child: ElevatedButton(onPressed: () async {
                 if (selectedId != null && selectedName != null) {
-                  if (isAdmin) {
+                  if (auth.canMoveTools) {
                     await toolsProvider.moveTool(tool.id, selectedId!, selectedName!);
                   } else {
                     await toolsProvider.requestMoveTool(tool.id, selectedId!, selectedName!);
                   }
                   Navigator.pop(context);
                 }
-              }, child: Text(isAdmin ? 'Переместить' : 'Отправить запрос'))),
+              }, child: Text(auth.canMoveTools ? 'Переместить' : 'Отправить запрос'))),
             ]),
           ]));
       });
@@ -1488,7 +2082,7 @@ class SelectionToolCard extends StatelessWidget {
 
   void _showDeleteDialog(BuildContext context, Tool tool) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(context, 'Only admin can delete'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(context, 'Только администратор может удалять'); return; }
     showDialog(context: context, builder: (context) => AlertDialog(
       title: const Text('Подтверждение удаления'), content: Text('Удалить "${tool.title}"?'),
       actions: [
@@ -1586,7 +2180,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
   }
 }
 
-// ========== ENHANCED GARAGE SCREEN (hide add button for non-admin) ==========
+// ========== ENHANCED GARAGE SCREEN ==========
 class EnhancedGarageScreen extends StatefulWidget {
   const EnhancedGarageScreen({super.key});
   @override State<EnhancedGarageScreen> createState() => _EnhancedGarageScreenState();
@@ -1634,15 +2228,16 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final selectedCount = toolsProvider.selectedTools.length;
     showModalBottomSheet(context: context, builder: (context) {
-      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50]
-        
-      )), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])), child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('Выбрано: $selectedCount инструментов', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          // Add to favorite for all users
           ListTile(leading: const Icon(Icons.favorite, color: Colors.red), title: const Text('Добавить в избранное'), onTap: () { Navigator.pop(context); toolsProvider.toggleFavoriteForSelected(); }),
-          if (auth.isAdmin) ...[
+          if (auth.canMoveTools) ...[
             ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.blue), title: const Text('Переместить выбранные'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => MoveToolsScreen(selectedTools: toolsProvider.selectedTools))); }),
+          ] else ...[
+            ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.orange), title: const Text('Запросить перемещение'), onTap: () { Navigator.pop(context); _showBatchMoveRequestDialog(context, toolsProvider.selectedTools); }),
+          ],
+          if (auth.isAdmin) ...[
             ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Удалить выбранные'), onTap: () { Navigator.pop(context); _showMultiDeleteDialog(context); }),
           ],
           ListTile(leading: const Icon(Icons.share, color: Colors.green), title: const Text('Поделиться отчетами'), onTap: () async { Navigator.pop(context); for (final tool in toolsProvider.selectedTools) { await ReportService.shareToolReport(tool, context, ReportType.text); } }),
@@ -1662,9 +2257,56 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
       ],
     ));
   }
+  void _showBatchMoveRequestDialog(BuildContext context, List<Tool> selectedTools) {
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    String? selectedId;
+    String? selectedName;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Запрос перемещения (${selectedTools.length} инструментов)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ...selectedTools.take(5).map((t) => Text('• ${t.title} (${t.currentLocationName})')).toList(),
+            if (selectedTools.length > 5) Text('... и еще ${selectedTools.length - 5}'),
+            const Divider(height: 30),
+            ListTile(
+              leading: const Icon(Icons.garage, color: Colors.blue),
+              title: const Text('Гараж'),
+              trailing: selectedId == 'garage' ? const Icon(Icons.check) : null,
+              onTap: () => setState(() { selectedId = 'garage'; selectedName = 'Гараж'; }),
+            ),
+            ...objectsProvider.objects.map((obj) => ListTile(
+              leading: const Icon(Icons.location_city, color: Colors.orange),
+              title: Text(obj.name),
+              trailing: selectedId == obj.id ? const Icon(Icons.check) : null,
+              onTap: () => setState(() { selectedId = obj.id; selectedName = obj.name; }),
+            )),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена'))),
+              const SizedBox(width: 10),
+              Expanded(child: ElevatedButton(
+                onPressed: selectedId == null ? null : () async {
+                  await toolsProvider.requestMoveSelectedTools(selectedTools, selectedId!, selectedName!);
+                  Navigator.pop(context);
+                },
+                child: const Text('Отправить запрос'),
+              )),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
-// ========== ENHANCED TOOL DETAILS SCREEN (updated move, hide admin actions) ==========
+// ========== ENHANCED TOOL DETAILS SCREEN ==========
 class EnhancedToolDetailsScreen extends StatelessWidget {
   final Tool tool;
   const EnhancedToolDetailsScreen({super.key, required this.tool});
@@ -1728,9 +2370,9 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
       bottomNavigationBar: Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(color: Colors.white, border: Border(top: BorderSide(color: Colors.grey.shade200))),
         child: Consumer2<ToolsProvider, AuthProvider>(
           builder: (context, tp, auth, _) => ElevatedButton.icon(
-            onPressed: () => _showMoveDialog(context, tool, auth.isAdmin),
+            onPressed: () => _showMoveDialog(context, tool, auth),
             icon: const Icon(Icons.move_to_inbox),
-            label: Text(auth.isAdmin ? 'Переместить инструмент' : 'Запросить перемещение'),
+            label: Text(auth.canMoveTools ? 'Переместить инструмент' : 'Запросить перемещение'),
             style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
           ),
         ),
@@ -1742,22 +2384,21 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
   ])));
   void _showDeleteConfirmation(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(context, 'Only admin can delete'); return; }
+    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(context, 'Только администратор может удалять'); return; }
     showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Подтверждение удаления'), content: Text('Удалить "${tool.title}"?'), actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
       TextButton(onPressed: () async { Navigator.pop(context); await Provider.of<ToolsProvider>(context, listen: false).deleteTool(tool.id); Navigator.pop(context); }, child: const Text('Удалить', style: TextStyle(color: Colors.red))),
     ]));
   }
-  void _showMoveDialog(BuildContext context, Tool tool, bool isAdmin) {
+  void _showMoveDialog(BuildContext context, Tool tool, AuthProvider auth) {
     final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
     String? selectedId = tool.currentLocation;
     String? selectedName = tool.currentLocationName;
     showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) {
       return StatefulBuilder(builder: (context, setState) {
-        return Container( padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50]),
-                ), child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(isAdmin ? 'Переместить инструмент' : 'Запросить перемещение', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+        return Container( padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50]),), child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(auth.canMoveTools ? 'Переместить инструмент' : 'Запросить перемещение', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 20),
             ListTile(leading: const Icon(Icons.garage, color: Colors.blue), title: const Text('Гараж'), trailing: selectedId == 'garage' ? const Icon(Icons.check, color: Colors.green) : null, onTap: () { setState(() { selectedId = 'garage'; selectedName = 'Гараж'; }); }),
             const Divider(),
@@ -1768,14 +2409,14 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(child: ElevatedButton(onPressed: () async {
                 if (selectedId != null && selectedName != null) {
-                  if (isAdmin) {
+                  if (auth.canMoveTools) {
                     await toolsProvider.moveTool(tool.id, selectedId!, selectedName!);
                   } else {
                     await toolsProvider.requestMoveTool(tool.id, selectedId!, selectedName!);
                   }
                   Navigator.pop(context);
                 }
-              }, child: Text(isAdmin ? 'Переместить' : 'Отправить запрос'))),
+              }, child: Text(auth.canMoveTools ? 'Переместить' : 'Отправить запрос'))),
             ]),
           ])       );
       });
@@ -1783,7 +2424,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
   }
 }
 
-// ========== OBJECT CARD (hide admin actions) ==========
+// ========== OBJECT CARD ==========
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object; final ToolsProvider toolsProvider; final bool selectionMode; final VoidCallback onTap;
   const ObjectCard({super.key, required this.object, required this.toolsProvider, required this.selectionMode, required this.onTap});
@@ -1816,11 +2457,11 @@ class ObjectCard extends StatelessWidget {
               if (!selectionMode) PopupMenuButton(
                 itemBuilder: (context) {
                   List<PopupMenuItem> items = [];
-                  if (auth.isAdmin) {
+                  if (auth.canControlObjects) {
                     items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.edit), title: const Text('Редактировать'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => AddEditObjectScreen(object: object))); })));
                   }
                   items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.share), title: const Text('Поделиться отчетом'), onTap: () { Navigator.pop(context); ReportService.showObjectReportTypeDialog(context, object, toolsOnObject, (type) => ReportService.shareObjectReport(object, toolsOnObject, context, type)); })));
-                  if (auth.isAdmin) {
+                  if (auth.canControlObjects) {
                     items.add(PopupMenuItem(child: ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Удалить', style: TextStyle(color: Colors.red)), onTap: () { Navigator.pop(context); _showDeleteDialog(context, object); })));
                   }
                   return items;
@@ -1834,7 +2475,7 @@ class ObjectCard extends StatelessWidget {
   }
   void _showDeleteDialog(BuildContext context, ConstructionObject object) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    if (!auth.isAdmin) { ErrorHandler.showErrorDialog(context, 'Only admin can delete objects'); return; }
+    if (!auth.canControlObjects) { ErrorHandler.showErrorDialog(context, 'У вас нет прав на удаление объектов'); return; }
     showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Подтверждение удаления'), content: Text('Удалить "${object.name}"?'), actions: [
       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
       TextButton(onPressed: () async { Navigator.pop(context); await Provider.of<ObjectsProvider>(context, listen: false).deleteObject(object.id); }, child: const Text('Удалить', style: TextStyle(color: Colors.red))),
@@ -1842,7 +2483,7 @@ class ObjectCard extends StatelessWidget {
   }
 }
 
-// ========== ADD/EDIT OBJECT SCREEN (admin only) ==========
+// ========== ADD/EDIT OBJECT SCREEN ==========
 class AddEditObjectScreen extends StatefulWidget {
   final ConstructionObject? object;
   const AddEditObjectScreen({super.key, this.object});
@@ -1882,11 +2523,11 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
   @override Widget build(BuildContext context) {
     final isEdit = widget.object != null;
     final auth = Provider.of<AuthProvider>(context);
-    if (!auth.isAdmin) {
-      return Scaffold(body: Center(child: Text('Только администратор может редактировать объекты')));
+    if (!auth.canControlObjects) {
+      return Scaffold(body: Center(child: Text('У вас нет прав на редактирование объектов')));
     }
     return Scaffold(
-      appBar: AppBar(title: Text(isEdit ? 'Редактировать объект' : 'Добавить объект'), actions: [if (isEdit && auth.isAdmin) IconButton(icon: const Icon(Icons.delete), onPressed: () { showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Подтверждение удаления'), content: Text('Удалить "${widget.object!.name}"?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')), TextButton(onPressed: () async { Navigator.pop(context); await Provider.of<ObjectsProvider>(context, listen: false).deleteObject(widget.object!.id); Navigator.pop(context); }, child: const Text('Удалить', style: TextStyle(color: Colors.red)))])); }) ]),
+      appBar: AppBar(title: Text(isEdit ? 'Редактировать объект' : 'Добавить объект'), actions: [if (isEdit && auth.canControlObjects) IconButton(icon: const Icon(Icons.delete), onPressed: () { showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Подтверждение удаления'), content: Text('Удалить "${widget.object!.name}"?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')), TextButton(onPressed: () async { Navigator.pop(context); await Provider.of<ObjectsProvider>(context, listen: false).deleteObject(widget.object!.id); Navigator.pop(context); }, child: const Text('Удалить', style: TextStyle(color: Colors.red)))])); }) ]),
       body: _isLoading ? const Center(child: CircularProgressIndicator()) : SingleChildScrollView(padding: const EdgeInsets.all(16), child: Form(key: _formKey, child: Column(children: [
         GestureDetector(onTap: _showImagePickerDialog, child: Container(height: 200, width: double.infinity, decoration: BoxDecoration(borderRadius: BorderRadius.circular(16), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Theme.of(context).colorScheme.primary.withOpacity(0.1), Theme.of(context).colorScheme.secondary.withOpacity(0.1)]), border: Border.all(color: Colors.grey.shade300)), child: _getImageWidget())),
         const SizedBox(height: 20),
@@ -1915,7 +2556,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
   }
 }
 
-// ========== OBJECT DETAILS SCREEN (hide edit for non-admin) ==========
+// ========== OBJECT DETAILS SCREEN ==========
 class ObjectDetailsScreen extends StatelessWidget {
   final ConstructionObject object;
   const ObjectDetailsScreen({super.key, required this.object});
@@ -1927,7 +2568,7 @@ class ObjectDetailsScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(object.name), actions: [
         IconButton(icon: const Icon(Icons.share), onPressed: () => ReportService.showObjectReportTypeDialog(context, object, toolsOnObject, (type) => ReportService.shareObjectReport(object, toolsOnObject, context, type))),
-        if (auth.isAdmin)
+        if (auth.canControlObjects)
           IconButton(icon: const Icon(Icons.edit), onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => AddEditObjectScreen(object: object)))),
       ]),
       body: Column(children: [
@@ -1956,7 +2597,7 @@ class ObjectDetailsScreen extends StatelessWidget {
   Widget _buildEmptyObjectTools() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.build, size: 60, color: Colors.grey.shade300), const SizedBox(height: 16), const Text('На объекте нет инструментов', style: TextStyle(fontSize: 16, color: Colors.grey)), const SizedBox(height: 8), const Text('Переместите инструменты на этот объект', style: TextStyle(color: Colors.grey))]));
 }
 
-// ========== ENHANCED OBJECTS LIST SCREEN (hide add FAB for non-admin) ==========
+// ========== ENHANCED OBJECTS LIST SCREEN ==========
 class EnhancedObjectsListScreen extends StatefulWidget {
   const EnhancedObjectsListScreen({super.key});
   @override State<EnhancedObjectsListScreen> createState() => _EnhancedObjectsListScreenState();
@@ -1973,30 +2614,28 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       appBar: AppBar(title: Text('Объекты (${objectsProvider.totalObjects})'), actions: [IconButton(icon: const Icon(Icons.refresh), onPressed: () => objectsProvider.loadObjects(forceRefresh: true))]),
       body: objectsProvider.isLoading && objectsProvider.objects.isEmpty ? _buildLoadingScreen() : Column(children: [
         Padding(padding: const EdgeInsets.all(12.0), child: TextField(controller: _searchController, decoration: InputDecoration(hintText: 'Поиск объектов...', prefixIcon: const Icon(Icons.search), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)), filled: true, fillColor: Colors.grey.shade50), onChanged: objectsProvider.setSearchQuery)),
-        Expanded(child: objectsProvider.objects.isEmpty ? _buildEmptyObjectsScreen(auth.isAdmin) : ListView.builder(itemCount: objectsProvider.objects.length, itemBuilder: (context, index) {
+        Expanded(child: objectsProvider.objects.isEmpty ? _buildEmptyObjectsScreen(auth.canControlObjects) : ListView.builder(itemCount: objectsProvider.objects.length, itemBuilder: (context, index) {
           final object = objectsProvider.objects[index];
           return ObjectCard(object: object, toolsProvider: toolsProvider, selectionMode: objectsProvider.selectionMode, onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ObjectDetailsScreen(object: object))));
         })),
       ]),
       floatingActionButton: objectsProvider.selectionMode
         ? FloatingActionButton.extended(onPressed: objectsProvider.hasSelectedObjects ? () => _showObjectSelectionActions(context) : null, icon: const Icon(Icons.more_vert), label: Text('${objectsProvider.selectedObjects.length}'), backgroundColor: Theme.of(context).colorScheme.primary)
-        : (auth.isAdmin ? FloatingActionButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddEditObjectScreen())), backgroundColor: Theme.of(context).colorScheme.primary, child: const Icon(Icons.add)) : null),
+        : (auth.canControlObjects ? FloatingActionButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddEditObjectScreen())), backgroundColor: Theme.of(context).colorScheme.primary, child: const Icon(Icons.add)) : null),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
   Widget _buildLoadingScreen() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary)), const SizedBox(height: 20), Text('Загрузка объектов...', style: TextStyle(fontSize: 16, color: Colors.grey[600]))]));
-  Widget _buildEmptyObjectsScreen(bool isAdmin) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.location_city, size: 80, color: Colors.grey.shade300), const SizedBox(height: 20), const Text('Нет объектов', style: TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 10), if (isAdmin) ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddEditObjectScreen())), child: const Text('Добавить объект'))]));
+  Widget _buildEmptyObjectsScreen(bool canControl) => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.location_city, size: 80, color: Colors.grey.shade300), const SizedBox(height: 20), const Text('Нет объектов', style: TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 10), if (canControl) ElevatedButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AddEditObjectScreen())), child: const Text('Добавить объект'))]));
   void _showObjectSelectionActions(BuildContext context) {
     final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final selectedCount = objectsProvider.selectedObjects.length;
     showModalBottomSheet(context: context, builder: (context) {
-      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50]) ,
-       
-      ), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])), child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('Выбрано: $selectedCount объектов', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 20),
-          if (auth.isAdmin)
+          if (auth.canControlObjects)
             ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Удалить выбранные'), onTap: () { Navigator.pop(context); _showObjectsDeleteDialog(context); }),
           const SizedBox(height: 20),
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
@@ -2012,7 +2651,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   }
 }
 
-// ========== MOVE TOOLS SCREEN (admin only) ==========
+// ========== MOVE TOOLS SCREEN ==========
 class MoveToolsScreen extends StatefulWidget {
   final List<Tool> selectedTools;
   const MoveToolsScreen({super.key, required this.selectedTools});
@@ -2051,7 +2690,7 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
   }
 }
 
-// ========== FAVORITES SCREEN (unchanged) ==========
+// ========== FAVORITES SCREEN ==========
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
   @override Widget build(BuildContext context) {
@@ -2067,7 +2706,7 @@ class FavoritesScreen extends StatelessWidget {
   Widget _buildEmptyFavoritesScreen() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade300), const SizedBox(height: 20), const Text('Нет избранных инструментов', style: TextStyle(fontSize: 18, color: Colors.grey)), const SizedBox(height: 10), const Text('Добавьте инструменты в избранное', style: TextStyle(color: Colors.grey))]));
 }
 
-// ========== ADMIN MOVE REQUESTS SCREEN ==========
+// ========== ADMIN MOVE REQUESTS SCREEN (single) ==========
 class AdminMoveRequestsScreen extends StatelessWidget {
   const AdminMoveRequestsScreen({super.key});
   @override
@@ -2121,6 +2760,154 @@ class AdminMoveRequestsScreen extends StatelessWidget {
           ]),
         ));
       }),
+    );
+  }
+}
+
+// ========== ADMIN BATCH MOVE REQUESTS SCREEN ==========
+class AdminBatchMoveRequestsScreen extends StatelessWidget {
+  const AdminBatchMoveRequestsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final batchProvider = Provider.of<BatchMoveRequestProvider>(context);
+    final toolsProvider = Provider.of<ToolsProvider>(context);
+    final notifProvider = Provider.of<NotificationProvider>(context);
+    final pending = batchProvider.pendingRequests;
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Групповые запросы (${pending.length})')),
+      body: pending.isEmpty
+          ? const Center(child: Text('Нет ожидающих групповых запросов'))
+          : ListView.builder(
+              itemCount: pending.length,
+              itemBuilder: (context, index) {
+                final req = pending[index];
+                final tools = toolsProvider.tools.where((t) => req.toolIds.contains(t.id)).toList();
+                return Card(
+                  margin: const EdgeInsets.all(8),
+                  child: ExpansionTile(
+                    title: Text('${req.toolIds.length} инструментов → ${req.toLocationName}'),
+                    subtitle: Text('от ${req.requestedBy}'),
+                    children: [
+                      ...tools.map((t) => ListTile(
+                        leading: const Icon(Icons.build, size: 20),
+                        title: Text(t.title),
+                        subtitle: Text('Текущее: ${t.currentLocationName}'),
+                      )),
+                      Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                        TextButton.icon(
+                          icon: const Icon(Icons.close, color: Colors.red),
+                          label: const Text('Отклонить'),
+                          onPressed: () async {
+                            await batchProvider.updateRequestStatus(req.id, 'rejected');
+                            final notif = AppNotification(
+                              id: IdGenerator.generateNotificationId(),
+                              title: 'Групповой запрос отклонён',
+                              body: 'Перемещение ${tools.length} инструментов в ${req.toLocationName} отклонено',
+                              type: 'batch_move_rejected',
+                              relatedId: req.id,
+                              userId: req.requestedBy,
+                            );
+                            await notifProvider.addNotification(notif);
+                            ErrorHandler.showWarningDialog(context, 'Запрос отклонён');
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.check, color: Colors.white),
+                          label: const Text('Одобрить'),
+                          onPressed: () async {
+                            for (final tool in tools) {
+                              await toolsProvider.moveTool(tool.id, req.toLocationId, req.toLocationName);
+                            }
+                            await batchProvider.updateRequestStatus(req.id, 'approved');
+                            final notif = AppNotification(
+                              id: IdGenerator.generateNotificationId(),
+                              title: 'Групповой запрос одобрен',
+                              body: '${tools.length} инструментов перемещены в ${req.toLocationName}',
+                              type: 'batch_move_approved',
+                              relatedId: req.id,
+                              userId: req.requestedBy,
+                            );
+                            await notifProvider.addNotification(notif);
+                            ErrorHandler.showSuccessDialog(context, 'Запрос одобрен, инструменты перемещены');
+                          },
+                        ),
+                        const SizedBox(width: 10),
+                      ]),
+                    ],
+                  ),
+                );
+              },
+            ),
+    );
+  }
+}
+
+// ========== ADMIN USERS SCREEN ==========
+class AdminUsersScreen extends StatelessWidget {
+  const AdminUsersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final usersProvider = Provider.of<UsersProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
+
+    if (!auth.isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Пользователи')),
+        body: const Center(child: Text('Только администратор может просматривать пользователей')),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Управление пользователями'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () => usersProvider.loadUsers(),
+          ),
+        ],
+      ),
+      body: usersProvider.isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : usersProvider.users.isEmpty
+              ? const Center(child: Text('Нет пользователей'))
+              : ListView.builder(
+                  itemCount: usersProvider.users.length,
+                  itemBuilder: (context, index) {
+                    final user = usersProvider.users[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      child: ExpansionTile(
+                        leading: CircleAvatar(
+                          backgroundColor: user.role == 'admin' ? Colors.red : Colors.blue,
+                          child: Text(user.email[0].toUpperCase()),
+                        ),
+                        title: Text(user.email),
+                        subtitle: Text('Роль: ${user.role}'),
+                        children: [
+                          SwitchListTile(
+                            title: const Text('Может перемещать инструменты'),
+                            value: user.canMoveTools,
+                            onChanged: (value) {
+                              usersProvider.updateUserPermissions(user.uid, canMoveTools: value);
+                            },
+                          ),
+                          SwitchListTile(
+                            title: const Text('Может управлять объектами'),
+                            value: user.canControlObjects,
+                            onChanged: (value) {
+                              usersProvider.updateUserPermissions(user.uid, canControlObjects: value);
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
     );
   }
 }
@@ -2194,9 +2981,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ListTile(leading: const Icon(Icons.color_lens), title: const Text('Тема приложения'), trailing: DropdownButton<String>(value: _themeMode, onChanged: (v) { if (v != null) _changeTheme(v); }, items: const [DropdownMenuItem(value: 'light', child: Text('Светлая')), DropdownMenuItem(value: 'dark', child: Text('Темная')), DropdownMenuItem(value: 'system', child: Text('Системная'))])),
         ]))),
         Padding(padding: const EdgeInsets.all(16), child: Column(children: [
-          if (authProvider.isAdmin)
+          if (authProvider.isAdmin) ...[
             ElevatedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminMoveRequestsScreen())), icon: const Icon(Icons.pending_actions), label: const Text('Запросы на перемещение'), style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminBatchMoveRequestsScreen())), icon: const Icon(Icons.group_work), label: const Text('Групповые запросы'), style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+            const SizedBox(height: 12),
+            ElevatedButton.icon(onPressed: () { Navigator.push(context, MaterialPageRoute(builder: (context) => const AdminUsersScreen())); }, icon: const Icon(Icons.people), label: const Text('Управление пользователями'), style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
+            const SizedBox(height: 12),
+          ],
           ElevatedButton.icon(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen())), icon: const Icon(Icons.notifications), label: Text('Уведомления ${notifProvider.hasUnread ? '(Новые)' : ''}'), style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
           const SizedBox(height: 12),
           ElevatedButton.icon(onPressed: () async { ReportService.showReportTypeDialog(context, Tool(id: 'inventory', title: 'Инвентаризация', description: '', brand: '', uniqueId: '', currentLocation: '', currentLocationName: '', userId: authProvider.user?.uid ?? 'local'), (type) async { await ReportService.shareInventoryReport(toolsProvider.tools, objectsProvider.objects, context, type); }); }, icon: const Icon(Icons.share), label: const Text('Поделиться отчетом'), style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))),
@@ -2223,7 +3015,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-// ========== SEARCH SCREEN (unchanged) ==========
+// ========== SEARCH SCREEN ==========
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
   @override _SearchScreenState createState() => _SearchScreenState();
@@ -2248,7 +3040,7 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget _buildEmptySearchScreen() => Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.search, size: 80, color: Colors.grey.shade300), const SizedBox(height: 20), Text(_searchController.text.isEmpty ? 'Начните вводить для поиска' : 'Ничего не найдено', style: const TextStyle(fontSize: 18, color: Colors.grey))]));
 }
 
-// ========== WELCOME SCREEN (unchanged) ==========
+// ========== WELCOME SCREEN ==========
 class WelcomeScreen extends StatelessWidget {
   final VoidCallback onContinue;
   const WelcomeScreen({super.key, required this.onContinue});
@@ -2264,7 +3056,7 @@ class WelcomeScreen extends StatelessWidget {
   );
 }
 
-// ========== ONBOARDING SCREEN (unchanged) ==========
+// ========== ONBOARDING SCREEN ==========
 class OnboardingScreen extends StatefulWidget {
   final VoidCallback onComplete;
   const OnboardingScreen({super.key, required this.onComplete});
@@ -2350,7 +3142,8 @@ class _AuthScreenState extends State<AuthScreen> {
           : await auth.signUpWithEmail(_emailController.text.trim(), _passwordController.text.trim(),
               profileImage: _profileImage,
               adminPhrase: _adminPhraseController.text.trim().isNotEmpty ? _adminPhraseController.text.trim() : null);
-      if (!success) throw Exception('Ошибка входа');
+      if (!success) return; // Error already shown
+      // Navigation handled by StreamBuilder
     } catch (e) { ErrorHandler.showErrorDialog(context, 'Ошибка: $e'); } finally { setState(() => _isLoading = false); }
   }
 
@@ -2394,7 +3187,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 }
 
-// ========== MAIN SCREEN (updated with notification badge) ==========
+// ========== MAIN SCREEN ==========
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
   @override _MainScreenState createState() => _MainScreenState();
@@ -2439,7 +3232,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// ========== TOOLS LIST SCREEN (hide add FAB for non-admin) ==========
+// ========== TOOLS LIST SCREEN ==========
 class ToolsListScreen extends StatefulWidget {
   const ToolsListScreen({super.key});
   @override _ToolsListScreenState createState() => _ToolsListScreenState();
@@ -2488,8 +3281,7 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
     final op = Provider.of<ObjectsProvider>(context, listen: false);
     showModalBottomSheet(context: context, isScrollControlled: true, builder: (context) {
       return StatefulBuilder(builder: (context, setState) {
-        return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50]    
-        )), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])), child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text('Фильтры инструментов', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)), const SizedBox(height: 20),
             ExpansionTile(title: const Text('Местоположение'), children: [
               RadioListTile<String>(title: const Text('Все'), value: 'all', groupValue: tp.filterLocation, onChanged: (v) { setState(() {}); tp.setFilterLocation(v!); }),
@@ -2508,14 +3300,13 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final selectedCount = tp.selectedTools.length;
     showModalBottomSheet(context: context, builder: (context) {
-      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50] 
-       
-      )), child: Column(mainAxisSize: MainAxisSize.min, children: [
+      return Container(padding: const EdgeInsets.all(20), decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])), child: Column(mainAxisSize: MainAxisSize.min, children: [
           Text('Выбрано: $selectedCount инструментов', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)), const SizedBox(height: 20),
-          // Add to favorite for all users
           ListTile(leading: const Icon(Icons.favorite, color: Colors.red), title: const Text('Добавить в избранное'), onTap: () { Navigator.pop(context); tp.toggleFavoriteForSelected(); }),
-          if (auth.isAdmin) ...[
+          if (auth.canMoveTools) ...[
             ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.blue), title: const Text('Переместить выбранные'), onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => MoveToolsScreen(selectedTools: tp.selectedTools))); }),
+          ] else ...[
+            ListTile(leading: const Icon(Icons.move_to_inbox, color: Colors.orange), title: const Text('Запросить перемещение'), onTap: () { Navigator.pop(context); _showBatchMoveRequestDialog(context, tp.selectedTools); }),
           ],
           ListTile(leading: const Icon(Icons.share, color: Colors.green), title: const Text('Поделиться отчетами'), onTap: () async { Navigator.pop(context); for (final tool in tp.selectedTools) { await ReportService.shareToolReport(tool, context, ReportType.text); } }),
           if (auth.isAdmin) ListTile(leading: const Icon(Icons.delete, color: Colors.red), title: const Text('Удалить выбранные'), onTap: () { Navigator.pop(context); _showMultiDeleteDialog(context); }),
@@ -2527,9 +3318,56 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
     final tp = Provider.of<ToolsProvider>(context, listen: false);
     showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Подтверждение удаления'), content: Text('Удалить выбранные ${tp.selectedTools.length} инструментов?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')), TextButton(onPressed: () async { Navigator.pop(context); await tp.deleteSelectedTools(); }, child: const Text('Удалить', style: TextStyle(color: Colors.red)))]));
   }
+  void _showBatchMoveRequestDialog(BuildContext context, List<Tool> selectedTools) {
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    String? selectedId;
+    String? selectedName;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(borderRadius: const BorderRadius.vertical(top: Radius.circular(20)), gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Colors.white, Colors.grey.shade50])),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text('Запрос перемещения (${selectedTools.length} инструментов)', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            ...selectedTools.take(5).map((t) => Text('• ${t.title} (${t.currentLocationName})')).toList(),
+            if (selectedTools.length > 5) Text('... и еще ${selectedTools.length - 5}'),
+            const Divider(height: 30),
+            ListTile(
+              leading: const Icon(Icons.garage, color: Colors.blue),
+              title: const Text('Гараж'),
+              trailing: selectedId == 'garage' ? const Icon(Icons.check) : null,
+              onTap: () => setState(() { selectedId = 'garage'; selectedName = 'Гараж'; }),
+            ),
+            ...objectsProvider.objects.map((obj) => ListTile(
+              leading: const Icon(Icons.location_city, color: Colors.orange),
+              title: Text(obj.name),
+              trailing: selectedId == obj.id ? const Icon(Icons.check) : null,
+              onTap: () => setState(() { selectedId = obj.id; selectedName = obj.name; }),
+            )),
+            const SizedBox(height: 20),
+            Row(children: [
+              Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена'))),
+              const SizedBox(width: 10),
+              Expanded(child: ElevatedButton(
+                onPressed: selectedId == null ? null : () async {
+                  await toolsProvider.requestMoveSelectedTools(selectedTools, selectedId!, selectedName!);
+                  Navigator.pop(context);
+                },
+                child: const Text('Отправить запрос'),
+              )),
+            ]),
+          ]),
+        ),
+      ),
+    );
+  }
 }
 
-// ========== MAIN APP WIDGET (unchanged) ==========
+// ========== MAIN APP WIDGET ==========
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override Widget build(BuildContext context) {
@@ -2546,7 +3384,9 @@ class MyApp extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),
             ChangeNotifierProvider(create: (_) => MoveRequestProvider()),
+            ChangeNotifierProvider(create: (_) => BatchMoveRequestProvider()),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
+            ChangeNotifierProvider(create: (_) => UsersProvider()),
             Provider.value(value: prefs),
           ],
           child: Consumer<AuthProvider>(builder: (context, authProvider, _) {
@@ -2578,6 +3418,8 @@ class MyApp extends StatelessWidget {
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     Provider.of<NotificationProvider>(context, listen: false).loadNotifications(user.uid);
                     Provider.of<MoveRequestProvider>(context, listen: false).loadRequests();
+                    Provider.of<BatchMoveRequestProvider>(context, listen: false).loadRequests(); // Load batch requests
+                    Provider.of<UsersProvider>(context, listen: false).loadUsers(); // Preload users for admin
                   });
                   return const MainScreen();
                 },
