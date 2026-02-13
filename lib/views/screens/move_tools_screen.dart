@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/tool.dart';
+import '../../controllers/tools_provider.dart';
+import '../../controllers/objects_provider.dart';
+import '../../services/error_handler.dart';
 
 // ========== MOVE TOOLS SCREEN ==========
 class MoveToolsScreen extends StatefulWidget {

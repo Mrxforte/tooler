@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/tool.dart';
+import '../../controllers/tools_provider.dart';
+import '../../services/report_service.dart';
+import '../screens/add_edit_tool_screen.dart';
 
 class SelectionToolCard extends StatelessWidget {
   final Tool tool;

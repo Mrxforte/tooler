@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../controllers/tools_provider.dart';
+import '../../services/report_service.dart';
+import '../widgets/selection_tool_card.dart';
+import 'tool_details_screen.dart';
+import 'add_edit_tool_screen.dart';
+import 'move_tools_screen.dart';
 
 class EnhancedGarageScreen extends StatefulWidget {
   const EnhancedGarageScreen({super.key});

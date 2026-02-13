@@ -2,7 +2,10 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../main.dart';
+import '../../controllers/auth_provider.dart';
+import '../../services/image_service.dart';
+import '../../services/error_handler.dart';
+import 'main_screen.dart';
 
 // ========== MODERN AUTH SCREEN ==========
 class AuthScreen extends StatefulWidget {

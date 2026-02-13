@@ -7,6 +7,14 @@ import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../main.dart';
+import '../../models/tool.dart';
+import '../../controllers/auth_provider.dart';
+import '../../controllers/tools_provider.dart';
+import '../../controllers/objects_provider.dart';
+import '../../services/error_handler.dart';
+import '../../services/image_service.dart';
+import '../../services/report_service.dart';
+import '../../utils/navigator_key.dart';
 
 // ========== MODERN PROFILE SCREEN ==========
 class ProfileScreen extends StatefulWidget {

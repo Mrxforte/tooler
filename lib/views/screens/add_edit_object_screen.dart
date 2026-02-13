@@ -1,7 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/construction_object.dart';
+import '../../controllers/objects_provider.dart';
+import '../../controllers/auth_provider.dart';
+import '../../services/image_service.dart';
+import '../../services/error_handler.dart';
+import '../../utils/id_generator.dart';
 
 class AddEditObjectScreen extends StatefulWidget {
   final ConstructionObject? object;

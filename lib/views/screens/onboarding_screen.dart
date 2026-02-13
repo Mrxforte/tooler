@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../main.dart';
+import 'auth_screen.dart';
 
 // ========== ONBOARDING SCREEN ==========
 class OnboardingScreen extends StatefulWidget {

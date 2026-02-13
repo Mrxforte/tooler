@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../controllers/tools_provider.dart';
+import '../widgets/selection_tool_card.dart';
+import 'tool_details_screen.dart';
 
 // ========== FAVORITES SCREEN ==========
 class FavoritesScreen extends StatelessWidget {

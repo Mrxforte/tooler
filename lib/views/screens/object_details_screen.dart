@@ -2,7 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/construction_object.dart';
+import '../../controllers/tools_provider.dart';
+import '../widgets/selection_tool_card.dart';
+import 'add_edit_object_screen.dart';
+import 'tool_details_screen.dart';
 
 class ObjectDetailsScreen extends StatelessWidget {
   final ConstructionObject object;

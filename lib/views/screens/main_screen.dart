@@ -1,7 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/tool.dart';
+import '../../controllers/tools_provider.dart';
+import '../../controllers/objects_provider.dart';
+import '../../services/report_service.dart';
+import '../../services/error_handler.dart';
+import 'garage_screen.dart';
+import 'tools_list_screen.dart';
+import 'objects_list_screen.dart';
+import 'favorites_screen.dart';
+import 'profile_screen.dart';
+import 'search_screen.dart';
 
 // ========== MAIN SCREEN ==========
 class MainScreen extends StatefulWidget {

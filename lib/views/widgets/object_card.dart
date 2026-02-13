@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/construction_object.dart';
+import '../../controllers/tools_provider.dart';
+import '../../controllers/objects_provider.dart';
+import '../screens/add_edit_object_screen.dart';
 
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;

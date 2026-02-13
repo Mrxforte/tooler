@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../controllers/objects_provider.dart';
+import '../../controllers/tools_provider.dart';
+import '../widgets/object_card.dart';
+import 'object_details_screen.dart';
+import 'add_edit_object_screen.dart';
 
 class EnhancedObjectsListScreen extends StatefulWidget {
   const EnhancedObjectsListScreen({super.key});

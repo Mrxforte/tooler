@@ -2,7 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../../main.dart';
+import '../../models/tool.dart';
+import '../../models/location_history.dart';
+import '../../controllers/tools_provider.dart';
+import '../../services/report_service.dart';
+import 'add_edit_tool_screen.dart';
 
 class EnhancedToolDetailsScreen extends StatelessWidget {
   final Tool tool;
