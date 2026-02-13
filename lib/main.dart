@@ -1071,6 +1071,23 @@ class ErrorHandler {
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // ========== STATE MANAGEMENT PROVIDERS ==========
+// ========== AUTH CONSTANTS ==========
+class AuthConstants {
+  static const String roleAdmin = 'admin';
+  static const String roleUser = 'user';
+  static const List<String> adminPermissions = ['read', 'write', 'delete', 'manage_users'];
+  static const List<String> userPermissions = ['read', 'write'];
+  
+  // SECURITY NOTE: This client-side admin key is for initial development/testing only.
+  // In production, admin privilege assignment should be:
+  // 1. Verified server-side (Cloud Functions or backend API)
+  // 2. Protected by Firestore Security Rules
+  // 3. Managed through a secure admin portal
+  // The current implementation provides basic admin functionality but should not be
+  // considered secure for production use without proper backend validation.
+}
+
+// ========== AUTH PROVIDER ==========
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
@@ -1078,12 +1095,16 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _rememberMe = false;
   File? _profileImage;
+  String _userRole = AuthConstants.roleUser; // Default role
+  bool _isAdmin = false;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _user != null;
   bool get rememberMe => _rememberMe;
   File? get profileImage => _profileImage;
+  String get userRole => _userRole;
+  bool get isAdmin => _isAdmin;
 
   AuthProvider(this._prefs) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
@@ -1091,17 +1112,39 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _initializeAuth() async {
-    try {
-      _isLoading = true;
-      notifyListeners();
+    _isLoading = true;
+    notifyListeners();
 
+    try {
+      // Always check for current user, regardless of remember_me setting
       final savedUser = _auth.currentUser;
-      if (savedUser != null && _rememberMe) {
+      if (savedUser != null) {
         _user = savedUser;
+        print('User auto-restored: ${savedUser.email}');
+        
+        // Load user role from Firestore
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User role loaded: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role during init: $e');
+        }
+      } else {
+        print('No saved user found');
       }
     } catch (e) {
       print('Auth initialization error: $e');
     } finally {
+      // Always set loading to false when initialization completes
       _isLoading = false;
       notifyListeners();
     }
@@ -1118,6 +1161,28 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
+
+      // Load user role from Firestore
+      if (_user != null) {
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User signed in with role: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role: $e');
+          // Default to regular user if can't load role
+          _userRole = AuthConstants.roleUser;
+          _isAdmin = false;
+        }
+      }
 
       if (_rememberMe) {
         await _prefs.setString('saved_email', email);
@@ -1142,6 +1207,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String password, {
     File? profileImage,
+    bool isAdmin = false,
   }) async {
     try {
       _isLoading = true;
@@ -1154,9 +1220,10 @@ class AuthProvider with ChangeNotifier {
 
       _user = userCredential.user;
 
-      // Save profile image
+      // Upload profile image once if provided
+      String? imageUrl;
       if (profileImage != null && _user != null) {
-        final imageUrl = await ImageService.uploadImage(
+        imageUrl = await ImageService.uploadImage(
           profileImage,
           _user!.uid,
         );
@@ -1165,6 +1232,10 @@ class AuthProvider with ChangeNotifier {
           await _prefs.setString('profile_image_url', imageUrl);
         }
       }
+
+      // Set user role
+      _userRole = isAdmin ? AuthConstants.roleAdmin : AuthConstants.roleUser;
+      _isAdmin = isAdmin;
 
       if (_user != null) {
         try {
@@ -1175,10 +1246,12 @@ class AuthProvider with ChangeNotifier {
                 'email': email,
                 'createdAt': FieldValue.serverTimestamp(),
                 'userId': _user!.uid,
-                'profileImageUrl': _profileImage != null
-                    ? await ImageService.uploadImage(_profileImage!, _user!.uid)
-                    : null,
+                'profileImageUrl': imageUrl,
+                'role': _userRole,
+                'isAdmin': _isAdmin,
+                'permissions': _isAdmin ? AuthConstants.adminPermissions : AuthConstants.userPermissions,
               });
+          print('User created with role: $_userRole');
         } catch (e) {
           print('Firestore user creation error: $e');
         }
@@ -1206,6 +1279,8 @@ class AuthProvider with ChangeNotifier {
       await _auth.signOut();
       _user = null;
       _profileImage = null;
+      _userRole = AuthConstants.roleUser; // Reset role
+      _isAdmin = false; // Reset admin status
       await _prefs.remove('profile_image_url');
       notifyListeners();
     } catch (e) {
@@ -5729,9 +5804,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Менеджер инструментов',
-                      style: TextStyle(color: Colors.white70),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          authProvider.isAdmin ? 'Администратор' : 'Менеджер инструментов',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                        if (authProvider.isAdmin) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.amber,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'ADMIN',
+                              style: TextStyle(
+                                color: Colors.black87,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -6414,11 +6512,18 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _adminKeyController = TextEditingController(); // Admin secret key
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _showAdminKeyField = false; // Show/hide admin key field
   File? _profileImage;
+  
+  // SECURITY NOTE: Admin secret key for development/testing only.
+  // Production apps should verify admin privileges server-side.
+  // See AuthConstants class for security recommendations.
+  static const String _adminSecretKey = 'TOOLER_ADMIN_2024';
 
   @override
   void initState() {
@@ -6458,6 +6563,16 @@ class _AuthScreenState extends State<AuthScreen> {
         throw Exception('Пароли не совпадают');
       }
 
+      // Check admin key if admin field is shown
+      bool isAdmin = false;
+      if (!_isLogin && _showAdminKeyField) {
+        if (_adminKeyController.text.trim() == _adminSecretKey) {
+          isAdmin = true;
+        } else if (_adminKeyController.text.trim().isNotEmpty) {
+          throw Exception('Неверный ключ администратора');
+        }
+      }
+
       final success = _isLogin
           ? await authProvider.signInWithEmail(
               _emailController.text.trim(),
@@ -6467,6 +6582,7 @@ class _AuthScreenState extends State<AuthScreen> {
               _emailController.text.trim(),
               _passwordController.text.trim(),
               profileImage: _profileImage,
+              isAdmin: isAdmin,
             );
 
       if (success && authProvider.isLoggedIn) {
@@ -6718,6 +6834,44 @@ class _AuthScreenState extends State<AuthScreen> {
                           const Text('Запомнить меня'),
                         ],
                       ),
+                    
+                    if (!_isLogin) ...[
+                      if (!_showAdminKeyField)
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = true;
+                            });
+                          },
+                          child: const Text('Есть ключ администратора?'),
+                        ),
+                      if (_showAdminKeyField) ...[
+                        TextFormField(
+                          controller: _adminKeyController,
+                          decoration: InputDecoration(
+                            labelText: 'Ключ администратора (необязательно)',
+                            helperText: 'Оставьте пустым для регистрации как обычный пользователь',
+                            prefixIcon: const Icon(Icons.admin_panel_settings),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
+                          ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = false;
+                              _adminKeyController.clear();
+                            });
+                          },
+                          child: const Text('Скрыть'),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -6748,6 +6902,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   setState(() {
                     _isLogin = !_isLogin;
                     _profileImage = null;
+                    _showAdminKeyField = false; // Reset admin field visibility
+                    _adminKeyController.clear(); // Clear admin key
                   });
                 },
                 child: Text(
