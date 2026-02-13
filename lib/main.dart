@@ -1078,12 +1078,16 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _rememberMe = false;
   File? _profileImage;
+  String _userRole = 'user'; // Default role
+  bool _isAdmin = false;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _user != null;
   bool get rememberMe => _rememberMe;
   File? get profileImage => _profileImage;
+  String get userRole => _userRole;
+  bool get isAdmin => _isAdmin;
 
   AuthProvider(this._prefs) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
@@ -1091,17 +1095,39 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> _initializeAuth() async {
-    try {
-      _isLoading = true;
-      notifyListeners();
+    _isLoading = true;
+    notifyListeners();
 
+    try {
+      // Always check for current user, regardless of remember_me setting
       final savedUser = _auth.currentUser;
-      if (savedUser != null && _rememberMe) {
+      if (savedUser != null) {
         _user = savedUser;
+        print('User auto-restored: ${savedUser.email}');
+        
+        // Load user role from Firestore
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? 'user';
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User role loaded: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role during init: $e');
+        }
+      } else {
+        print('No saved user found');
       }
     } catch (e) {
       print('Auth initialization error: $e');
     } finally {
+      // Always set loading to false when initialization completes
       _isLoading = false;
       notifyListeners();
     }
@@ -1118,6 +1144,28 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
+
+      // Load user role from Firestore
+      if (_user != null) {
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(_user!.uid)
+              .get();
+          
+          if (userDoc.exists) {
+            final data = userDoc.data();
+            _userRole = data?['role'] ?? 'user';
+            _isAdmin = data?['isAdmin'] ?? false;
+            print('User signed in with role: $_userRole');
+          }
+        } catch (e) {
+          print('Error loading user role: $e');
+          // Default to regular user if can't load role
+          _userRole = 'user';
+          _isAdmin = false;
+        }
+      }
 
       if (_rememberMe) {
         await _prefs.setString('saved_email', email);
@@ -1142,6 +1190,7 @@ class AuthProvider with ChangeNotifier {
     String email,
     String password, {
     File? profileImage,
+    bool isAdmin = false,
   }) async {
     try {
       _isLoading = true;
@@ -1154,9 +1203,10 @@ class AuthProvider with ChangeNotifier {
 
       _user = userCredential.user;
 
-      // Save profile image
+      // Upload profile image once if provided
+      String? imageUrl;
       if (profileImage != null && _user != null) {
-        final imageUrl = await ImageService.uploadImage(
+        imageUrl = await ImageService.uploadImage(
           profileImage,
           _user!.uid,
         );
@@ -1165,6 +1215,10 @@ class AuthProvider with ChangeNotifier {
           await _prefs.setString('profile_image_url', imageUrl);
         }
       }
+
+      // Set user role
+      _userRole = isAdmin ? 'admin' : 'user';
+      _isAdmin = isAdmin;
 
       if (_user != null) {
         try {
@@ -1175,10 +1229,12 @@ class AuthProvider with ChangeNotifier {
                 'email': email,
                 'createdAt': FieldValue.serverTimestamp(),
                 'userId': _user!.uid,
-                'profileImageUrl': _profileImage != null
-                    ? await ImageService.uploadImage(_profileImage!, _user!.uid)
-                    : null,
+                'profileImageUrl': imageUrl,
+                'role': _userRole,
+                'isAdmin': _isAdmin,
+                'permissions': _isAdmin ? ['read', 'write', 'delete', 'manage_users'] : ['read', 'write'],
               });
+          print('User created with role: $_userRole');
         } catch (e) {
           print('Firestore user creation error: $e');
         }
@@ -6418,6 +6474,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _isAdmin = false; // Admin checkbox state
   File? _profileImage;
 
   @override
@@ -6467,6 +6524,7 @@ class _AuthScreenState extends State<AuthScreen> {
               _emailController.text.trim(),
               _passwordController.text.trim(),
               profileImage: _profileImage,
+              isAdmin: _isAdmin,
             );
 
       if (success && authProvider.isLoggedIn) {
@@ -6718,6 +6776,21 @@ class _AuthScreenState extends State<AuthScreen> {
                           const Text('Запомнить меня'),
                         ],
                       ),
+                    
+                    if (!_isLogin)
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: _isAdmin,
+                            onChanged: (value) {
+                              setState(() {
+                                _isAdmin = value!;
+                              });
+                            },
+                          ),
+                          const Text('Зарегистрироваться как администратор'),
+                        ],
+                      ),
                   ],
                 ),
               ),
@@ -6748,6 +6821,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   setState(() {
                     _isLogin = !_isLogin;
                     _profileImage = null;
+                    _isAdmin = false; // Reset admin flag when switching modes
                   });
                 },
                 child: Text(
