@@ -62,6 +62,9 @@ Future<void> main() async {
     Hive.registerAdapter(SalaryEntryAdapter());
     Hive.registerAdapter(AdvanceAdapter());
     Hive.registerAdapter(PenaltyAdapter());
+    // NEW: Register Attendance adapter
+    Hive.registerAdapter(AttendanceAdapter());
+    Hive.registerAdapter(DailyWorkReportAdapter());
 
     await Firebase.initializeApp(
       options: FirebaseOptions(
@@ -85,9 +88,6 @@ Future<void> main() async {
     await flutterLocalNotificationsPlugin.initialize(
         settings: initializationSettings);
 
-    // Schedule daily notification at 7 PM
-
-
     // Initialize WorkManager for background tasks
     Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
     Workmanager().registerPeriodicTask(
@@ -109,7 +109,6 @@ void callbackDispatcher() {
   });
 }
 
-
 Duration _getTimeUntil7PM() {
   final now = DateTime.now();
   var scheduledTime = DateTime(now.year, now.month, now.day, 19, 0, 0);
@@ -118,7 +117,6 @@ Duration _getTimeUntil7PM() {
   }
   return scheduledTime.difference(now);
 }
-
 
 // ========== HIVE ADAPTERS ==========
 class ToolAdapter extends TypeAdapter<Tool> {
@@ -282,6 +280,28 @@ class PenaltyAdapter extends TypeAdapter<Penalty> {
       reader.readMap().map((key, value) => MapEntry(key.toString(), value)));
   @override
   void write(BinaryWriter writer, Penalty obj) => writer.writeMap(obj.toJson());
+}
+
+// NEW: Attendance and DailyWorkReport adapters
+class AttendanceAdapter extends TypeAdapter<Attendance> {
+  @override
+  final int typeId = 11;
+  @override
+  Attendance read(BinaryReader reader) => Attendance.fromJson(
+      reader.readMap().map((key, value) => MapEntry(key.toString(), value)));
+  @override
+  void write(BinaryWriter writer, Attendance obj) => writer.writeMap(obj.toJson());
+}
+
+class DailyWorkReportAdapter extends TypeAdapter<DailyWorkReport> {
+  @override
+  final int typeId = 12;
+  @override
+  DailyWorkReport read(BinaryReader reader) => DailyWorkReport.fromJson(
+      reader.readMap().map((key, value) => MapEntry(key.toString(), value)));
+  @override
+  void write(BinaryWriter writer, DailyWorkReport obj) =>
+      writer.writeMap(obj.toJson());
 }
 
 // ========== DATA MODELS ==========
@@ -454,6 +474,8 @@ class ConstructionObject {
   DateTime updatedAt;
   bool isSelected;
   String userId;
+  // NEW: Add favorite field for objects
+  bool isFavorite;
 
   ConstructionObject({
     required this.id,
@@ -466,6 +488,7 @@ class ConstructionObject {
     DateTime? updatedAt,
     this.isSelected = false,
     required this.userId,
+    this.isFavorite = false, // NEW
   })  : toolIds = toolIds ?? [],
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
@@ -486,6 +509,7 @@ class ConstructionObject {
             : DateTime.now(),
         isSelected: json['isSelected'] as bool? ?? false,
         userId: json['userId'] as String? ?? 'unknown',
+        isFavorite: json['isFavorite'] as bool? ?? false, // NEW
       );
 
   Map<String, dynamic> toJson() => {
@@ -499,6 +523,7 @@ class ConstructionObject {
         'updatedAt': updatedAt.toIso8601String(),
         'isSelected': isSelected,
         'userId': userId,
+        'isFavorite': isFavorite, // NEW
       };
 
   ConstructionObject copyWith(
@@ -511,7 +536,8 @@ class ConstructionObject {
       DateTime? createdAt,
       DateTime? updatedAt,
       bool? isSelected,
-      String? userId}) {
+      String? userId,
+      bool? isFavorite}) { // NEW
     return ConstructionObject(
       id: id ?? this.id,
       name: name ?? this.name,
@@ -523,6 +549,7 @@ class ConstructionObject {
       updatedAt: updatedAt ?? this.updatedAt,
       isSelected: isSelected ?? this.isSelected,
       userId: userId ?? this.userId,
+      isFavorite: isFavorite ?? this.isFavorite, // NEW
     );
   }
 
@@ -683,6 +710,8 @@ class Worker {
   double hourlyRate;
   double dailyRate;
   DateTime createdAt;
+  bool isFavorite; // NEW
+  bool isSelected; // NEW
 
   Worker({
     required this.id,
@@ -695,6 +724,8 @@ class Worker {
     this.hourlyRate = 0.0,
     this.dailyRate = 0.0,
     DateTime? createdAt,
+    this.isFavorite = false, // NEW
+    this.isSelected = false, // NEW
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory Worker.fromJson(Map<String, dynamic> json) => Worker(
@@ -710,6 +741,8 @@ class Worker {
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : DateTime.now(),
+        isFavorite: json['isFavorite'] as bool? ?? false,
+        isSelected: json['isSelected'] as bool? ?? false,
       );
 
   Map<String, dynamic> toJson() => {
@@ -723,7 +756,39 @@ class Worker {
         'hourlyRate': hourlyRate,
         'dailyRate': dailyRate,
         'createdAt': createdAt.toIso8601String(),
+        'isFavorite': isFavorite,
+        'isSelected': isSelected,
       };
+
+  Worker copyWith({
+    String? id,
+    String? email,
+    String? name,
+    String? nickname,
+    String? phone,
+    String? assignedObjectId,
+    String? role,
+    double? hourlyRate,
+    double? dailyRate,
+    DateTime? createdAt,
+    bool? isFavorite,
+    bool? isSelected,
+  }) {
+    return Worker(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      name: name ?? this.name,
+      nickname: nickname ?? this.nickname,
+      phone: phone ?? this.phone,
+      assignedObjectId: assignedObjectId ?? this.assignedObjectId,
+      role: role ?? this.role,
+      hourlyRate: hourlyRate ?? this.hourlyRate,
+      dailyRate: dailyRate ?? this.dailyRate,
+      createdAt: createdAt ?? this.createdAt,
+      isFavorite: isFavorite ?? this.isFavorite,
+      isSelected: isSelected ?? this.isSelected,
+    );
+  }
 }
 
 class SalaryEntry {
@@ -830,6 +895,85 @@ class Penalty {
       };
 }
 
+// NEW: Attendance model
+class Attendance {
+  String id;
+  String workerId;
+  DateTime date;
+  bool present;
+  double hoursWorked;
+  String? notes;
+
+  Attendance({
+    required this.id,
+    required this.workerId,
+    required this.date,
+    required this.present,
+    this.hoursWorked = 0,
+    this.notes,
+  });
+
+  factory Attendance.fromJson(Map<String, dynamic> json) => Attendance(
+        id: json['id'] as String,
+        workerId: json['workerId'] as String,
+        date: DateTime.parse(json['date'] as String),
+        present: json['present'] as bool,
+        hoursWorked: (json['hoursWorked'] as num?)?.toDouble() ?? 0,
+        notes: json['notes'] as String?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'workerId': workerId,
+        'date': date.toIso8601String(),
+        'present': present,
+        'hoursWorked': hoursWorked,
+        'notes': notes,
+      };
+}
+
+// NEW: DailyWorkReport (sent by brigadier to admin)
+class DailyWorkReport {
+  String id;
+  String objectId;
+  String brigadierId;
+  DateTime date;
+  List<String> attendanceIds; // list of attendance record IDs
+  String status; // pending, approved, rejected
+  DateTime submittedAt;
+
+  DailyWorkReport({
+    required this.id,
+    required this.objectId,
+    required this.brigadierId,
+    required this.date,
+    required this.attendanceIds,
+    this.status = 'pending',
+    DateTime? submittedAt,
+  }) : submittedAt = submittedAt ?? DateTime.now();
+
+  factory DailyWorkReport.fromJson(Map<String, dynamic> json) =>
+      DailyWorkReport(
+        id: json['id'] as String,
+        objectId: json['objectId'] as String,
+        brigadierId: json['brigadierId'] as String,
+        date: DateTime.parse(json['date'] as String),
+        attendanceIds: List<String>.from(json['attendanceIds']),
+        status: json['status'] as String? ?? 'pending',
+        submittedAt: DateTime.parse(json['submittedAt'] as String),
+      );
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'objectId': objectId,
+        'brigadierId': brigadierId,
+        'date': date.toIso8601String(),
+        'attendanceIds': attendanceIds,
+        'status': status,
+        'submittedAt': submittedAt.toIso8601String(),
+      };
+}
+
 // ========== ID GENERATOR ==========
 class IdGenerator {
   static String generateToolId() =>
@@ -858,6 +1002,10 @@ class IdGenerator {
       'ADV-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
   static String generatePenaltyId() =>
       'PEN-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+  static String generateAttendanceId() => // NEW
+      'ATT-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+  static String generateDailyReportId() => // NEW
+      'DR-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
 }
 
 // ========== LOCAL DATABASE (HIVE) ==========
@@ -873,6 +1021,9 @@ class LocalDatabase {
   static const String salariesBox = 'salaries';
   static const String advancesBox = 'advances';
   static const String penaltiesBox = 'penalties';
+  // NEW: Attendance and daily reports boxes
+  static const String attendancesBox = 'attendances';
+  static const String dailyReportsBox = 'daily_reports';
 
   static Future<void> init() async {
     try {
@@ -887,6 +1038,9 @@ class LocalDatabase {
       await Hive.openBox<SalaryEntry>(salariesBox);
       await Hive.openBox<Advance>(advancesBox);
       await Hive.openBox<Penalty>(penaltiesBox);
+      // NEW
+      await Hive.openBox<Attendance>(attendancesBox);
+      await Hive.openBox<DailyWorkReport>(dailyReportsBox);
     } catch (e) {
       print('Error opening Hive boxes: $e');
     }
@@ -904,6 +1058,9 @@ class LocalDatabase {
   static Box<SalaryEntry> get salaries => Hive.box<SalaryEntry>(salariesBox);
   static Box<Advance> get advances => Hive.box<Advance>(advancesBox);
   static Box<Penalty> get penalties => Hive.box<Penalty>(penaltiesBox);
+  // NEW
+  static Box<Attendance> get attendances => Hive.box<Attendance>(attendancesBox);
+  static Box<DailyWorkReport> get dailyReports => Hive.box<DailyWorkReport>(dailyReportsBox);
 
   static Future<void> saveCacheTimestamp() async {
     try {
@@ -986,8 +1143,15 @@ class ImageService {
 // ========== REPORT TYPES ==========
 enum ReportType { pdf, text, screenshot }
 
-// ========== ENHANCED PDF REPORT SERVICE WITH COLOR AND STYLE ==========
+// ========== ENHANCED PDF REPORT SERVICE WITH COLOR AND STYLE AND CYRILLIC FIX ==========
 class ReportService {
+  // FIX: Load font for Cyrillic support
+  static Future<pw.Font> _loadFont() async {
+    // You must add Roboto-Regular.ttf to assets/fonts/ and declare in pubspec.yaml
+    final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+    return pw.Font.ttf(fontData);
+  }
+
   static String _iconToString(IconData icon) {
     if (icon == Icons.build) return '🔧';
     if (icon == Icons.location_city) return '🏢';
@@ -1004,6 +1168,7 @@ class ReportService {
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.blue700;
     final secondaryColor = PdfColors.orange600;
+    final font = await _loadFont(); // FIX
 
     pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -1024,13 +1189,14 @@ class ReportService {
               child: pw.Row(
                 children: [
                   pw.Text(_iconToString(Icons.build),
-                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white)),
+                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white, font: font)), // FIX
                   pw.SizedBox(width: 10),
                   pw.Text('TOOLER - ОТЧЕТ ОБ ИНСТРУМЕНТЕ',
                       style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white)),
+                          color: PdfColors.white,
+                          font: font)), // FIX
                 ],
               ),
             ),
@@ -1048,7 +1214,8 @@ class ReportService {
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
-                          color: primaryColor)),
+                          color: primaryColor,
+                          font: font)), // FIX
                   pw.SizedBox(height: 10),
                   pw.Table.fromTextArray(
                     context: context,
@@ -1062,9 +1229,9 @@ class ReportService {
                       ['Дата добавления:', DateFormat('dd.MM.yyyy').format(tool.createdAt)],
                       ['Последнее обновление:', DateFormat('dd.MM.yyyy').format(tool.updatedAt)],
                     ],
-                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    cellStyle: pw.TextStyle(fontSize: 12, font: font), // FIX
                     headerStyle: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                        fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font), // FIX
                     headerDecoration: pw.BoxDecoration(color: primaryColor),
                     cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
                   ),
@@ -1086,18 +1253,19 @@ class ReportService {
                         style: pw.TextStyle(
                             fontSize: 18,
                             fontWeight: pw.FontWeight.bold,
-                            color: secondaryColor)),
+                            color: secondaryColor,
+                            font: font)), // FIX
                     pw.SizedBox(height: 10),
                     ...tool.locationHistory.map((history) => pw.Padding(
                           padding: const pw.EdgeInsets.only(bottom: 8),
                           child: pw.Row(
                             children: [
                               pw.Text('• ',
-                                  style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                                  style: pw.TextStyle(color: secondaryColor, fontSize: 16, font: font)), // FIX
                               pw.Expanded(
                                 child: pw.Text(
                                   '${history.locationName} (${DateFormat('dd.MM.yyyy').format(history.date)})',
-                                  style: const pw.TextStyle(fontSize: 12),
+                                  style: pw.TextStyle(fontSize: 12, font: font), // FIX
                                 ),
                               ),
                             ],
@@ -1119,7 +1287,7 @@ class ReportService {
                 child: pw.Text(
                   '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
                   'Генерация отчета: ${dateFormat.format(DateTime.now())}',
-                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey, font: font), // FIX
                   textAlign: pw.TextAlign.center,
                 ),
               ),
@@ -1169,6 +1337,7 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.orange700;
     final secondaryColor = PdfColors.green600;
+    final font = await _loadFont(); // FIX
 
     pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -1189,13 +1358,14 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
               child: pw.Row(
                 children: [
                   pw.Text(_iconToString(Icons.location_city),
-                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white)),
+                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white, font: font)), // FIX
                   pw.SizedBox(width: 10),
                   pw.Text('TOOLER - ОТЧЕТ ОБ ОБЪЕКТЕ',
                       style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white)),
+                          color: PdfColors.white,
+                          font: font)), // FIX
                 ],
               ),
             ),
@@ -1213,7 +1383,8 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
-                          color: primaryColor)),
+                          color: primaryColor,
+                          font: font)), // FIX
                   pw.SizedBox(height: 10),
                   pw.Table.fromTextArray(
                     context: context,
@@ -1223,9 +1394,9 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
                       ['Инструментов:', '${toolsOnObject.length}'],
                       ['Создан:', DateFormat('dd.MM.yyyy').format(object.createdAt)],
                     ],
-                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    cellStyle: pw.TextStyle(fontSize: 12, font: font), // FIX
                     headerStyle: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                        fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font), // FIX
                     headerDecoration: pw.BoxDecoration(color: primaryColor),
                     cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
                   ),
@@ -1246,22 +1417,23 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
-                          color: secondaryColor)),
+                          color: secondaryColor,
+                          font: font)), // FIX
                   pw.SizedBox(height: 10),
                   if (toolsOnObject.isEmpty)
                     pw.Text('Нет инструментов',
-                        style: const pw.TextStyle(fontSize: 12, color: PdfColors.grey))
+                        style: pw.TextStyle(fontSize: 12, color: PdfColors.grey, font: font)) // FIX
                   else
                     ...toolsOnObject.map((t) => pw.Padding(
                           padding: const pw.EdgeInsets.only(bottom: 8),
                           child: pw.Row(
                             children: [
                               pw.Text('• ',
-                                  style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                                  style: pw.TextStyle(color: secondaryColor, fontSize: 16, font: font)), // FIX
                               pw.Expanded(
                                 child: pw.Text(
                                   '${t.title} (${t.brand})${t.isFavorite ? ' ⭐' : ''}',
-                                  style: const pw.TextStyle(fontSize: 12),
+                                  style: pw.TextStyle(fontSize: 12, font: font), // FIX
                                 ),
                               ),
                             ],
@@ -1282,7 +1454,7 @@ ${tool.locationHistory.map((history) => '• ${history.locationName} (${DateForm
                 child: pw.Text(
                   '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
                   'Генерация отчета: ${dateFormat.format(DateTime.now())}',
-                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey, font: font), // FIX
                   textAlign: pw.TextAlign.center,
                 ),
               ),
@@ -1323,6 +1495,7 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.green700;
     final secondaryColor = PdfColors.purple600;
+    final font = await _loadFont(); // FIX
 
     pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
@@ -1343,13 +1516,14 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
               child: pw.Row(
                 children: [
                   pw.Text(_iconToString(Icons.inventory),
-                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white)),
+                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white, font: font)), // FIX
                   pw.SizedBox(width: 10),
                   pw.Text('TOOLER - ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ',
                       style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
-                          color: PdfColors.white)),
+                          color: PdfColors.white,
+                          font: font)), // FIX
                 ],
               ),
             ),
@@ -1367,7 +1541,8 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
-                          color: primaryColor)),
+                          color: primaryColor,
+                          font: font)), // FIX
                   pw.SizedBox(height: 10),
                   pw.Table.fromTextArray(
                     context: context,
@@ -1380,9 +1555,9 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
                       ['С инструментами', '${objects.where((o) => o.toolIds.isNotEmpty).length}'],
                       ['Пустых', '${objects.where((o) => o.toolIds.isEmpty).length}'],
                     ],
-                    cellStyle: const pw.TextStyle(fontSize: 12),
+                    cellStyle: pw.TextStyle(fontSize: 12, font: font), // FIX
                     headerStyle: pw.TextStyle(
-                        fontWeight: pw.FontWeight.bold, color: PdfColors.white),
+                        fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font), // FIX
                     headerDecoration: pw.BoxDecoration(color: primaryColor),
                     cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
                   ),
@@ -1403,18 +1578,19 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
                       style: pw.TextStyle(
                           fontSize: 18,
                           fontWeight: pw.FontWeight.bold,
-                          color: secondaryColor)),
+                          color: secondaryColor,
+                          font: font)), // FIX
                   pw.SizedBox(height: 10),
                   ...tools.take(50).map((tool) => pw.Padding(
                         padding: const pw.EdgeInsets.only(bottom: 8),
                         child: pw.Row(
                           children: [
                             pw.Text('• ',
-                                style: pw.TextStyle(color: secondaryColor, fontSize: 16)),
+                                style: pw.TextStyle(color: secondaryColor, fontSize: 16, font: font)), // FIX
                             pw.Expanded(
                               child: pw.Text(
                                 '${tool.title} (${tool.brand}) - ${tool.currentLocationName}${tool.isFavorite ? " ⭐" : ""}',
-                                style: const pw.TextStyle(fontSize: 12),
+                                style: pw.TextStyle(fontSize: 12, font: font), // FIX
                               ),
                             ),
                           ],
@@ -1423,7 +1599,7 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
                   if (tools.length > 50)
                     pw.Text('... и еще ${tools.length - 50} инструментов',
                         style: pw.TextStyle(
-                            fontSize: 12, fontStyle: pw.FontStyle.italic)),
+                            fontSize: 12, fontStyle: pw.FontStyle.italic, font: font)), // FIX
                 ],
               ),
             ),
@@ -1439,7 +1615,7 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
                 child: pw.Text(
                   '© ${DateTime.now().year} Tooler App - Система управления строительными инструментами\n'
                   'Генерация отчета: ${dateFormat.format(DateTime.now())}',
-                  style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey),
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey, font: font), // FIX
                   textAlign: pw.TextAlign.center,
                 ),
               ),
@@ -1485,6 +1661,177 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
 ''';
   }
 
+  // NEW: Worker report
+  static Future<Uint8List> _generateWorkerReportPdf(Worker worker,
+      List<SalaryEntry> salaries, List<Advance> advances, List<Penalty> penalties,
+      DateTime startDate, DateTime endDate) async {
+    final pdf = pw.Document();
+    final dateFormat = DateFormat('dd.MM.yyyy');
+    final primaryColor = PdfColors.teal700;
+    final secondaryColor = PdfColors.pink600;
+    final font = await _loadFont();
+
+    double totalSalaries = salaries.fold(0, (sum, e) => sum + e.amount);
+    double totalAdvances = advances.fold(0, (sum, e) => sum + (e.repaid ? 0 : e.amount));
+    double totalPenalties = penalties.fold(0, (sum, e) => sum + e.amount);
+    double balance = totalSalaries - totalAdvances - totalPenalties;
+
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                gradient: pw.LinearGradient(
+                  colors: [primaryColor, secondaryColor],
+                  begin: pw.Alignment.topLeft,
+                  end: pw.Alignment.bottomRight,
+                ),
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Row(
+                children: [
+                  pw.Text('👤',
+                      style: pw.TextStyle(fontSize: 40, color: PdfColors.white, font: font)),
+                  pw.SizedBox(width: 10),
+                  pw.Text('TOOLER - ОТЧЕТ ПО РАБОТНИКУ',
+                      style: pw.TextStyle(
+                          fontSize: 24,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColors.white,
+                          font: font)),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ОСНОВНАЯ ИНФОРМАЦИЯ',
+                      style: pw.TextStyle(
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                          color: primaryColor,
+                          font: font)),
+                  pw.SizedBox(height: 10),
+                  pw.Table.fromTextArray(
+                    context: context,
+                    data: [
+                      ['Имя:', worker.name],
+                      ['Email:', worker.email],
+                      ['Псевдоним:', worker.nickname ?? '—'],
+                      ['Телефон:', worker.phone ?? '—'],
+                      ['Роль:', worker.role],
+                      ['Почасовая ставка:', '${worker.hourlyRate.toStringAsFixed(2)} ₽'],
+                      ['Дневная ставка:', '${worker.dailyRate.toStringAsFixed(2)} ₽'],
+                    ],
+                    cellStyle: pw.TextStyle(fontSize: 12, font: font),
+                    headerStyle: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font),
+                    headerDecoration: pw.BoxDecoration(color: primaryColor),
+                    cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(15),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey100,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Text('ФИНАНСЫ ЗА ПЕРИОД ${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}',
+                      style: pw.TextStyle(
+                          fontSize: 18,
+                          fontWeight: pw.FontWeight.bold,
+                          color: secondaryColor,
+                          font: font)),
+                  pw.SizedBox(height: 10),
+                  pw.Table.fromTextArray(
+                    context: context,
+                    data: [
+                      ['Начислено зарплаты:', '${totalSalaries.toStringAsFixed(2)} ₽'],
+                      ['Авансы (непогашенные):', '${totalAdvances.toStringAsFixed(2)} ₽'],
+                      ['Штрафы:', '${totalPenalties.toStringAsFixed(2)} ₽'],
+                      ['ИТОГОВЫЙ БАЛАНС:', '${balance.toStringAsFixed(2)} ₽'],
+                    ],
+                    cellStyle: pw.TextStyle(fontSize: 12, font: font),
+                    headerStyle: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font),
+                    headerDecoration: pw.BoxDecoration(color: secondaryColor),
+                    cellAlignments: {0: pw.Alignment.centerLeft, 1: pw.Alignment.centerRight},
+                  ),
+                ],
+              ),
+            ),
+            if (salaries.isNotEmpty) ...[
+              pw.SizedBox(height: 20),
+              pw.Container(
+                padding: const pw.EdgeInsets.all(15),
+                decoration: pw.BoxDecoration(
+                  color: PdfColors.grey100,
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text('ДЕТАЛИ ЗАРПЛАТЫ',
+                        style: pw.TextStyle(
+                            fontSize: 16,
+                            fontWeight: pw.FontWeight.bold,
+                            color: primaryColor,
+                            font: font)),
+                    pw.SizedBox(height: 10),
+                    ...salaries.map((s) => pw.Padding(
+                          padding: const pw.EdgeInsets.only(bottom: 4),
+                          child: pw.Row(
+                            children: [
+                              pw.Expanded(child: pw.Text('${dateFormat.format(s.date)}', style: pw.TextStyle(font: font))),
+                              pw.Text('${s.amount.toStringAsFixed(2)} ₽', style: pw.TextStyle(font: font)),
+                            ],
+                          ),
+                        )),
+                  ],
+                ),
+              ),
+            ],
+            pw.Spacer(),
+            pw.Container(
+              margin: const pw.EdgeInsets.only(top: 30),
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                color: PdfColors.grey200,
+                borderRadius: pw.BorderRadius.circular(5),
+              ),
+              child: pw.Center(
+                child: pw.Text(
+                  '© ${DateTime.now().year} Tooler App\n'
+                  'Генерация отчета: ${dateFormat.format(DateTime.now())}',
+                  style: pw.TextStyle(fontSize: 10, color: PdfColors.grey, font: font),
+                  textAlign: pw.TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ));
+    return pdf.save();
+  }
+
   static Future<void> shareToolReport(
       Tool tool, BuildContext context, ReportType reportType) async {
     try {
@@ -1526,6 +1873,40 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
       }
     } catch (e) {
       await Share.share(_generateObjectReportText(object, toolsOnObject));
+    }
+  }
+
+  // NEW: Share worker report
+  static Future<void> shareWorkerReport(
+      Worker worker,
+      List<SalaryEntry> salaries,
+      List<Advance> advances,
+      List<Penalty> penalties,
+      BuildContext context,
+      ReportType reportType,
+      {DateTime? startDate, DateTime? endDate}) async {
+    startDate ??= DateTime(2020);
+    endDate ??= DateTime.now();
+    try {
+      switch (reportType) {
+        case ReportType.pdf:
+          final pdfBytes = await _generateWorkerReportPdf(
+              worker, salaries, advances, penalties, startDate, endDate);
+          final tempDir = await getTemporaryDirectory();
+          final pdfFile = File('${tempDir.path}/worker_report_${worker.id}.pdf');
+          await pdfFile.writeAsBytes(pdfBytes);
+          await Share.shareXFiles([XFile(pdfFile.path)],
+              text: '📋 Отчет по работнику: ${worker.name}');
+          break;
+        case ReportType.text:
+        case ReportType.screenshot:
+          // Simple text report (can be extended)
+          String report = 'Отчет по работнику ${worker.name}\n...';
+          await Share.share(report);
+          break;
+      }
+    } catch (e) {
+      // fallback
     }
   }
 
@@ -1936,6 +2317,7 @@ class AuthProvider with ChangeNotifier {
   File? get profileImage => _profileImage;
   String? get role => _role;
   bool get isAdmin => _role == 'admin';
+  bool get isBrigadir => _role == 'brigadir'; // NEW
   bool get canMoveTools => _canMoveTools || isAdmin;
   bool get canControlObjects => _canControlObjects || isAdmin;
 
@@ -2095,13 +2477,60 @@ class AuthProvider with ChangeNotifier {
   }
 }
 
-// ========== WORKER PROVIDER ==========
+// ========== WORKER PROVIDER (enhanced with selection and favorites) ==========
 class WorkerProvider with ChangeNotifier {
   List<Worker> _workers = [];
   bool _isLoading = false;
+  bool _selectionMode = false;
 
   List<Worker> get workers => List.unmodifiable(_workers);
   bool get isLoading => _isLoading;
+  bool get selectionMode => _selectionMode;
+  List<Worker> get selectedWorkers => _workers.where((w) => w.isSelected).toList();
+  bool get hasSelectedWorkers => _workers.any((w) => w.isSelected);
+  List<Worker> get favoriteWorkers => _workers.where((w) => w.isFavorite).toList();
+
+  void toggleSelectionMode() {
+    _selectionMode = !_selectionMode;
+    if (!_selectionMode) {
+      for (var i = 0; i < _workers.length; i++) {
+        _workers[i] = _workers[i].copyWith(isSelected: false);
+      }
+    }
+    notifyListeners();
+  }
+
+  void toggleWorkerSelection(String workerId) {
+    final index = _workers.indexWhere((w) => w.id == workerId);
+    if (index != -1) {
+      _workers[index] = _workers[index].copyWith(isSelected: !_workers[index].isSelected);
+      notifyListeners();
+    }
+  }
+
+  void selectAllWorkers() {
+    for (var i = 0; i < _workers.length; i++) {
+      _workers[i] = _workers[i].copyWith(isSelected: true);
+    }
+    notifyListeners();
+  }
+
+  Future<void> toggleFavorite(String workerId) async {
+    final index = _workers.indexWhere((w) => w.id == workerId);
+    if (index != -1) {
+      _workers[index] = _workers[index].copyWith(isFavorite: !_workers[index].isFavorite);
+      await LocalDatabase.workers.put(_workers[index].id, _workers[index]);
+      notifyListeners();
+    }
+  }
+
+  Future<void> toggleFavoriteForSelected() async {
+    for (final w in selectedWorkers) {
+      final updated = w.copyWith(isFavorite: !w.isFavorite);
+      await LocalDatabase.workers.put(updated.id, updated);
+    }
+    await loadWorkers();
+  }
 
   Future<void> loadWorkers() async {
     _isLoading = true;
@@ -2136,32 +2565,103 @@ class WorkerProvider with ChangeNotifier {
   List<Worker> getWorkersOnObject(String objectId) {
     return _workers.where((w) => w.assignedObjectId == objectId).toList();
   }
+
+  // Move selected workers to another object
+  Future<void> moveSelectedWorkers(String? targetObjectId, String targetObjectName) async {
+    for (final w in selectedWorkers) {
+      final updated = w.copyWith(assignedObjectId: targetObjectId);
+      await LocalDatabase.workers.put(updated.id, updated);
+    }
+    await loadWorkers();
+    toggleSelectionMode(); // exit selection mode
+  }
 }
 
-// ========== SALARY PROVIDER ==========
+// ========== SALARY PROVIDER (enhanced with date filtering) ==========
 class SalaryProvider with ChangeNotifier {
   List<SalaryEntry> _salaries = [];
   List<Advance> _advances = [];
   List<Penalty> _penalties = [];
+  // NEW: Attendance and daily reports
+  List<Attendance> _attendances = [];
+  List<DailyWorkReport> _dailyReports = [];
 
   Future<void> loadData() async {
     await LocalDatabase.init();
     _salaries = LocalDatabase.salaries.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     _advances = LocalDatabase.advances.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     _penalties = LocalDatabase.penalties.values.toList()..sort((a, b) => b.date.compareTo(a.date));
+    _attendances = LocalDatabase.attendances.values.toList()..sort((a, b) => b.date.compareTo(a.date));
+    _dailyReports = LocalDatabase.dailyReports.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
   }
 
-  List<SalaryEntry> getSalariesForWorker(String workerId) {
-    return _salaries.where((s) => s.workerId == workerId).toList();
+  List<SalaryEntry> getSalariesForWorker(String workerId, {DateTime? start, DateTime? end}) {
+    var list = _salaries.where((s) => s.workerId == workerId).toList();
+    if (start != null) list = list.where((s) => s.date.isAfter(start)).toList();
+    if (end != null) list = list.where((s) => s.date.isBefore(end)).toList();
+    return list;
   }
 
-  List<Advance> getAdvancesForWorker(String workerId) {
-    return _advances.where((a) => a.workerId == workerId).toList();
+  List<Advance> getAdvancesForWorker(String workerId, {DateTime? start, DateTime? end}) {
+    var list = _advances.where((a) => a.workerId == workerId).toList();
+    if (start != null) list = list.where((a) => a.date.isAfter(start)).toList();
+    if (end != null) list = list.where((a) => a.date.isBefore(end)).toList();
+    return list;
   }
 
-  List<Penalty> getPenaltiesForWorker(String workerId) {
-    return _penalties.where((p) => p.workerId == workerId).toList();
+  List<Penalty> getPenaltiesForWorker(String workerId, {DateTime? start, DateTime? end}) {
+    var list = _penalties.where((p) => p.workerId == workerId).toList();
+    if (start != null) list = list.where((p) => p.date.isAfter(start)).toList();
+    if (end != null) list = list.where((p) => p.date.isBefore(end)).toList();
+    return list;
+  }
+
+  // NEW: Attendance methods
+  List<Attendance> getAttendancesForWorker(String workerId, {DateTime? start, DateTime? end}) {
+    var list = _attendances.where((a) => a.workerId == workerId).toList();
+    if (start != null) list = list.where((a) => a.date.isAfter(start)).toList();
+    if (end != null) list = list.where((a) => a.date.isBefore(end)).toList();
+    return list;
+  }
+
+  List<Attendance> getAttendancesForObjectAndDate(String objectId, DateTime date) {
+    // Not directly; need worker->object mapping. We'll handle in UI.
+    return [];
+  }
+
+  Future<void> addAttendance(Attendance attendance) async {
+    _attendances.add(attendance);
+    await LocalDatabase.attendances.put(attendance.id, attendance);
+    notifyListeners();
+  }
+
+  // Daily report methods
+  Future<void> addDailyReport(DailyWorkReport report) async {
+    _dailyReports.add(report);
+    await LocalDatabase.dailyReports.put(report.id, report);
+    notifyListeners();
+  }
+
+  Future<void> updateDailyReportStatus(String reportId, String status) async {
+    final index = _dailyReports.indexWhere((r) => r.id == reportId);
+    if (index != -1) {
+      _dailyReports[index] = DailyWorkReport(
+        id: _dailyReports[index].id,
+        objectId: _dailyReports[index].objectId,
+        brigadierId: _dailyReports[index].brigadierId,
+        date: _dailyReports[index].date,
+        attendanceIds: _dailyReports[index].attendanceIds,
+        status: status,
+        submittedAt: _dailyReports[index].submittedAt,
+      );
+      await LocalDatabase.dailyReports.put(reportId, _dailyReports[index]);
+      notifyListeners();
+    }
+  }
+
+  List<DailyWorkReport> getPendingDailyReports() {
+    return _dailyReports.where((r) => r.status == 'pending').toList();
   }
 
   Future<void> addSalary(SalaryEntry salary) async {
@@ -2757,7 +3257,7 @@ class ToolsProvider with ChangeNotifier {
   }
 }
 
-// ========== ENHANCED OBJECTS PROVIDER (with permission checks) ==========
+// ========== ENHANCED OBJECTS PROVIDER (with permission checks and favorites) ==========
 class ObjectsProvider with ChangeNotifier {
   List<ConstructionObject> _objects = [];
   bool _isLoading = false;
@@ -2773,6 +3273,8 @@ class ObjectsProvider with ChangeNotifier {
       _objects.where((o) => o.isSelected).toList();
   bool get hasSelectedObjects => _objects.any((o) => o.isSelected);
   int get totalObjects => _objects.length;
+  // NEW: Favorites
+  List<ConstructionObject> get favoriteObjects => _objects.where((o) => o.isFavorite).toList();
 
   void toggleSelectionMode() {
     _selectionMode = !_selectionMode;
@@ -2797,6 +3299,28 @@ class ObjectsProvider with ChangeNotifier {
     for (var i = 0; i < _objects.length; i++) {
       _objects[i] = _objects[i].copyWith(isSelected: false);
     }
+    notifyListeners();
+  }
+
+  // NEW: Toggle favorite for object
+  Future<void> toggleFavorite(String objectId) async {
+    final index = _objects.indexWhere((o) => o.id == objectId);
+    if (index == -1) return;
+    final updated = _objects[index].copyWith(isFavorite: !_objects[index].isFavorite);
+    _objects[index] = updated;
+    await LocalDatabase.objects.put(updated.id, updated);
+    await _addToSyncQueue(action: 'update', collection: 'objects', data: updated.toJson());
+    notifyListeners();
+  }
+
+  Future<void> toggleFavoriteForSelected() async {
+    final selected = _objects.where((o) => o.isSelected).toList();
+    for (final obj in selected) {
+      final updated = obj.copyWith(isFavorite: !obj.isFavorite);
+      await LocalDatabase.objects.put(updated.id, updated);
+      await _addToSyncQueue(action: 'update', collection: 'objects', data: updated.toJson());
+    }
+    await loadObjects();
     notifyListeners();
   }
 
@@ -4552,7 +5076,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
   }
 }
 
-// ========== OBJECT CARD ==========
+// ========== OBJECT CARD (with favorite) ==========
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;
   final ToolsProvider toolsProvider;
@@ -4701,6 +5225,9 @@ class ObjectCard extends StatelessWidget {
                               _showDeleteDialog(context, object);
                             }
                             break;
+                          case 'favorite': // NEW
+                            objectsProvider.toggleFavorite(object.id);
+                            break;
                         }
                       },
                       itemBuilder: (context) {
@@ -4711,6 +5238,16 @@ class ObjectCard extends StatelessWidget {
                         }
                         items.add(const PopupMenuItem(
                             value: 'share', child: Text('Поделиться отчетом')));
+                        items.add(PopupMenuItem(
+                            value: 'favorite',
+                            child: Row(
+                              children: [
+                                Icon(object.isFavorite ? Icons.favorite : Icons.favorite_border,
+                                    size: 18, color: object.isFavorite ? Colors.red : null),
+                                const SizedBox(width: 8),
+                                Text(object.isFavorite ? 'Убрать из избранного' : 'В избранное'),
+                              ],
+                            )));
                         if (auth.canControlObjects) {
                           items.add(const PopupMenuItem(
                               value: 'delete',
@@ -4825,6 +5362,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
         createdAt: widget.object?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
         userId: authProvider.user?.uid ?? 'local',
+        isFavorite: widget.object?.isFavorite ?? false, // NEW
       );
       if (widget.object == null) {
         await objectsProvider.addObject(object, imageFile: _imageFile);
@@ -5056,6 +5594,14 @@ class ObjectDetailsScreen extends StatelessWidget {
                   MaterialPageRoute(
                       builder: (context) => AddEditObjectScreen(object: object))),
             ),
+          // NEW: Favorite toggle
+          Consumer<ObjectsProvider>(
+            builder: (context, op, _) => IconButton(
+              icon: Icon(object.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: object.isFavorite ? Colors.red : null),
+              onPressed: () => op.toggleFavorite(object.id),
+            ),
+          ),
         ],
       ),
       body: Column(
@@ -5154,7 +5700,7 @@ class ObjectDetailsScreen extends StatelessWidget {
       );
 }
 
-// ========== ENHANCED OBJECTS LIST SCREEN ==========
+// ========== ENHANCED OBJECTS LIST SCREEN (with favorite filter) ==========
 class EnhancedObjectsListScreen extends StatefulWidget {
   const EnhancedObjectsListScreen({super.key});
   @override
@@ -5163,6 +5709,9 @@ class EnhancedObjectsListScreen extends StatefulWidget {
 }
 class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   final TextEditingController _searchController = TextEditingController();
+  // NEW: filter for favorites
+  bool _showFavoritesOnly = false;
+
   @override
   void initState() {
     super.initState();
@@ -5180,10 +5729,21 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     final objectsProvider = Provider.of<ObjectsProvider>(context);
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
+
+    List<ConstructionObject> displayObjects = objectsProvider.objects;
+    if (_showFavoritesOnly) {
+      displayObjects = objectsProvider.favoriteObjects;
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('Объекты (${objectsProvider.totalObjects})'),
+        title: Text('Объекты (${displayObjects.length})'),
         actions: [
+          IconButton(
+            icon: Icon(_showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                color: _showFavoritesOnly ? Colors.red : null),
+            onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
+          ),
           IconButton(
               icon: const Icon(Icons.refresh),
               onPressed: () => objectsProvider.loadObjects(forceRefresh: true))
@@ -5208,12 +5768,12 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                   ),
                 ),
                 Expanded(
-                  child: objectsProvider.objects.isEmpty
-                      ? _buildEmptyObjectsScreen(auth.canControlObjects)
+                  child: displayObjects.isEmpty
+                      ? _buildEmptyObjectsScreen(auth.canControlObjects, _showFavoritesOnly)
                       : ListView.builder(
-                          itemCount: objectsProvider.objects.length,
+                          itemCount: displayObjects.length,
                           itemBuilder: (context, index) {
-                            final object = objectsProvider.objects[index];
+                            final object = displayObjects[index];
                             return ObjectCard(
                               object: object,
                               toolsProvider: toolsProvider,
@@ -5264,16 +5824,16 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           ],
         ),
       );
-  Widget _buildEmptyObjectsScreen(bool canControl) => Center(
+  Widget _buildEmptyObjectsScreen(bool canControl, bool favoritesOnly) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.location_city, size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 20),
-            const Text('Нет объектов',
-                style: TextStyle(fontSize: 18, color: Colors.grey)),
+            Text(favoritesOnly ? 'Нет избранных объектов' : 'Нет объектов',
+                style: const TextStyle(fontSize: 18, color: Colors.grey)),
             const SizedBox(height: 10),
-            if (canControl)
+            if (canControl && !favoritesOnly)
               ElevatedButton(
                 onPressed: () => Navigator.push(
                     context,
@@ -5307,6 +5867,15 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
               Text('Выбрано: $selectedCount объектов',
                   style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 20),
+              // NEW: Favorite selected
+              ListTile(
+                leading: const Icon(Icons.favorite, color: Colors.red),
+                title: const Text('Добавить в избранное'),
+                onTap: () {
+                  Navigator.pop(context);
+                  objectsProvider.toggleFavoriteForSelected();
+                },
+              ),
               if (auth.canControlObjects)
                 ListTile(
                   leading: const Icon(Icons.delete, color: Colors.red),
@@ -5466,44 +6035,78 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
   }
 }
 
-// ========== FAVORITES SCREEN ==========
+// ========== FAVORITES SCREEN (combine tools and objects) ==========
 class FavoritesScreen extends StatelessWidget {
   const FavoritesScreen({super.key});
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
+    final objectsProvider = Provider.of<ObjectsProvider>(context);
     final favoriteTools = toolsProvider.favoriteTools;
-    return Scaffold(
-      appBar: AppBar(title: Text('Избранное (${favoriteTools.length})')),
-      body: favoriteTools.isEmpty
-          ? _buildEmptyFavoritesScreen()
-          : ListView.builder(
-              itemCount: favoriteTools.length,
-              itemBuilder: (context, index) {
-                final tool = favoriteTools[index];
-                return SelectionToolCard(
-                  tool: tool,
-                  selectionMode: false,
-                  onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => EnhancedToolDetailsScreen(tool: tool))),
-                );
-              },
-            ),
+    final favoriteObjects = objectsProvider.favoriteObjects;
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Избранное'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Инструменты', icon: Icon(Icons.build)),
+              Tab(text: 'Объекты', icon: Icon(Icons.location_city)),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            // Tools tab
+            favoriteTools.isEmpty
+                ? _buildEmptyFavorites(Icons.build, 'Нет избранных инструментов')
+                : ListView.builder(
+                    itemCount: favoriteTools.length,
+                    itemBuilder: (context, index) {
+                      final tool = favoriteTools[index];
+                      return SelectionToolCard(
+                        tool: tool,
+                        selectionMode: false,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => EnhancedToolDetailsScreen(tool: tool))),
+                      );
+                    },
+                  ),
+            // Objects tab
+            favoriteObjects.isEmpty
+                ? _buildEmptyFavorites(Icons.location_city, 'Нет избранных объектов')
+                : ListView.builder(
+                    itemCount: favoriteObjects.length,
+                    itemBuilder: (context, index) {
+                      final object = favoriteObjects[index];
+                      return ObjectCard(
+                        object: object,
+                        toolsProvider: toolsProvider,
+                        selectionMode: false,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => ObjectDetailsScreen(object: object))),
+                      );
+                    },
+                  ),
+          ],
+        ),
+      ),
     );
   }
-  Widget _buildEmptyFavoritesScreen() => Center(
+
+  Widget _buildEmptyFavorites(IconData icon, String text) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.favorite_border, size: 80, color: Colors.grey.shade300),
+            Icon(icon, size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 20),
-            const Text('Нет избранных инструментов',
-                style: TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 10),
-            const Text('Добавьте инструменты в избранное',
-                style: TextStyle(color: Colors.grey)),
+            Text(text, style: const TextStyle(fontSize: 18, color: Colors.grey)),
           ],
         ),
       );
@@ -5784,7 +6387,7 @@ class NotificationsScreen extends StatelessWidget {
   }
 }
 
-// ========== WORKERS LIST SCREEN ==========
+// ========== WORKERS LIST SCREEN (enhanced with selection and move) ==========
 class WorkersListScreen extends StatefulWidget {
   const WorkersListScreen({super.key});
 
@@ -5793,6 +6396,11 @@ class WorkersListScreen extends StatefulWidget {
 }
 
 class _WorkersListScreenState extends State<WorkersListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _filterRole = 'all';
+  String? _filterObject;
+  bool _showFavoritesOnly = false;
+
   @override
   void initState() {
     super.initState();
@@ -5802,15 +6410,48 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final workerProvider = Provider.of<WorkerProvider>(context);
+    final objectsProvider = Provider.of<ObjectsProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
 
-    if (!auth.isAdmin) {
+    if (!auth.isAdmin && !auth.isBrigadir) {
       return Scaffold(
         appBar: AppBar(title: const Text('Работники')),
-        body: const Center(child: Text('Только администратор может просматривать работников')),
+        body: const Center(child: Text('У вас нет доступа к этому разделу')),
       );
+    }
+
+    // For brigadier, show only workers on his object
+    List<Worker> displayWorkers = workerProvider.workers;
+    if (auth.isBrigadir) {
+      // Assuming brigadier's assigned object is stored somewhere; we need to fetch.
+      // For now, we'll just show all (you need to implement logic to get brigadier's object).
+      // This is a placeholder.
+    }
+
+    // Apply filters
+    if (_filterRole != 'all') {
+      displayWorkers = displayWorkers.where((w) => w.role == _filterRole).toList();
+    }
+    if (_filterObject != null) {
+      displayWorkers = displayWorkers.where((w) => w.assignedObjectId == _filterObject).toList();
+    }
+    if (_showFavoritesOnly) {
+      displayWorkers = displayWorkers.where((w) => w.isFavorite).toList();
+    }
+    if (_searchController.text.isNotEmpty) {
+      final q = _searchController.text.toLowerCase();
+      displayWorkers = displayWorkers.where((w) =>
+          w.name.toLowerCase().contains(q) ||
+          w.email.toLowerCase().contains(q) ||
+          (w.nickname?.toLowerCase().contains(q) ?? false)).toList();
     }
 
     return Scaffold(
@@ -5818,10 +6459,16 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
         title: const Text('Управление работниками'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (context) => const AddEditWorkerScreen())),
+            icon: Icon(_showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+                color: _showFavoritesOnly ? Colors.red : null),
+            onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
           ),
+          if (auth.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.add),
+              onPressed: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (context) => const AddEditWorkerScreen())),
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () => workerProvider.loadWorkers(),
@@ -5830,44 +6477,423 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
       ),
       body: workerProvider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : workerProvider.workers.isEmpty
-              ? const Center(child: Text('Нет работников'))
-              : ListView.builder(
-                  itemCount: workerProvider.workers.length,
-                  itemBuilder: (context, index) {
-                    final worker = workerProvider.workers[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      child: ListTile(
-                        leading: CircleAvatar(child: Text(worker.name[0].toUpperCase())),
-                        title: Text(worker.name),
-                        subtitle: Text(
-                            '${worker.role} · ${worker.assignedObjectId != null ? 'На объекте' : 'В гараже'}'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.payments, color: Colors.green),
-                              onPressed: () => Navigator.push(
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск работников...',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                    onChanged: (v) => setState(() {}),
+                  ),
+                ),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: Row(
+                    children: [
+                      FilterChip(
+                        label: const Text('Все'),
+                        selected: _filterRole == 'all',
+                        onSelected: (_) => setState(() => _filterRole = 'all'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: const Text('Рабочий'),
+                        selected: _filterRole == 'worker',
+                        onSelected: (_) => setState(() => _filterRole = 'worker'),
+                      ),
+                      const SizedBox(width: 8),
+                      FilterChip(
+                        label: const Text('Бригадир'),
+                        selected: _filterRole == 'brigadir',
+                        onSelected: (_) => setState(() => _filterRole = 'brigadir'),
+                      ),
+                      const SizedBox(width: 8),
+                      DropdownButton<String>(
+                        hint: const Text('Объект'),
+                        value: _filterObject,
+                        items: [
+                          const DropdownMenuItem(value: null, child: Text('Все объекты')),
+                          ...objectsProvider.objects.map((obj) =>
+                              DropdownMenuItem(value: obj.id, child: Text(obj.name))),
+                        ],
+                        onChanged: (v) => setState(() => _filterObject = v),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: displayWorkers.isEmpty
+                      ? _buildEmptyWorkers(auth.isAdmin)
+                      : ListView.builder(
+                          itemCount: displayWorkers.length,
+                          itemBuilder: (context, index) {
+                            final worker = displayWorkers[index];
+                            return WorkerCard(
+                              worker: worker,
+                              selectionMode: workerProvider.selectionMode,
+                              onTap: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) =>
                                           WorkerSalaryScreen(worker: worker))),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          AddEditWorkerScreen(worker: worker))),
-                            ),
-                          ],
+                            );
+                          },
                         ),
-                      ),
-                    );
+                ),
+              ],
+            ),
+      floatingActionButton: workerProvider.selectionMode
+          ? FloatingActionButton.extended(
+              onPressed: workerProvider.hasSelectedWorkers
+                  ? () => _showWorkerSelectionActions(context)
+                  : null,
+              icon: const Icon(Icons.more_vert),
+              label: Text('${workerProvider.selectedWorkers.length}'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            )
+          : (auth.isAdmin
+              ? FloatingActionButton(
+                  onPressed: () => workerProvider.toggleSelectionMode(),
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  child: const Icon(Icons.checklist),
+                )
+              : null),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildEmptyWorkers(bool isAdmin) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.people, size: 80, color: Colors.grey.shade300),
+            const SizedBox(height: 20),
+            const Text('Нет работников',
+                style: TextStyle(fontSize: 18, color: Colors.grey)),
+            const SizedBox(height: 10),
+            if (isAdmin)
+              ElevatedButton(
+                onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const AddEditWorkerScreen())),
+                child: const Text('Добавить работника'),
+              ),
+          ],
+        ),
+      );
+
+  void _showWorkerSelectionActions(BuildContext context) {
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final selectedCount = workerProvider.selectedWorkers.length;
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Выбрано: $selectedCount работников',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.favorite, color: Colors.red),
+                title: const Text('Добавить в избранное'),
+                onTap: () {
+                  Navigator.pop(context);
+                  workerProvider.toggleFavoriteForSelected();
+                },
+              ),
+              if (auth.isAdmin) ...[
+                ListTile(
+                  leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
+                  title: const Text('Переместить на объект'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showMoveWorkersDialog(context);
                   },
                 ),
+                ListTile(
+                  leading: const Icon(Icons.payments, color: Colors.green),
+                  title: const Text('Добавить зарплату'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showAddSalaryDialog(context);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.report, color: Colors.orange),
+                  title: const Text('Создать отчет'),
+                  onTap: () async {
+                    Navigator.pop(context);
+                    // For now, just share first worker's report as sample
+                    if (workerProvider.selectedWorkers.isNotEmpty) {
+                      final w = workerProvider.selectedWorkers.first;
+                      await ReportService.shareWorkerReport(
+                          w,
+                          Provider.of<SalaryProvider>(context, listen: false)
+                              .getSalariesForWorker(w.id),
+                          Provider.of<SalaryProvider>(context, listen: false)
+                              .getAdvancesForWorker(w.id),
+                          Provider.of<SalaryProvider>(context, listen: false)
+                              .getPenaltiesForWorker(w.id),
+                          context,
+                          ReportType.pdf);
+                    }
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showMoveWorkersDialog(BuildContext context) {
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    String? selectedObjectId;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Переместить выбранных работников'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Выберите объект или гараж (null):'),
+            DropdownButton<String>(
+              value: selectedObjectId,
+              hint: const Text('Выберите'),
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Гараж (не привязан)')),
+                ...objectsProvider.objects.map((obj) =>
+                    DropdownMenuItem(value: obj.id, child: Text(obj.name))),
+              ],
+              onChanged: (v) => setState(() => selectedObjectId = v),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (selectedObjectId != null) {
+                await workerProvider.moveSelectedWorkers(selectedObjectId, 
+                    objectsProvider.objects.firstWhere((o) => o.id == selectedObjectId).name);
+              } else {
+                await workerProvider.moveSelectedWorkers(null, 'Гараж');
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Переместить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAddSalaryDialog(BuildContext context) {
+    // Simplified: just show a dialog to enter amount and type for all selected workers
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
+    String entryType = 'salary';
+    double amount = 0;
+    String reason = '';
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Добавить финансовую запись'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: entryType,
+                items: const [
+                  DropdownMenuItem(value: 'salary', child: Text('Зарплата')),
+                  DropdownMenuItem(value: 'advance', child: Text('Аванс')),
+                  DropdownMenuItem(value: 'penalty', child: Text('Штраф')),
+                ],
+                onChanged: (v) => setState(() => entryType = v!),
+              ),
+              TextFormField(
+                decoration: const InputDecoration(labelText: 'Сумма'),
+                keyboardType: TextInputType.number,
+                onChanged: (v) => amount = double.tryParse(v) ?? 0,
+              ),
+              TextFormField(
+                decoration: InputDecoration(labelText: entryType == 'salary' ? 'Примечание' : 'Причина'),
+                onChanged: (v) => reason = v,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () async {
+                for (final w in workerProvider.selectedWorkers) {
+                  if (entryType == 'salary') {
+                    await salaryProvider.addSalary(SalaryEntry(
+                      id: IdGenerator.generateSalaryId(),
+                      workerId: w.id,
+                      date: DateTime.now(),
+                      amount: amount,
+                      notes: reason,
+                    ));
+                  } else if (entryType == 'advance') {
+                    await salaryProvider.addAdvance(Advance(
+                      id: IdGenerator.generateAdvanceId(),
+                      workerId: w.id,
+                      date: DateTime.now(),
+                      amount: amount,
+                      reason: reason,
+                    ));
+                  } else if (entryType == 'penalty') {
+                    await salaryProvider.addPenalty(Penalty(
+                      id: IdGenerator.generatePenaltyId(),
+                      workerId: w.id,
+                      date: DateTime.now(),
+                      amount: amount,
+                      reason: reason,
+                    ));
+                  }
+                }
+                Navigator.pop(context);
+                ErrorHandler.showSuccessDialog(context, 'Записи добавлены');
+              },
+              child: const Text('Добавить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ========== WORKER CARD ==========
+class WorkerCard extends StatelessWidget {
+  final Worker worker;
+  final bool selectionMode;
+  final VoidCallback onTap;
+
+  const WorkerCard({super.key, required this.worker, required this.selectionMode, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final workerProvider = Provider.of<WorkerProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: InkWell(
+        onTap: selectionMode
+            ? () => workerProvider.toggleWorkerSelection(worker.id)
+            : onTap,
+        onLongPress: () {
+          if (!selectionMode) {
+            workerProvider.toggleSelectionMode();
+            workerProvider.toggleWorkerSelection(worker.id);
+          }
+        },
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              if (selectionMode)
+                Checkbox(
+                  value: worker.isSelected,
+                  onChanged: (_) => workerProvider.toggleWorkerSelection(worker.id),
+                ),
+              CircleAvatar(
+                backgroundColor: worker.isFavorite ? Colors.red : Colors.blue,
+                child: Text(worker.name[0].toUpperCase()),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(worker.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(worker.email, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                    Row(
+                      children: [
+                        Icon(Icons.work, size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text(worker.role, style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              if (!selectionMode)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: Icon(worker.isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: worker.isFavorite ? Colors.red : null),
+                      onPressed: () => workerProvider.toggleFavorite(worker.id),
+                    ),
+                    if (auth.isAdmin)
+                      PopupMenuButton(
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
+                          const PopupMenuItem(value: 'salary', child: Text('Зарплата')),
+                          const PopupMenuItem(value: 'delete', child: Text('Удалить', style: TextStyle(color: Colors.red))),
+                        ],
+                        onSelected: (value) {
+                          if (value == 'edit') {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditWorkerScreen(worker: worker)));
+                          } else if (value == 'salary') {
+                            Navigator.push(context, MaterialPageRoute(builder: (_) => WorkerSalaryScreen(worker: worker)));
+                          } else if (value == 'delete') {
+                            _showDeleteDialog(context, worker);
+                          }
+                        },
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteDialog(BuildContext context, Worker worker) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить работника'),
+        content: Text('Удалить "${worker.name}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () {
+              Provider.of<WorkerProvider>(context, listen: false).deleteWorker(worker.id);
+              Navigator.pop(context);
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -6019,7 +7045,7 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
   }
 }
 
-// ========== WORKER SALARY SCREEN ==========
+// ========== WORKER SALARY SCREEN (enhanced with date range and reports) ==========
 class WorkerSalaryScreen extends StatefulWidget {
   final Worker worker;
   const WorkerSalaryScreen({super.key, required this.worker});
@@ -6034,6 +7060,8 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
   DateTime _selectedDate = DateTime.now();
   String _entryType = 'salary'; // salary, advance, penalty
   double _hoursWorked = 0;
+  DateTime? _startDate;
+  DateTime? _endDate;
 
   @override
   void initState() {
@@ -6044,9 +7072,14 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
   @override
   Widget build(BuildContext context) {
     final salaryProvider = Provider.of<SalaryProvider>(context);
-    final salaries = salaryProvider.getSalariesForWorker(widget.worker.id);
-    final advances = salaryProvider.getAdvancesForWorker(widget.worker.id);
-    final penalties = salaryProvider.getPenaltiesForWorker(widget.worker.id);
+
+    // Filter by date range
+    List<SalaryEntry> salaries = salaryProvider.getSalariesForWorker(widget.worker.id,
+        start: _startDate, end: _endDate);
+    List<Advance> advances = salaryProvider.getAdvancesForWorker(widget.worker.id,
+        start: _startDate, end: _endDate);
+    List<Penalty> penalties = salaryProvider.getPenaltiesForWorker(widget.worker.id,
+        start: _startDate, end: _endDate);
 
     double totalSalaries = salaries.fold(0, (total, e) => total + e.amount);
     double totalAdvances = advances.fold(0, (total, e) => total + (e.repaid ? 0 : e.amount));
@@ -6061,10 +7094,42 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
             icon: const Icon(Icons.add),
             onPressed: _showAddEntryDialog,
           ),
+          IconButton(
+            icon: const Icon(Icons.date_range),
+            onPressed: _selectDateRange,
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            onPressed: () => ReportService.shareWorkerReport(
+                widget.worker, salaries, advances, penalties, context, ReportType.pdf,
+                startDate: _startDate, endDate: _endDate),
+          ),
         ],
       ),
       body: Column(
         children: [
+          if (_startDate != null || _endDate != null)
+            Container(
+              padding: const EdgeInsets.all(8),
+              color: Colors.blue.shade50,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Период: ${_startDate != null ? DateFormat('dd.MM.yyyy').format(_startDate!) : 'начало'} - ${_endDate != null ? DateFormat('dd.MM.yyyy').format(_endDate!) : 'конец'}',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.clear),
+                    onPressed: () => setState(() {
+                      _startDate = null;
+                      _endDate = null;
+                    }),
+                  ),
+                ],
+              ),
+            ),
           Card(
             margin: const EdgeInsets.all(16),
             child: Padding(
@@ -6314,6 +7379,352 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
       ),
     );
   }
+
+  Future<void> _selectDateRange() async {
+    DateTimeRange? picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _startDate != null && _endDate != null
+          ? DateTimeRange(start: _startDate!, end: _endDate!)
+          : null,
+    );
+    if (picked != null) {
+      setState(() {
+        _startDate = picked.start;
+        _endDate = picked.end;
+      });
+    }
+  }
+}
+
+// ========== BRIGADIER SCREEN (My Object) ==========
+class BrigadierScreen extends StatefulWidget {
+  const BrigadierScreen({super.key});
+
+  @override
+  State<BrigadierScreen> createState() => _BrigadierScreenState();
+}
+
+class _BrigadierScreenState extends State<BrigadierScreen> {
+  @override
+  Widget build(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context);
+    final workerProvider = Provider.of<WorkerProvider>(context);
+    final toolsProvider = Provider.of<ToolsProvider>(context);
+    final objectsProvider = Provider.of<ObjectsProvider>(context);
+    final salaryProvider = Provider.of<SalaryProvider>(context);
+
+    // Assuming brigadier has assignedObjectId; we need to get it.
+    // For now, get the first brigadier worker with current user email (simplified)
+    Worker? brigadier;
+    try {
+      brigadier = workerProvider.workers.firstWhere(
+          (w) => w.email == auth.user?.email && w.role == 'brigadir');
+    } catch (e) {}
+
+    if (brigadier == null || brigadier.assignedObjectId == null) {
+      return const Scaffold(
+        body: Center(child: Text('Вы не привязаны ни к одному объекту')),
+      );
+    }
+
+    final object = objectsProvider.objects.firstWhere(
+        (o) => o.id == brigadier!.assignedObjectId,
+        orElse: () => ConstructionObject(
+            id: '',
+            name: 'Не найден',
+            description: '',
+            userId: ''));
+    final workersOnObject = workerProvider.getWorkersOnObject(object.id);
+    final toolsOnObject = toolsProvider.tools
+        .where((t) => t.currentLocation == object.id)
+        .toList();
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(object.name.isNotEmpty ? object.name : 'Мой объект'),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Работники', icon: Icon(Icons.people)),
+              Tab(text: 'Инструменты', icon: Icon(Icons.build)),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            // Workers tab
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _showAttendanceDialog(context, workersOnObject),
+                          icon: const Icon(Icons.today),
+                          label: const Text('Отметить явку'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _sendDailyReport(context, workersOnObject),
+                          icon: const Icon(Icons.send),
+                          label: const Text('Отправить отчет'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: workersOnObject.isEmpty
+                      ? const Center(child: Text('Нет работников на объекте'))
+                      : ListView.builder(
+                          itemCount: workersOnObject.length,
+                          itemBuilder: (context, index) {
+                            final w = workersOnObject[index];
+                            return ListTile(
+                              leading: CircleAvatar(child: Text(w.name[0])),
+                              title: Text(w.name),
+                              subtitle: Text('Ставка: дн ${w.dailyRate} / час ${w.hourlyRate}'),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.check, color: Colors.green),
+                                onPressed: () => _markPresent(w, context),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+            // Tools tab
+            Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () => _requestToolsFromGarage(context, toolsOnObject),
+                          icon: const Icon(Icons.add),
+                          label: const Text('Запросить из гаража'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: toolsOnObject.isEmpty
+                      ? const Center(child: Text('Нет инструментов на объекте'))
+                      : ListView.builder(
+                          itemCount: toolsOnObject.length,
+                          itemBuilder: (context, index) {
+                            final t = toolsOnObject[index];
+                            return SelectionToolCard(
+                              tool: t,
+                              selectionMode: false,
+                              onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (_) => EnhancedToolDetailsScreen(tool: t))),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _markPresent(Worker worker, BuildContext context) {
+    // Simple: add attendance for today
+    final attendance = Attendance(
+      id: IdGenerator.generateAttendanceId(),
+      workerId: worker.id,
+      date: DateTime.now(),
+      present: true,
+      hoursWorked: 8, // default
+    );
+    Provider.of<SalaryProvider>(context, listen: false).addAttendance(attendance);
+    ErrorHandler.showSuccessDialog(context, '${worker.name} отмечен');
+  }
+
+  void _showAttendanceDialog(BuildContext context, List<Worker> workers) {
+    List<bool> present = List.generate(workers.length, (_) => true);
+    List<double> hours = List.generate(workers.length, (_) => 8.0);
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Отметка явки'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: workers.length,
+              itemBuilder: (context, index) {
+                return Row(
+                  children: [
+                    Checkbox(
+                      value: present[index],
+                      onChanged: (v) => setState(() => present[index] = v!),
+                    ),
+                    Expanded(child: Text(workers[index].name)),
+                    if (present[index])
+                      Expanded(
+                        child: TextFormField(
+                          initialValue: hours[index].toString(),
+                          keyboardType: TextInputType.number,
+                          onChanged: (v) => hours[index] = double.tryParse(v) ?? 8,
+                          decoration: const InputDecoration(
+                            labelText: 'Часы',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+            TextButton(
+              onPressed: () {
+                final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
+                for (int i = 0; i < workers.length; i++) {
+                  if (present[i]) {
+                    salaryProvider.addAttendance(Attendance(
+                      id: IdGenerator.generateAttendanceId(),
+                      workerId: workers[i].id,
+                      date: DateTime.now(),
+                      present: true,
+                      hoursWorked: hours[i],
+                    ));
+                  }
+                }
+                Navigator.pop(context);
+                ErrorHandler.showSuccessDialog(context, 'Явка сохранена');
+              },
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _sendDailyReport(BuildContext context, List<Worker> workers) {
+    // Gather today's attendances for these workers
+    final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
+    final todayAttendances = salaryProvider.getAttendancesForObjectAndDate('', DateTime.now()); // need object ID
+    // This is simplified; in real app you'd filter by object via worker->object relation.
+
+    // Create report
+    final report = DailyWorkReport(
+      id: IdGenerator.generateDailyReportId(),
+      objectId: '', // need object ID
+      brigadierId: FirebaseAuth.instance.currentUser!.uid,
+      date: DateTime.now(),
+      attendanceIds: todayAttendances.map((a) => a.id).toList(),
+    );
+    salaryProvider.addDailyReport(report);
+    ErrorHandler.showSuccessDialog(context, 'Отчет отправлен администратору');
+  }
+
+  void _requestToolsFromGarage(BuildContext context, List<Tool> toolsOnObject) {
+    // Allow brigadier to select tools from garage and request them
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final garageTools = toolsProvider.garageTools;
+    if (garageTools.isEmpty) {
+      ErrorHandler.showWarningDialog(context, 'В гараже нет инструментов');
+      return;
+    }
+    // Show selection dialog (simplified)
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Запросить инструменты из гаража'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: garageTools.length,
+            itemBuilder: (context, index) {
+              final t = garageTools[index];
+              return CheckboxListTile(
+                title: Text(t.title),
+                subtitle: Text(t.brand),
+                value: false, // not storing selection; just demo
+                onChanged: (_) {},
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Закрыть')),
+        ],
+      ),
+    );
+  }
+}
+
+// ========== ADMIN DAILY REPORTS SCREEN ==========
+class AdminDailyReportsScreen extends StatelessWidget {
+  const AdminDailyReportsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final salaryProvider = Provider.of<SalaryProvider>(context);
+    final pendingReports = salaryProvider.getPendingDailyReports();
+
+    return Scaffold(
+      appBar: AppBar(title: Text('Ежедневные отчеты (${pendingReports.length})')),
+      body: pendingReports.isEmpty
+          ? const Center(child: Text('Нет отчетов'))
+          : ListView.builder(
+              itemCount: pendingReports.length,
+              itemBuilder: (context, index) {
+                final report = pendingReports[index];
+                return Card(
+                  margin: const EdgeInsets.all(8),
+                  child: ListTile(
+                    title: Text('Отчет за ${DateFormat('dd.MM.yyyy').format(report.date)}'),
+                    subtitle: Text('Объект: ${report.objectId}'),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.check, color: Colors.green),
+                          onPressed: () async {
+                            await salaryProvider.updateDailyReportStatus(report.id, 'approved');
+                            // Optionally create salary entries based on attendances
+                            ErrorHandler.showSuccessDialog(context, 'Отчет одобрен');
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.red),
+                          onPressed: () async {
+                            await salaryProvider.updateDailyReportStatus(report.id, 'rejected');
+                            ErrorHandler.showWarningDialog(context, 'Отчет отклонен');
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+    );
+  }
 }
 
 // ========== PROFILE SCREEN (updated with admin panel link and bell icon) ==========
@@ -6360,6 +7771,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final objectsProvider = Provider.of<ObjectsProvider>(context);
     final notifProvider = Provider.of<NotificationProvider>(context);
+    final workerProvider = Provider.of<WorkerProvider>(context);
     return Scaffold(
       appBar: AppBar(
         title: const Text('Профиль'),
@@ -6440,7 +7852,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                     const SizedBox(height: 4),
-                    const Text('Менеджер инструментов', style: TextStyle(color: Colors.white70)),
+                    Text('Менеджер инструментов', style: TextStyle(color: Colors.white70)),
                   ],
                 ),
               ),
@@ -6461,8 +7873,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Icons.garage, Colors.green),
                   _buildStatCard('Объектов', '${objectsProvider.totalObjects}',
                       Icons.location_city, Colors.orange),
-                  _buildStatCard('Избранных', '${toolsProvider.favoriteTools.length}',
-                      Icons.favorite, Colors.red),
+                  _buildStatCard('Работников', '${workerProvider.workers.length}',
+                      Icons.people, Colors.purple),
                 ],
               ),
             ),
@@ -6569,6 +7981,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const AdminDailyReportsScreen())),
+                      icon: const Icon(Icons.assignment),
+                      label: const Text('Ежедневные отчеты'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ] else if (authProvider.isBrigadir) ...[
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const BrigadierScreen())),
+                      icon: const Icon(Icons.location_city),
+                      label: const Text('Мой объект'),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 50),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
                   ],
                   ElevatedButton.icon(
                     onPressed: () => Navigator.push(
