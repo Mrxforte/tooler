@@ -1071,6 +1071,15 @@ class ErrorHandler {
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 // ========== STATE MANAGEMENT PROVIDERS ==========
+// ========== AUTH CONSTANTS ==========
+class AuthConstants {
+  static const String roleAdmin = 'admin';
+  static const String roleUser = 'user';
+  static const List<String> adminPermissions = ['read', 'write', 'delete', 'manage_users'];
+  static const List<String> userPermissions = ['read', 'write'];
+}
+
+// ========== AUTH PROVIDER ==========
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
@@ -1078,7 +1087,7 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _rememberMe = false;
   File? _profileImage;
-  String _userRole = 'user'; // Default role
+  String _userRole = AuthConstants.roleUser; // Default role
   bool _isAdmin = false;
 
   User? get user => _user;
@@ -1114,7 +1123,7 @@ class AuthProvider with ChangeNotifier {
           
           if (userDoc.exists) {
             final data = userDoc.data();
-            _userRole = data?['role'] ?? 'user';
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
             _isAdmin = data?['isAdmin'] ?? false;
             print('User role loaded: $_userRole');
           }
@@ -1155,14 +1164,14 @@ class AuthProvider with ChangeNotifier {
           
           if (userDoc.exists) {
             final data = userDoc.data();
-            _userRole = data?['role'] ?? 'user';
+            _userRole = data?['role'] ?? AuthConstants.roleUser;
             _isAdmin = data?['isAdmin'] ?? false;
             print('User signed in with role: $_userRole');
           }
         } catch (e) {
           print('Error loading user role: $e');
           // Default to regular user if can't load role
-          _userRole = 'user';
+          _userRole = AuthConstants.roleUser;
           _isAdmin = false;
         }
       }
@@ -1217,7 +1226,7 @@ class AuthProvider with ChangeNotifier {
       }
 
       // Set user role
-      _userRole = isAdmin ? 'admin' : 'user';
+      _userRole = isAdmin ? AuthConstants.roleAdmin : AuthConstants.roleUser;
       _isAdmin = isAdmin;
 
       if (_user != null) {
@@ -1232,7 +1241,7 @@ class AuthProvider with ChangeNotifier {
                 'profileImageUrl': imageUrl,
                 'role': _userRole,
                 'isAdmin': _isAdmin,
-                'permissions': _isAdmin ? ['read', 'write', 'delete', 'manage_users'] : ['read', 'write'],
+                'permissions': _isAdmin ? AuthConstants.adminPermissions : AuthConstants.userPermissions,
               });
           print('User created with role: $_userRole');
         } catch (e) {
@@ -1262,7 +1271,7 @@ class AuthProvider with ChangeNotifier {
       await _auth.signOut();
       _user = null;
       _profileImage = null;
-      _userRole = 'user'; // Reset role
+      _userRole = AuthConstants.roleUser; // Reset role
       _isAdmin = false; // Reset admin status
       await _prefs.remove('profile_image_url');
       notifyListeners();
@@ -6495,12 +6504,16 @@ class _AuthScreenState extends State<AuthScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _adminKeyController = TextEditingController(); // Admin secret key
   bool _isLogin = true;
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-  bool _isAdmin = false; // Admin checkbox state
+  bool _showAdminKeyField = false; // Show/hide admin key field
   File? _profileImage;
+  
+  // Admin secret key - in production, this should be in environment variables
+  static const String _adminSecretKey = 'TOOLER_ADMIN_2024';
 
   @override
   void initState() {
@@ -6540,6 +6553,16 @@ class _AuthScreenState extends State<AuthScreen> {
         throw Exception('Пароли не совпадают');
       }
 
+      // Check admin key if admin field is shown
+      bool isAdmin = false;
+      if (!_isLogin && _showAdminKeyField) {
+        if (_adminKeyController.text.trim() == _adminSecretKey) {
+          isAdmin = true;
+        } else if (_adminKeyController.text.trim().isNotEmpty) {
+          throw Exception('Неверный ключ администратора');
+        }
+      }
+
       final success = _isLogin
           ? await authProvider.signInWithEmail(
               _emailController.text.trim(),
@@ -6549,7 +6572,7 @@ class _AuthScreenState extends State<AuthScreen> {
               _emailController.text.trim(),
               _passwordController.text.trim(),
               profileImage: _profileImage,
-              isAdmin: _isAdmin,
+              isAdmin: isAdmin,
             );
 
       if (success && authProvider.isLoggedIn) {
@@ -6802,20 +6825,43 @@ class _AuthScreenState extends State<AuthScreen> {
                         ],
                       ),
                     
-                    if (!_isLogin)
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _isAdmin,
-                            onChanged: (value) {
-                              setState(() {
-                                _isAdmin = value!;
-                              });
-                            },
+                    if (!_isLogin) ...[
+                      if (!_showAdminKeyField)
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = true;
+                            });
+                          },
+                          child: const Text('Есть ключ администратора?'),
+                        ),
+                      if (_showAdminKeyField) ...[
+                        TextFormField(
+                          controller: _adminKeyController,
+                          decoration: InputDecoration(
+                            labelText: 'Ключ администратора (необязательно)',
+                            helperText: 'Оставьте пустым для регистрации как обычный пользователь',
+                            prefixIcon: const Icon(Icons.admin_panel_settings),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            filled: true,
+                            fillColor: Colors.grey.shade50,
                           ),
-                          const Text('Зарегистрироваться как администратор'),
-                        ],
-                      ),
+                          obscureText: true,
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _showAdminKeyField = false;
+                              _adminKeyController.clear();
+                            });
+                          },
+                          child: const Text('Скрыть'),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
@@ -6846,7 +6892,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   setState(() {
                     _isLogin = !_isLogin;
                     _profileImage = null;
-                    _isAdmin = false; // Reset admin flag when switching modes
+                    _showAdminKeyField = false; // Reset admin field visibility
+                    _adminKeyController.clear(); // Clear admin key
                   });
                 },
                 child: Text(
