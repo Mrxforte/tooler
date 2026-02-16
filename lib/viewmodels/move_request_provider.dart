@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field
+
 /// MoveRequestProvider - Extract from main.dart lines 2131-2173
 /// Provider for single tool move requests
 

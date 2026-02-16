@@ -1,3 +1,5 @@
+// ignore_for_file: unused_field
+
 /// BatchMoveRequestProvider - Extract from main.dart lines 2173-2215
 /// Provider for batch (multiple tools) move requests
 

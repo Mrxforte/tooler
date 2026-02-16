@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../data/models/construction_object.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
-import '../../../core/services/image_service.dart';
+import '../../../data/services/image_service.dart';
 import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
 

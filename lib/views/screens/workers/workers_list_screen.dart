@@ -4,14 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/worker.dart';
-import '../../../data/models/salary_entry.dart';
-import '../../../data/models/advance.dart';
-import '../../../data/models/penalty.dart';
+import '../../../data/models/salary.dart';
 import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../viewmodels/salary_provider.dart';
-import '../../../core/services/report_service.dart';
+import '../../../data/services/report_service.dart';
 import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
 import 'add_edit_worker_screen.dart';

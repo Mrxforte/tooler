@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/tool.dart';
-import '../../../data/models/app_notification.dart';
+import '../../../data/models/notification.dart';
 import '../../../viewmodels/move_request_provider.dart';
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/notification_provider.dart';

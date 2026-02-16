@@ -1,3 +1,5 @@
+// ignore_for_file: unused_import, unused_element
+
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -74,6 +76,12 @@ class ReportService {
 
   static void showReportTypeDialog(
       BuildContext context, Tool tool, Function(ReportType) onTypeSelected) {
+    // Implementation from main.dart
+    throw UnimplementedError('Extract from main.dart');
+  }
+  
+  static void showObjectReportTypeDialog(
+      BuildContext context, ConstructionObject object, List<Tool> tools, Function(ReportType) onTypeSelected) {
     // Implementation from main.dart
     throw UnimplementedError('Extract from main.dart');
   }

@@ -5,11 +5,9 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/worker.dart';
-import '../../../data/models/salary_entry.dart';
-import '../../../data/models/advance.dart';
-import '../../../data/models/penalty.dart';
+import '../../../data/models/salary.dart';
 import '../../../viewmodels/salary_provider.dart';
-import '../../../core/services/report_service.dart';
+import '../../../data/services/report_service.dart';
 import '../../../core/utils/id_generator.dart';
 
 class WorkerSalaryScreen extends StatefulWidget {

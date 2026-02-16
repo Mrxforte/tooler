@@ -7,7 +7,7 @@ import '../../../data/models/construction_object.dart';
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
-import '../../../core/services/report_service.dart';
+import '../../../data/services/report_service.dart';
 import '../../../views/widgets/selection_tool_card.dart';
 import '../tools/tool_details_screen.dart';
 import 'add_edit_object_screen.dart';

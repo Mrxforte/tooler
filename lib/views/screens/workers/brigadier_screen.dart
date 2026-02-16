@@ -2,12 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 import '../../../data/models/worker.dart';
 import '../../../data/models/tool.dart';
 import '../../../data/models/attendance.dart';
-import '../../../data/models/daily_work_report.dart';
 import '../../../data/models/construction_object.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../viewmodels/worker_provider.dart';
@@ -251,7 +250,7 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
     final report = DailyWorkReport(
       id: IdGenerator.generateDailyReportId(),
       objectId: '', // need object ID
-      brigadierId: FirebaseAuth.instance.currentUser!.uid,
+      brigadierId: firebase_auth.FirebaseAuth.instance.currentUser!.uid,
       date: DateTime.now(),
       attendanceIds: todayAttendances.map((a) => a.id).toList(),
     );

@@ -1,10 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../viewmodels/auth_provider.dart';
-import '../../../core/services/image_service.dart';
+import '../../../data/services/image_service.dart';
 import '../../../core/utils/error_handler.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -83,14 +83,14 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isLoading = true);
     try {
-      final auth = Provider.of<AuthProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
       if (!_isLogin && _passwordController.text != _confirmPasswordController.text) {
         throw Exception('Пароли не совпадают');
       }
       final success = _isLogin
-          ? await auth.signInWithEmail(
+          ? await authProvider.signInWithEmail(
               _emailController.text.trim(), _passwordController.text.trim())
-          : await auth.signUpWithEmail(
+          : await authProvider.signUpWithEmail(
               _emailController.text.trim(), _passwordController.text.trim(),
               profileImage: _profileImage,
               adminPhrase: _adminPhraseController.text.trim().isNotEmpty

@@ -6,6 +6,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tooler/main.dart';
+import 'package:tooler/data/models/tool.dart';
+import 'package:tooler/data/models/construction_object.dart';
+import 'package:tooler/data/models/sync_item.dart';
 
 void main() {
   // Setup and teardown for all tests

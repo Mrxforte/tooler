@@ -9,7 +9,7 @@ import '../../../data/models/tool.dart';
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
-import '../../../core/services/report_service.dart';
+import '../../../data/services/report_service.dart';
 import '../../../core/utils/error_handler.dart';
 import 'add_edit_tool_screen.dart';
 
