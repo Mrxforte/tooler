@@ -236,17 +236,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+            // Settings Section
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Параметры приложения',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
             Card(
-              margin: const EdgeInsets.all(16),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    const Text('Настройки', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
                     ListTile(
-                      leading: const Icon(Icons.sync),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.sync, color: Colors.blue),
+                      ),
                       title: const Text('Синхронизация данных'),
                       trailing: Switch(
                         value: _syncEnabled,
@@ -255,9 +273,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _saveSetting('sync_enabled', v);
                         },
                       ),
+                      contentPadding: EdgeInsets.zero,
                     ),
+                    Divider(height: 1, color: Colors.grey[200]),
                     ListTile(
-                      leading: const Icon(Icons.notifications),
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.notifications, color: Colors.orange),
+                      ),
                       title: const Text('Уведомления'),
                       trailing: Switch(
                         value: _notificationsEnabled,
@@ -266,164 +293,213 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           _saveSetting('notifications_enabled', v);
                         },
                       ),
+                      contentPadding: EdgeInsets.zero,
                     ),
+                    Divider(height: 1, color: Colors.grey[200]),
                     ListTile(
-                      leading: const Icon(Icons.color_lens),
-                      title: const Text('Тема приложения'),
-                      trailing: DropdownButton<String>(
-                        value: _themeMode,
-                        onChanged: (v) {
-                          if (v != null) _changeTheme(v);
-                        },
-                        items: const [
-                          DropdownMenuItem(value: 'light', child: Text('Светлая')),
-                          DropdownMenuItem(value: 'dark', child: Text('Темная')),
-                          DropdownMenuItem(value: 'system', child: Text('Системная')),
-                        ],
+                      leading: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.purple.withOpacity(0.15),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.color_lens, color: Colors.purple),
                       ),
+                      title: const Text('Тема приложения'),
+                      trailing: SizedBox(
+                        width: 120,
+                        child: DropdownButton<String>(
+                          value: _themeMode,
+                          isExpanded: true,
+                          underline: SizedBox.shrink(),
+                          onChanged: (v) {
+                            if (v != null) _changeTheme(v);
+                          },
+                          items: const [
+                            DropdownMenuItem(value: 'light', child: Text('Светлая')),
+                            DropdownMenuItem(value: 'dark', child: Text('Темная')),
+                            DropdownMenuItem(value: 'system', child: Text('Системная')),
+                          ],
+                        ),
+                      ),
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ],
                 ),
               ),
             ),
+            // Features Section
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Быстрые действия',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 children: [
                   if (authProvider.isAdmin) ...[
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const AdminMoveRequestsScreen())),
-                      icon: const Icon(Icons.pending_actions),
-                      label: const Text('Запросы на перемещение'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Запросы на перемещение',
+                      subtitle: 'Управляйте запросами инструментов',
+                      icon: Icons.pending_actions,
+                      color: Colors.blue,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminMoveRequestsScreen()),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const AdminBatchMoveRequestsScreen())),
-                      icon: const Icon(Icons.group_work),
-                      label: const Text('Групповые запросы'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Групповые запросы',
+                      subtitle: 'Просмотрите групповые операции',
+                      icon: Icons.group_work,
+                      color: Colors.green,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminBatchMoveRequestsScreen()),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const AdminUsersScreen())),
-                      icon: const Icon(Icons.people),
-                      label: const Text('Управление пользователями'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Управление пользователями',
+                      subtitle: 'Добавляйте и редактируйте пользователей',
+                      icon: Icons.people,
+                      color: Colors.purple,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminUsersScreen()),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const WorkersListScreen())),
-                      icon: const Icon(Icons.engineering),
-                      label: const Text('Управление работниками'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Управление работниками',
+                      subtitle: 'Организуйте рабочую силу',
+                      icon: Icons.engineering,
+                      color: Colors.orange,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => WorkersListScreen()),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const AdminDailyReportsScreen())),
-                      icon: const Icon(Icons.assignment),
-                      label: const Text('Ежедневные отчеты'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Ежедневные отчеты',
+                      subtitle: 'Просмотрите отчеты работников',
+                      icon: Icons.assignment,
+                      color: Colors.teal,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminDailyReportsScreen()),
                       ),
                     ),
                   ] else if (authProvider.isBrigadir) ...[
-                    ElevatedButton.icon(
-                      onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const BrigadierScreen())),
-                      icon: const Icon(Icons.location_city),
-                      label: const Text('Мой объект'),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    _buildActionCard(
+                      title: 'Мой объект',
+                      subtitle: 'Управление активным объектом',
+                      icon: Icons.location_city,
+                      color: Colors.orange,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const BrigadierScreen()),
                       ),
                     ),
                   ],
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (context) => const NotificationsScreen())),
-                    icon: const Icon(Icons.notifications),
-                    label: Text('Уведомления ${notifProvider.hasUnread ? '(Новые)' : ''}'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  _buildActionCard(
+                    title: 'Уведомления',
+                    subtitle: notifProvider.hasUnread
+                        ? '${notifProvider.notifications.where((n) => !n.read).length} новых'
+                        : 'Все уведомления прочитаны',
+                    icon: Icons.notifications,
+                    color: Colors.red,
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const NotificationsScreen()),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () async {
+                  _buildActionCard(
+                    title: 'Создать отчет',
+                    subtitle: 'Экспортируйте инвентаризацию в PDF',
+                    icon: Icons.share,
+                    color: Colors.indigo,
+                    onTap: () async {
                       ReportService.showReportTypeDialog(
-                          context,
-                          Tool(
-                              id: 'inventory',
-                              title: 'Инвентаризация',
-                              description: '',
-                              brand: '',
-                              uniqueId: '',
-                              currentLocation: '',
-                              currentLocationName: '',
-                              userId: authProvider.user?.uid ?? 'local'),
-                          (type) async {
-                        await ReportService.shareInventoryReport(
-                            toolsProvider.tools, objectsProvider.objects, context, type);
-                      });
+                        context,
+                        Tool(
+                          id: 'inventory',
+                          title: 'Инвентаризация',
+                          description: '',
+                          brand: '',
+                          uniqueId: '',
+                          currentLocation: '',
+                          currentLocationName: '',
+                          userId: authProvider.user?.uid ?? 'local',
+                        ),
+                        (type) async {
+                          await ReportService.shareInventoryReport(
+                            toolsProvider.tools,
+                            objectsProvider.objects,
+                            context,
+                            type,
+                          );
+                        },
+                      );
                     },
-                    icon: const Icon(Icons.share),
-                    label: const Text('Поделиться отчетом'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
                   ),
                   const SizedBox(height: 12),
-                  ElevatedButton.icon(
-                    onPressed: () async => await _createBackup(
-                        context, toolsProvider, objectsProvider),
-                    icon: const Icon(Icons.backup),
-                    label: const Text('Создать резервную копию'),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
+                  _buildActionCard(
+                    title: 'Резервная копия',
+                    subtitle: 'Сохраните и поделитесь данными',
+                    icon: Icons.backup,
+                    color: Colors.cyan,
+                    onTap: () async => await _createBackup(context, toolsProvider, objectsProvider),
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: () async {
+                  GestureDetector(
+                    onTap: () async {
                       await authProvider.signOut();
                     },
-                    icon: const Icon(Icons.logout),
-                    label: const Text('Выйти'),
-                    style: OutlinedButton.styleFrom(
-                      minimumSize: const Size(double.infinity, 50),
-                      side: const BorderSide(color: Colors.red),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.red, width: 1.5),
+                        color: Colors.red.withOpacity(0.05),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withOpacity(0.15),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.logout, color: Colors.red, size: 20),
+                          ),
+                          const SizedBox(width: 16),
+                          const Text(
+                            'Выйти из аккаунта',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.red,
+                            ),
+                          ),
+                          const Spacer(),
+                          const Icon(Icons.arrow_forward, color: Colors.red),
+                        ],
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 24),
                 ],
               ),
             ),
@@ -432,6 +508,62 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+
+  Widget _buildActionCard({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            color: color.withOpacity(0.08),
+            border: Border.all(color: color.withOpacity(0.2), width: 1),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.2),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.arrow_forward, color: color.withOpacity(0.6)),
+            ],
+          ),
+        ),
+      );
 
   Widget _buildStatCard(
     String title,
