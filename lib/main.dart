@@ -1,4 +1,4 @@
-// main.dart - Modern Tooler Construction Tool Management App (MVVM Architecture)
+// Tooler - Construction Tool Management App
 // ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison, unused_import, unused_local_variable
 
 import 'package:firebase_core/firebase_core.dart';
@@ -11,13 +11,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
-// Core
 import 'core/constants/app_constants.dart';
-
-// Data layer
 import 'data/adapters/hive_adapters.dart';
 
-// ViewModels
+// Providers
 import 'viewmodels/theme_provider.dart';
 import 'viewmodels/auth_provider.dart';
 import 'viewmodels/tools_provider.dart';
@@ -29,58 +26,29 @@ import 'viewmodels/batch_move_request_provider.dart';
 import 'viewmodels/users_provider.dart';
 import 'viewmodels/notification_provider.dart';
 
-// Views - Auth Screens
+// Screens
 import 'views/screens/auth/welcome_screen.dart';
 import 'views/screens/auth/onboarding_screen.dart';
 import 'views/screens/auth/auth_screen.dart';
-
-// Views - Tool Screens
-import 'views/screens/tools/add_edit_tool_screen.dart';
 import 'views/screens/tools/garage_screen.dart';
-import 'views/screens/tools/tool_details_screen.dart';
-import 'views/screens/tools/move_tools_screen.dart';
-import 'views/screens/tools/favorites_screen.dart';
-
-// Views - Object Screens
-import 'views/screens/objects/add_edit_object_screen.dart';
-import 'views/screens/objects/object_details_screen.dart';
 import 'views/screens/objects/objects_list_screen.dart';
-
-// Views - Worker Screens
 import 'views/screens/workers/workers_list_screen.dart';
-import 'views/screens/workers/add_edit_worker_screen.dart';
-import 'views/screens/workers/worker_salary_screen.dart';
-import 'views/screens/workers/brigadier_screen.dart';
-
-// Views - Admin Screens
-import 'views/screens/admin/move_requests_screen.dart';
-import 'views/screens/admin/batch_move_requests_screen.dart';
-import 'views/screens/admin/users_screen.dart';
-import 'views/screens/admin/daily_reports_screen.dart';
-
-// Views - Other Screens
 import 'views/screens/notifications/notifications_screen.dart';
 import 'views/screens/profile/profile_screen.dart';
-import 'views/screens/search/search_screen.dart';
 
-// ========== FIREBASE & APP INITIALIZATION ==========
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-Future<void> main() async {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // Initialize timezone for scheduled notifications
   tz.initializeTimeZones();
 
   try {
     await Hive.initFlutter();
-    
-    // Register all Hive adapters
     Hive.registerAdapter(ToolAdapter());
     Hive.registerAdapter(LocationHistoryAdapter());
     Hive.registerAdapter(ConstructionObjectAdapter());
@@ -95,7 +63,6 @@ Future<void> main() async {
     Hive.registerAdapter(AttendanceAdapter());
     Hive.registerAdapter(DailyWorkReportAdapter());
 
-    // Initialize Firebase
     await Firebase.initializeApp(
       options: FirebaseOptions(
         apiKey: 'AIzaSyDummyKeyForDevelopment',
@@ -106,48 +73,39 @@ Future<void> main() async {
       ),
     );
 
-    // Initialize local notifications
-    const AndroidInitializationSettings initializationSettingsAndroid =
+    const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');
-    final DarwinInitializationSettings initializationSettingsIOS =
+    final DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings();
-    final InitializationSettings initializationSettings =
-        InitializationSettings(
-            android: initializationSettingsAndroid,
-            iOS: initializationSettingsIOS);
-    await flutterLocalNotificationsPlugin.initialize(settings: initializationSettings);
+    final InitializationSettings settings = InitializationSettings(
+        android: androidSettings, iOS: iosSettings);
+    await flutterLocalNotificationsPlugin.initialize(settings: settings);
 
-    // Initialize WorkManager for background tasks
     Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
     Workmanager().registerPeriodicTask(
         'daily-salary-reminder', 'dailySalaryReminder',
         frequency: Duration(hours: 24),
         initialDelay: _getTimeUntil7PM());
 
-    print('Firebase initialized successfully');
+    print('App ready');
   } catch (e) {
-    print('Initialization error: $e');
+    print('Init error: $e');
   }
 
   runApp(const MyApp());
 }
 
 void callbackDispatcher() {
-  Workmanager().executeTask((task, inputData) async {
-    return Future.value(true);
-  });
+  Workmanager().executeTask((task, inputData) async => true);
 }
 
 Duration _getTimeUntil7PM() {
   final now = DateTime.now();
-  var scheduledTime = DateTime(now.year, now.month, now.day, 19, 0, 0);
-  if (scheduledTime.isBefore(now)) {
-    scheduledTime = scheduledTime.add(Duration(days: 1));
-  }
-  return scheduledTime.difference(now);
+  var time = DateTime(now.year, now.month, now.day, 19, 0, 0);
+  if (time.isBefore(now)) time = time.add(Duration(days: 1));
+  return time.difference(now);
 }
 
-// ========== APP ROOT ==========
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -182,7 +140,7 @@ class MyApp extends StatelessWidget {
           child: Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
               return MaterialApp(
-                title: 'Tooler - Construction Tool Manager',
+                title: 'Tooler',
                 navigatorKey: navigatorKey,
                 debugShowCheckedModeBanner: false,
                 theme: ThemeData(
@@ -192,7 +150,11 @@ class MyApp extends StatelessWidget {
                       ? Brightness.dark 
                       : Brightness.light,
                 ),
-                home: _buildHome(),
+                home: Consumer<AuthProvider>(
+                  builder: (context, auth, _) {
+                    return auth.isLoggedIn ? MainHome() : AuthFlow();
+                  },
+                ),
               );
             },
           ),
@@ -200,49 +162,79 @@ class MyApp extends StatelessWidget {
       },
     );
   }
+}
 
-  Widget _buildHome() {
-    return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        if (authProvider.isLoggedIn) {
-          // User is authenticated - show main app
-          return GarageScreen();
-        } else {
-          // User not authenticated - show auth flow
-          return WelcomeScreen(
-            onContinue: () {
-              // Navigate to onboarding
-              Navigator.of(context).pushNamed('/onboarding');
-            },
-          );
-        }
-      },
+class AuthFlow extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return WelcomeScreen(
+      onContinue: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => OnboardingScreen(
+            onComplete: () => Navigator.pop(context),
+          ),
+        ),
+      ),
     );
   }
 }
 
-// ========== NOTES ==========
-// This main.dart is the entry point with clean MVVM structure.
-// 
-// ✅ COMPLETED:
-// - All 9 data models (moved to lib/data/models/)
-// - All 13 Hive adapters (moved to lib/data/adapters/)
-// - All services (moved to lib/data/services/)
-// - All 22 screens (moved to lib/views/screens/)
-// - Clean main.dart (~200 lines vs original 9,519 lines)
-//
-// ⏳ NEXT STEPS:
-// 1. Extract full provider implementations from main_backup.dart
-//    - Use line references in each provider file
-//    - Complete AuthProvider, ToolsProvider, ObjectsProvider, etc.
-// 2. Extract reusable widgets to lib/views/widgets/
-//    - SelectionToolCard, ObjectCard, WorkerCard, etc.
-// 3. Uncomment provider imports above
-// 4. Implement proper routing/navigation
-// 5. Test thoroughly
-//
-// Original file size: 9,519 lines
-// New main.dart: ~200 lines
-// Reduction: ~98%!
-// 
-// See MVVM_REFACTORING_GUIDE.md for detailed extraction instructions.
+class MainHome extends StatefulWidget {
+  @override
+  State<MainHome> createState() => _MainHomeState();
+}
+
+class _MainHomeState extends State<MainHome> {
+  int _navIndex = 0;
+
+  Widget _buildScreen(int index) {
+    switch (index) {
+      case 0:
+        return GarageScreen();
+      case 1:
+        return ObjectsListScreen();
+      case 2:
+        return WorkersListScreen();
+      case 3:
+        return NotificationsScreen();
+      case 4:
+        return ProfileScreen();
+      default:
+        return GarageScreen();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: _buildScreen(_navIndex),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _navIndex,
+        onTap: (index) => setState(() => _navIndex = index),
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.construction),
+            label: 'Tools',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.location_on),
+            label: 'Sites',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Workers',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications),
+            label: 'Alerts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Me',
+          ),
+        ],
+      ),
+    );
+  }
+}

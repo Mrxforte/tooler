@@ -1,13 +1,11 @@
-// ignore_for_file: use_build_context_synchronously, library_private_types_in_public_api
-
-import 'dart:io';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:io';
+import 'dart:convert';
 
 import '../../../data/models/tool.dart';
 import '../../../viewmodels/auth_provider.dart';
@@ -26,6 +24,8 @@ import '../admin/users_screen.dart';
 import '../admin/daily_reports_screen.dart';
 import '../workers/workers_list_screen.dart';
 import '../workers/brigadier_screen.dart';
+import '../tools/garage_screen.dart';
+import '../objects/objects_list_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -166,14 +166,73 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
                 children: [
-                  _buildStatCard('Всего инструментов', '${toolsProvider.totalTools}',
-                      Icons.build, Colors.blue),
-                  _buildStatCard('В гараже', '${toolsProvider.garageTools.length}',
-                      Icons.garage, Colors.green),
-                  _buildStatCard('Объектов', '${objectsProvider.totalObjects}',
-                      Icons.location_city, Colors.orange),
-                  _buildStatCard('Работников', '${workerProvider.workers.length}',
-                      Icons.people, Colors.purple),
+                  _buildStatCard(
+                    'Всего инструментов',
+                    '${toolsProvider.totalTools}',
+                    Icons.build,
+                    Colors.blue,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            Scaffold(
+                              appBar: AppBar(title: const Text('Все инструменты')),
+                              body: SingleChildScrollView(
+                                child: Column(
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Text(
+                                        'Всего инструментов: ${toolsProvider.totalTools}',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                      ),
+                    ),
+                  ),
+                  _buildStatCard(
+                    'В гараже',
+                    '${toolsProvider.garageTools.length}',
+                    Icons.garage,
+                    Colors.green,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const GarageScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildStatCard(
+                    'Объектов',
+                    '${objectsProvider.totalObjects}',
+                    Icons.location_city,
+                    Colors.orange,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ObjectsListScreen(),
+                      ),
+                    ),
+                  ),
+                  _buildStatCard(
+                    'Работников',
+                    '${workerProvider.workers.length}',
+                    Icons.people,
+                    Colors.purple,
+                    () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => WorkersListScreen(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -374,22 +433,61 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) => Card(
-        elevation: 3,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 30),
-              const SizedBox(height: 8),
-              Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 4),
-              Text(title,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                  textAlign: TextAlign.center),
-            ],
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Card(
+          elevation: 4,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(icon, color: color, size: 32),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    value,
+                    style: const TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       );

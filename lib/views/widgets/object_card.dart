@@ -1,11 +1,8 @@
-// TODO: Extract from main_backup.dart
 // ObjectCard widget for displaying construction objects
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:tooler/viewmodels/tools_provider.dart';
 import '../../data/models/construction_object.dart';
-import '../../viewmodels/objects_provider.dart';
 
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;

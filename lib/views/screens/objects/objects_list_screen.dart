@@ -229,3 +229,9 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     );
   }
 }
+
+// Wrapper for navigation compatibility
+class ObjectsListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => EnhancedObjectsListScreen();
+}
