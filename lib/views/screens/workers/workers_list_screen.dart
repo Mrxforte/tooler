@@ -265,22 +265,9 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                 ListTile(
                   leading: const Icon(Icons.report, color: Colors.orange),
                   title: const Text('Создать отчет'),
-                  onTap: () async {
+                  onTap: () {
                     Navigator.pop(context);
-                    // For now, just share first worker's report as sample
-                    if (workerProvider.selectedWorkers.isNotEmpty) {
-                      final w = workerProvider.selectedWorkers.first;
-                      await ReportService.shareWorkerReport(
-                          w,
-                          Provider.of<SalaryProvider>(context, listen: false)
-                              .getSalariesForWorker(w.id),
-                          Provider.of<SalaryProvider>(context, listen: false)
-                              .getAdvancesForWorker(w.id),
-                          Provider.of<SalaryProvider>(context, listen: false)
-                              .getPenaltiesForWorker(w.id),
-                          context,
-                          ReportType.pdf);
-                    }
+                    _showWorkerReportTypeDialog(context, workerProvider.selectedWorkers);
                   },
                 ),
               ],
@@ -353,7 +340,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: entryType,
+                initialValue: entryType,
                 items: const [
                   DropdownMenuItem(value: 'salary', child: Text('Зарплата')),
                   DropdownMenuItem(value: 'advance', child: Text('Аванс')),
@@ -413,6 +400,31 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showWorkerReportTypeDialog(BuildContext context, List<Worker> workers) {
+    showDialog(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text('Создать отчет (${workers.length})'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(context);
+              ErrorHandler.showSuccessDialog(context, 'Функция отчета будет добавлена позже');
+            },
+            child: const Text('Сводный отчет'),
+          ),
+          SimpleDialogOption(
+            onPressed: () {
+              Navigator.pop(context);
+              ErrorHandler.showSuccessDialog(context, 'Функция отчета будет добавлена позже');
+            },
+            child: const Text('Отчет по зарплатам'),
+          ),
+        ],
       ),
     );
   }

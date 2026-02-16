@@ -330,9 +330,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                 title: const Text('Поделиться отчетами'),
                 onTap: () async {
                   Navigator.pop(context);
-                  for (final tool in toolsProvider.selectedTools) {
-                    await ReportService.shareToolReport(tool, context, ReportType.text);
-                  }
+                  _showReportTypeDialog(context, toolsProvider.selectedTools);
                 },
               ),
               const SizedBox(height: 20),
@@ -448,6 +446,45 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showReportTypeDialog(BuildContext context, List<Tool> selectedTools) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Выберите тип отчета',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('PDF отчет'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  for (final tool in selectedTools) {
+                    await ReportService.shareToolReport(tool, context, ReportType.pdf);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.text_fields, color: Colors.blue),
+                title: const Text('Текстовый отчет'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  for (final tool in selectedTools) {
+                    await ReportService.shareToolReport(tool, context, ReportType.text);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/construction_object.dart';
+import '../../../data/services/report_service.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
@@ -197,6 +198,14 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                     _showObjectsDeleteDialog(context);
                   },
                 ),
+              ListTile(
+                leading: const Icon(Icons.share, color: Colors.green),
+                title: const Text('Поделиться отчетами'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showObjectReportTypeDialog(context, objectsProvider.selectedObjects);
+                },
+              ),
               const SizedBox(height: 20),
               TextButton(
                 onPressed: () => Navigator.pop(context),
@@ -230,6 +239,53 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showObjectReportTypeDialog(
+      BuildContext context, List<ConstructionObject> selectedObjects) {
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Выберите тип отчета',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
+                title: const Text('PDF отчет'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  for (final obj in selectedObjects) {
+                    final toolsOnObject =
+                        toolsProvider.tools.where((t) => t.currentLocation == obj.id).toList();
+                    await ReportService.shareObjectReport(
+                        obj, toolsOnObject, context, ReportType.pdf);
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.text_fields, color: Colors.blue),
+                title: const Text('Текстовый отчет'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  for (final obj in selectedObjects) {
+                    final toolsOnObject =
+                        toolsProvider.tools.where((t) => t.currentLocation == obj.id).toList();
+                    await ReportService.shareObjectReport(
+                        obj, toolsOnObject, context, ReportType.text);
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }
