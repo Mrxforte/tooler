@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+// ignore_for_file: use_build_context_synchronously, library_private_types_in_public_api
+
 import 'dart:io';
 import 'dart:convert';
 
@@ -32,7 +34,7 @@ class ProfileScreen extends StatefulWidget {
   @override
   _ProfileScreenState createState() => _ProfileScreenState();
 }
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserver {
   bool _syncEnabled = true;
   bool _notificationsEnabled = true;
   String _themeMode = 'light';
@@ -54,8 +56,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _saveSetting(String key, dynamic value) async {
     final prefs = await SharedPreferences.getInstance();
-    if (value is bool) prefs.setBool(key, value);
-    else if (value is String) prefs.setString(key, value);
+    if (value is bool) {
+      prefs.setBool(key, value);
+    } else if (value is String) {
+      prefs.setString(key, value);
+    }
   }
 
   Future<void> _changeTheme(String mode) async {
@@ -103,14 +108,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Container(
               height: 250,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Theme.of(context).colorScheme.primary,
-                    Theme.of(context).colorScheme.secondary,
-                  ],
-                ),
+                color: Theme.of(context).colorScheme.primary,
               ),
               child: Center(
                 child: Column(
@@ -170,7 +168,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Всего инструментов',
                     '${toolsProvider.totalTools}',
                     Icons.build,
-                    Colors.blue,
+                    Theme.of(context).colorScheme.primary,
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -201,7 +199,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'В гараже',
                     '${toolsProvider.garageTools.length}',
                     Icons.garage,
-                    Colors.green,
+                    const Color(0xFF10B981),
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -213,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Объектов',
                     '${objectsProvider.totalObjects}',
                     Icons.location_city,
-                    Colors.orange,
+                    const Color(0xFFF59E0B),
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -225,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     'Работников',
                     '${workerProvider.workers.length}',
                     Icons.people,
-                    Colors.purple,
+                    const Color(0xFF8B5CF6),
                     () => Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -260,7 +258,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withOpacity(0.15),
+                          color: Colors.blue.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.sync, color: Colors.blue),
@@ -280,7 +278,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.orange.withOpacity(0.15),
+                          color: Colors.orange.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.notifications, color: Colors.orange),
@@ -300,7 +298,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.purple.withOpacity(0.15),
+                          color: Colors.purple.withValues(alpha: 0.15),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.color_lens, color: Colors.purple),
@@ -350,7 +348,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Запросы на перемещение',
                       subtitle: 'Управляйте запросами инструментов',
                       icon: Icons.pending_actions,
-                      color: Colors.blue,
+                      color: Theme.of(context).colorScheme.primary,
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AdminMoveRequestsScreen()),
@@ -361,7 +359,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Групповые запросы',
                       subtitle: 'Просмотрите групповые операции',
                       icon: Icons.group_work,
-                      color: Colors.green,
+                      color: const Color(0xFF10B981),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AdminBatchMoveRequestsScreen()),
@@ -372,7 +370,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Управление пользователями',
                       subtitle: 'Добавляйте и редактируйте пользователей',
                       icon: Icons.people,
-                      color: Colors.purple,
+                      color: const Color(0xFF8B5CF6),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AdminUsersScreen()),
@@ -383,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Управление работниками',
                       subtitle: 'Организуйте рабочую силу',
                       icon: Icons.engineering,
-                      color: Colors.orange,
+                      color: const Color(0xFFF59E0B),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => WorkersListScreen()),
@@ -394,7 +392,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Ежедневные отчеты',
                       subtitle: 'Просмотрите отчеты работников',
                       icon: Icons.assignment,
-                      color: Colors.teal,
+                      color: const Color(0xFF06B6D4),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AdminDailyReportsScreen()),
@@ -405,7 +403,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: 'Мой объект',
                       subtitle: 'Управление активным объектом',
                       icon: Icons.location_city,
-                      color: Colors.orange,
+                      color: const Color(0xFFF59E0B),
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const BrigadierScreen()),
@@ -418,7 +416,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ? '${notifProvider.notifications.where((n) => !n.read).length} новых'
                         : 'Все уведомления прочитаны',
                     icon: Icons.notifications,
-                    color: Colors.red,
+                    color: const Color(0xFFEF4444),
                     onTap: () => Navigator.push(
                       context,
                       MaterialPageRoute(builder: (context) => const NotificationsScreen()),
@@ -429,7 +427,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Создать отчет',
                     subtitle: 'Экспортируйте инвентаризацию в PDF',
                     icon: Icons.share,
-                    color: Colors.indigo,
+                    color: const Color(0xFF6366F1),
                     onTap: () async {
                       ReportService.showReportTypeDialog(
                         context,
@@ -459,7 +457,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: 'Резервная копия',
                     subtitle: 'Сохраните и поделитесь данными',
                     icon: Icons.backup,
-                    color: Colors.cyan,
+                    color: const Color(0xFF06B6D4),
                     onTap: () async => await _createBackup(context, toolsProvider, objectsProvider),
                   ),
                   const SizedBox(height: 12),
@@ -472,14 +470,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(color: Colors.red, width: 1.5),
-                        color: Colors.red.withOpacity(0.05),
+                        color: Colors.red.withValues(alpha: 0.05),
                       ),
                       child: Row(
                         children: [
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.red.withOpacity(0.15),
+                              color: Colors.red.withValues(alpha: 0.15),
                               shape: BoxShape.circle,
                             ),
                             child: const Icon(Icons.logout, color: Colors.red, size: 20),
@@ -522,15 +520,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            color: color.withOpacity(0.08),
-            border: Border.all(color: color.withOpacity(0.2), width: 1),
+              color: color.withValues(alpha: 0.08),
+              border: Border.all(color: color.withValues(alpha: 0.2), width: 1),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: color, size: 24),
@@ -583,7 +581,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+                colors: [color.withValues(alpha: 0.1), color.withValues(alpha: 0.05)],
               ),
             ),
             child: Padding(

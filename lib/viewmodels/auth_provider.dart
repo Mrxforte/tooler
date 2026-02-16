@@ -69,7 +69,7 @@ class AuthProvider with ChangeNotifier {
         await _fetchUserData(savedUser.uid);
       }
     } catch (e) {
-      print('Auth initialization error: $e');
+      // Error handled silently
     } finally {
       _isLoading = false;
       notifyListeners();

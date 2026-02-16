@@ -143,7 +143,7 @@ class ObjectsProvider with ChangeNotifier {
         await _syncWithFirebase();
       }
     } catch (e) {
-      print('Error loading objects: $e');
+      // Error loading objects handled silently
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -288,7 +288,7 @@ class ObjectsProvider with ChangeNotifier {
               collection: collection,
               data: data));
     } catch (e) {
-      print('Sync queue error: $e');
+      // Sync queue error handled silently
     }
   }
 
@@ -306,7 +306,7 @@ class ObjectsProvider with ChangeNotifier {
           isAdmin = (userDoc.data()?['role'] ?? 'user') == 'admin';
         }
       } catch (e) {
-        print('Error checking admin status: $e');
+        // Admin status check handled silently
       }
 
       // Admin sees all objects, others only their own
@@ -321,11 +321,11 @@ class ObjectsProvider with ChangeNotifier {
           _objects.add(obj);
           await LocalDatabase.objects.put(obj.id, obj);
         } catch (e) {
-          print('Error parsing object: $e');
+          // Error parsing object handled silently
         }
       }
     } catch (e) {
-      print('Objects sync error: $e');
+      // Objects sync error handled silently
     }
   }
 }

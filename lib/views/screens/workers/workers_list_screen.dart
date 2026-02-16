@@ -39,6 +39,10 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    if (workerProvider.selectionMode) {
+      workerProvider.toggleSelectionMode();
+    }
     super.dispose();
   }
 
@@ -414,8 +418,8 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   }
 }
 
-// ========== WORKER CARD ==========
-class WorkerCard extends StatelessWidget {
+// ========== WORKER CARD WITH BOUNCE ANIMATION ==========
+class WorkerCard extends StatefulWidget {
   final Worker worker;
   final bool selectionMode;
   final VoidCallback onTap;
@@ -423,80 +427,246 @@ class WorkerCard extends StatelessWidget {
   const WorkerCard({super.key, required this.worker, required this.selectionMode, required this.onTap});
 
   @override
+  State<WorkerCard> createState() => _WorkerCardState();
+}
+
+class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _playBounceAnimation() {
+    _controller.reset();
+    _controller.forward();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final workerProvider = Provider.of<WorkerProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: InkWell(
-        onTap: selectionMode
-            ? () => workerProvider.toggleWorkerSelection(worker.id)
-            : onTap,
-        onLongPress: () {
-          if (!selectionMode) {
-            workerProvider.toggleSelectionMode();
-            workerProvider.toggleWorkerSelection(worker.id);
-          }
-        },
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              if (selectionMode)
-                Checkbox(
-                  value: worker.isSelected,
-                  onChanged: (_) => workerProvider.toggleWorkerSelection(worker.id),
-                ),
-              CircleAvatar(
-                backgroundColor: worker.isFavorite ? Colors.red : Colors.blue,
-                child: Text(worker.name[0].toUpperCase()),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(worker.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-                    Text(worker.email, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                    Row(
-                      children: [
-                        const Icon(Icons.work, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(worker.role, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                      ],
+
+    return ScaleTransition(
+      scale: _scaleAnimation,
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        elevation: 2,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: widget.worker.isSelected
+                ? Theme.of(context).colorScheme.primary
+                : Colors.transparent,
+            width: 2,
+          ),
+        ),
+        child: InkWell(
+          onTap: () {
+            _playBounceAnimation();
+            if (widget.selectionMode) {
+              workerProvider.toggleWorkerSelection(widget.worker.id);
+            } else {
+              widget.onTap();
+            }
+          },
+          onLongPress: () {
+            if (!widget.selectionMode) {
+              workerProvider.toggleSelectionMode();
+              workerProvider.toggleWorkerSelection(widget.worker.id);
+              _playBounceAnimation();
+            }
+          },
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                if (widget.selectionMode)
+                  Checkbox(
+                    value: widget.worker.isSelected,
+                    onChanged: (_) {
+                      workerProvider.toggleWorkerSelection(widget.worker.id);
+                      _playBounceAnimation();
+                    },
+                  ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: widget.worker.isFavorite
+                          ? [Colors.red.shade400, Colors.red.shade300]
+                          : [Colors.blue.shade400, Colors.blue.shade300],
                     ),
-                  ],
-                ),
-              ),
-              if (!selectionMode)
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: Icon(worker.isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: worker.isFavorite ? Colors.red : null),
-                      onPressed: () => workerProvider.toggleFavorite(worker.id),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.worker.isFavorite
+                            ? Colors.red.shade400.withValues(alpha: 0.3)
+                            : Colors.blue.shade400.withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    backgroundColor: Colors.transparent,
+                    child: Text(
+                      widget.worker.name[0].toUpperCase(),
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
                     ),
-                    if (auth.isAdmin)
-                      PopupMenuButton(
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(value: 'edit', child: Text('Редактировать')),
-                          const PopupMenuItem(value: 'salary', child: Text('Зарплата')),
-                          const PopupMenuItem(value: 'delete', child: Text('Удалить', style: TextStyle(color: Colors.red))),
-                        ],
-                        onSelected: (value) {
-                          if (value == 'edit') {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => AddEditWorkerScreen(worker: worker)));
-                          } else if (value == 'salary') {
-                            Navigator.push(context, MaterialPageRoute(builder: (_) => WorkerSalaryScreen(worker: worker)));
-                          } else if (value == 'delete') {
-                            _showDeleteDialog(context, worker);
-                          }
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.worker.name,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.worker.email,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: widget.worker.role == 'brigadir'
+                              ? Colors.purple.shade100
+                              : Colors.blue.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              widget.worker.role == 'brigadir'
+                                  ? Icons.admin_panel_settings
+                                  : Icons.work,
+                              size: 12,
+                              color: widget.worker.role == 'brigadir'
+                                  ? Colors.purple.shade700
+                                  : Colors.blue.shade700,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              widget.worker.role == 'brigadir' ? 'Бригадир' : 'Рабочий',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                                color: widget.worker.role == 'brigadir'
+                                    ? Colors.purple.shade700
+                                    : Colors.blue.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (!widget.selectionMode)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          widget.worker.isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: widget.worker.isFavorite ? Colors.red : null,
+                        ),
+                        onPressed: () {
+                          workerProvider.toggleFavorite(widget.worker.id);
+                          _playBounceAnimation();
                         },
                       ),
-                  ],
-                ),
-            ],
+                      if (auth.isAdmin)
+                        PopupMenuButton(
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'edit',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.edit, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Редактировать'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'salary',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.attach_money, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Зарплата'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.delete, size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Удалить', style: TextStyle(color: Colors.red)),
+                                ],
+                              ),
+                            ),
+                          ],
+                          onSelected: (value) {
+                            if (value == 'edit') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => AddEditWorkerScreen(worker: widget.worker),
+                                ),
+                              );
+                            } else if (value == 'salary') {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => WorkerSalaryScreen(worker: widget.worker),
+                                ),
+                              );
+                            } else if (value == 'delete') {
+                              _showDeleteDialog(context, widget.worker);
+                            }
+                          },
+                        ),
+                    ],
+                  ),
+              ],
+            ),
           ),
         ),
       ),
@@ -510,7 +680,10 @@ class WorkerCard extends StatelessWidget {
         title: const Text('Удалить работника'),
         content: Text('Удалить "${worker.name}"?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Отмена')),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
           TextButton(
             onPressed: () {
               Provider.of<WorkerProvider>(context, listen: false).deleteWorker(worker.id);

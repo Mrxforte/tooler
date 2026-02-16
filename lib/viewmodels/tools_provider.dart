@@ -175,7 +175,7 @@ class ToolsProvider with ChangeNotifier {
       _tools.addAll(cached.whereType<Tool>());
       if (forceRefresh || await LocalDatabase.shouldRefreshCache()) await _syncWithFirebase();
     } catch (e) {
-      print('Error loading tools: $e');
+      // Error loading tools handled silently
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -408,7 +408,7 @@ class ToolsProvider with ChangeNotifier {
               collection: collection,
               data: data));
     } catch (e) {
-      print('Sync queue error: $e');
+      // Sync queue error handled silently
     }
   }
 
@@ -428,7 +428,7 @@ class ToolsProvider with ChangeNotifier {
           }
           await LocalDatabase.syncQueue.delete(item.id);
         } catch (e) {
-          print('Sync item error: $e');
+          // Sync item error handled silently
         }
       }
 
@@ -439,7 +439,7 @@ class ToolsProvider with ChangeNotifier {
           isAdmin = (userDoc.data()?['role'] ?? 'user') == 'admin';
         }
       } catch (e) {
-        print('Error checking admin status: $e');
+        // Admin status check handled silently
       }
 
       Query query = FirebaseFirestore.instance.collection('tools');
@@ -453,11 +453,11 @@ class ToolsProvider with ChangeNotifier {
           _tools.add(tool);
           await LocalDatabase.tools.put(tool.id, tool);
         } catch (e) {
-          print('Error parsing tool: $e');
+          // Error parsing tool handled silently
         }
       }
     } catch (e) {
-      print('Sync error: $e');
+      // Sync error handled silently
     }
   }
 }

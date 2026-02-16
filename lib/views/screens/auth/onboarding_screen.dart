@@ -6,7 +6,7 @@ class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key, required this.onComplete});
 
   @override
-  _OnboardingScreenState createState() => _OnboardingScreenState();
+  State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {

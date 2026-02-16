@@ -12,7 +12,7 @@ class AddEditToolScreen extends StatefulWidget {
   final Tool? tool;
   const AddEditToolScreen({super.key, this.tool});
   @override
-  _AddEditToolScreenState createState() => _AddEditToolScreenState();
+  State<AddEditToolScreen> createState() => _AddEditToolScreenState();
 }
 
 class _AddEditToolScreenState extends State<AddEditToolScreen> {

@@ -95,6 +95,60 @@ void main() async {
   runApp(const MyApp());
 }
 
+ThemeData _buildLightTheme() {
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF2563EB),
+      brightness: Brightness.light,
+    ),
+    appBarTheme: AppBarTheme(
+      elevation: 0,
+      backgroundColor: const Color(0xFF2563EB),
+      foregroundColor: Colors.white,
+      centerTitle: false,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: Colors.white,
+      selectedItemColor: const Color(0xFF2563EB),
+      unselectedItemColor: Colors.grey[400],
+      elevation: 8,
+      type: BottomNavigationBarType.fixed,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: const Color(0xFF2563EB),
+    ),
+  );
+}
+
+ThemeData _buildDarkTheme() {
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: const Color(0xFF60A5FA),
+      brightness: Brightness.dark,
+    ),
+    appBarTheme: AppBarTheme(
+      elevation: 0,
+      backgroundColor: Colors.grey[900],
+      foregroundColor: Colors.white,
+      centerTitle: false,
+    ),
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
+      backgroundColor: Colors.grey[900],
+      selectedItemColor: const Color(0xFF60A5FA),
+      unselectedItemColor: Colors.grey[600],
+      elevation: 8,
+      type: BottomNavigationBarType.fixed,
+    ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: const Color(0xFF60A5FA),
+    ),
+  );
+}
+
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async => true);
 }
@@ -139,17 +193,18 @@ class MyApp extends StatelessWidget {
           ],
           child: Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
+              final isDark = themeProvider.themeMode == 'dark';
               return MaterialApp(
                 title: 'Tooler',
                 navigatorKey: navigatorKey,
                 debugShowCheckedModeBanner: false,
-                theme: ThemeData(
-                  primarySwatch: Colors.blue,
-                  useMaterial3: true,
-                  brightness: themeProvider.themeMode == 'dark' 
-                      ? Brightness.dark 
-                      : Brightness.light,
-                ),
+                theme: _buildLightTheme(),
+                darkTheme: _buildDarkTheme(),
+                themeMode: themeProvider.themeMode == 'dark'
+                    ? ThemeMode.dark
+                    : themeProvider.themeMode == 'system'
+                        ? ThemeMode.system
+                        : ThemeMode.light,
                 home: Consumer<AuthProvider>(
                   builder: (context, auth, _) {
                     return auth.isLoggedIn ? MainHome() : AuthFlow();
@@ -212,6 +267,7 @@ class _MainHomeState extends State<MainHome> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex,
         onTap: (index) => setState(() => _navIndex = index),
+        elevation: 8,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.construction),

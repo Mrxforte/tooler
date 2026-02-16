@@ -236,107 +236,285 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
   }
 
   void _showAddEntryDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Добавить запись'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  value: _entryType,
-                  items: const [
-                    DropdownMenuItem(value: 'salary', child: Text('Зарплата')),
-                    DropdownMenuItem(value: 'advance', child: Text('Аванс')),
-                    DropdownMenuItem(value: 'penalty', child: Text('Штраф')),
-                  ],
-                  onChanged: (v) => setState(() => _entryType = v!),
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _amountController,
-                  decoration: const InputDecoration(labelText: 'Сумма'),
-                  keyboardType: TextInputType.number,
-                ),
-                if (_entryType == 'salary') ...[
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    decoration: const InputDecoration(labelText: 'Количество часов'),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) => _hoursWorked = double.tryParse(v) ?? 0,
+        builder: (context, setState) {
+          final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 16,
+              right: 16,
+              top: 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 4,
+                    width: 40,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade400,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Добавить финансовую запись',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Entry type selector with modern cards
+                  Column(
+                    children: [
+                      const Text('Тип записи', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildTypeCard(
+                              'Зарплата',
+                              Icons.attach_money,
+                              Colors.green.shade400,
+                              _entryType == 'salary',
+                              () => setState(() => _entryType = 'salary'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTypeCard(
+                              'Аванс',
+                              Icons.account_balance_wallet,
+                              Colors.blue.shade400,
+                              _entryType == 'advance',
+                              () => setState(() => _entryType = 'advance'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildTypeCard(
+                              'Штраф',
+                              Icons.warning_rounded,
+                              Colors.red.shade400,
+                              _entryType == 'penalty',
+                              () => setState(() => _entryType = 'penalty'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  // Amount field
+                  TextField(
+                    controller: _amountController,
+                    decoration: InputDecoration(
+                      labelText: 'Сумма (₽)',
+                      prefixIcon: const Icon(Icons.currency_exchange),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: isDarkMode 
+                        ? Colors.grey.shade900 
+                        : Colors.grey.shade50,
+                    ),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  ),
+                  const SizedBox(height: 16),
+                  // Hours worked (only for salary)
+                  if (_entryType == 'salary') ...[
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: 'Количество часов',
+                        prefixIcon: const Icon(Icons.schedule),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: isDarkMode 
+                          ? Colors.grey.shade900 
+                          : Colors.grey.shade50,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (v) => _hoursWorked = double.tryParse(v) ?? 0,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  // Reason/Note field
+                  TextField(
+                    controller: _reasonController,
+                    decoration: InputDecoration(
+                      labelText: _entryType == 'salary' ? 'Примечание (опционально)' : 'Причина',
+                      prefixIcon: const Icon(Icons.note),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      filled: true,
+                      fillColor: isDarkMode 
+                        ? Colors.grey.shade900 
+                        : Colors.grey.shade50,
+                    ),
+                    maxLines: 2,
+                  ),
+                  const SizedBox(height: 16),
+                  // Date picker
+                  GestureDetector(
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) setState(() => _selectedDate = picked);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(12),
+                        color: isDarkMode 
+                          ? Colors.grey.shade900 
+                          : Colors.grey.shade50,
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.calendar_today, size: 20),
+                          const SizedBox(width: 12),
+                          Text(
+                            DateFormat('dd.MM.yyyy').format(_selectedDate),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Отмена'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            final amount = double.tryParse(_amountController.text) ?? 0;
+                            if (amount <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Введите корректную сумму')),
+                              );
+                              return;
+                            }
+
+                            final salaryProvider =
+                                Provider.of<SalaryProvider>(context, listen: false);
+
+                            if (_entryType == 'salary') {
+                              await salaryProvider.addSalary(SalaryEntry(
+                                id: IdGenerator.generateSalaryId(),
+                                workerId: widget.worker.id,
+                                date: _selectedDate,
+                                hoursWorked: _hoursWorked,
+                                amount: amount,
+                                notes: _reasonController.text,
+                              ));
+                            } else if (_entryType == 'advance') {
+                              await salaryProvider.addAdvance(Advance(
+                                id: IdGenerator.generateAdvanceId(),
+                                workerId: widget.worker.id,
+                                date: _selectedDate,
+                                amount: amount,
+                                reason: _reasonController.text,
+                              ));
+                            } else if (_entryType == 'penalty') {
+                              await salaryProvider.addPenalty(Penalty(
+                                id: IdGenerator.generatePenaltyId(),
+                                workerId: widget.worker.id,
+                                date: _selectedDate,
+                                amount: amount,
+                                reason: _reasonController.text,
+                              ));
+                            }
+
+                            _amountController.clear();
+                            _reasonController.clear();
+                            _hoursWorked = 0;
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: const Text('Добавить'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
                 ],
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _reasonController,
-                  decoration: InputDecoration(
-                      labelText: _entryType == 'salary' ? 'Примечание' : 'Причина'),
-                ),
-                const SizedBox(height: 12),
-                ListTile(
-                  title: Text('Дата: ${DateFormat('dd.MM.yyyy').format(_selectedDate)}'),
-                  trailing: const Icon(Icons.calendar_today),
-                  onTap: () async {
-                    final picked = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedDate,
-                      firstDate: DateTime(2020),
-                      lastDate: DateTime.now(),
-                    );
-                    if (picked != null) setState(() => _selectedDate = picked);
-                  },
-                ),
-              ],
+              ),
             ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildTypeCard(
+    String label,
+    IconData icon,
+    Color color,
+    bool isSelected,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withValues(alpha: 0.2) : Colors.transparent,
+          border: Border.all(
+            color: isSelected ? color : Colors.grey.shade300,
+            width: isSelected ? 2 : 1,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            TextButton(
-              onPressed: () async {
-                final amount = double.tryParse(_amountController.text) ?? 0;
-                if (amount <= 0) return;
-
-                final salaryProvider =
-                    Provider.of<SalaryProvider>(context, listen: false);
-
-                if (_entryType == 'salary') {
-                  await salaryProvider.addSalary(SalaryEntry(
-                    id: IdGenerator.generateSalaryId(),
-                    workerId: widget.worker.id,
-                    date: _selectedDate,
-                    hoursWorked: _hoursWorked,
-                    amount: amount,
-                    notes: _reasonController.text,
-                  ));
-                } else if (_entryType == 'advance') {
-                  await salaryProvider.addAdvance(Advance(
-                    id: IdGenerator.generateAdvanceId(),
-                    workerId: widget.worker.id,
-                    date: _selectedDate,
-                    amount: amount,
-                    reason: _reasonController.text,
-                  ));
-                } else if (_entryType == 'penalty') {
-                  await salaryProvider.addPenalty(Penalty(
-                    id: IdGenerator.generatePenaltyId(),
-                    workerId: widget.worker.id,
-                    date: _selectedDate,
-                    amount: amount,
-                    reason: _reasonController.text,
-                  ));
-                }
-
-                _amountController.clear();
-                _reasonController.clear();
-                _hoursWorked = 0;
-                Navigator.pop(context);
-              },
-              child: const Text('Добавить'),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                color: isSelected ? color : Colors.grey,
+              ),
             ),
           ],
         ),

@@ -31,6 +31,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    if (objectsProvider.selectionMode) {
+      objectsProvider.toggleSelectionMode();
+    }
     super.dispose();
   }
   @override
@@ -232,6 +236,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
 
 // Wrapper for navigation compatibility
 class ObjectsListScreen extends StatelessWidget {
+  const ObjectsListScreen({super.key});
   @override
   Widget build(BuildContext context) => EnhancedObjectsListScreen();
 }

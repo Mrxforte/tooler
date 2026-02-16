@@ -39,6 +39,15 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   }
 
   @override
+  void dispose() {
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    if (toolsProvider.selectionMode) {
+      toolsProvider.toggleSelectionMode();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
@@ -54,14 +63,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Theme.of(context).colorScheme.primary,
-                        Theme.of(context).colorScheme.secondary,
-                      ],
-                    ),
+                    color: Theme.of(context).colorScheme.primary,
                     borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30)),
@@ -77,28 +79,35 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                       const SizedBox(height: 8),
                       Text('${garageTools.length} инструментов доступно',
                           style: const TextStyle(fontSize: 16, color: Colors.white70)),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 20),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: SizedBox(
-                          width: MediaQuery.of(context).size.width,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.max,
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              _buildStatCard(context, '    Всего    ',
-                                  '${toolsProvider.totalTools}', Icons.build,
-                                  Colors.white.withOpacity(0.2)),
-                              const SizedBox(width: 10),
-                              _buildStatCard(context, 'В гараже',
-                                  '${garageTools.length}', Icons.garage,
-                                  Colors.white.withOpacity(0.2)),
-                              const SizedBox(width: 10),
-                              _buildStatCard(context, 'Избранные',
-                                  '${toolsProvider.favoriteTools.length}',
-                                  Icons.favorite, Colors.white.withOpacity(0.2)),
-                            ],
-                          ),
+                        child: Row(
+                          children: [
+                            _buildStatCard(
+                              context,
+                              '  Всего  ',
+                              '${toolsProvider.totalTools}',
+                              Icons.build,
+                              () {},
+                            ),
+                            const SizedBox(width: 12),
+                            _buildStatCard(
+                              context,
+                              'В гараже',
+                              '${garageTools.length}',
+                              Icons.garage,
+                              () {},
+                            ),
+                            const SizedBox(width: 12),
+                            _buildStatCard(
+                              context,
+                              'Избранные',
+                              '${toolsProvider.favoriteTools.length}',
+                              Icons.favorite,
+                              () {},
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -184,24 +193,46 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         ),
       );
 
-  Widget _buildStatCard(BuildContext context, String title, String value,
-          IconData icon, Color backgroundColor) =>
-      Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, size: 24, color: Colors.white),
-            const SizedBox(height: 4),
-            Text(value,
+  Widget _buildStatCard(
+    BuildContext context,
+    String title,
+    String value,
+    IconData icon,
+    VoidCallback onTap,
+  ) =>
+      GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.white.withOpacity(0.3)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 22, color: Colors.white),
+              const SizedBox(height: 6),
+              Text(
+                value,
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-            Text(title,
-                style: const TextStyle(fontSize: 12, color: Colors.white70)),
-          ],
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
         ),
       );
 
