@@ -38,19 +38,37 @@ class ErrorHandler {
       case 'email-already-in-use':
         return 'Этот email уже зарегистрирован.';
       case 'invalid-email':
-        return 'Некорректный email адрес.';
+        return 'Некорректный формат email адреса.';
       case 'operation-not-allowed':
-        return 'Операция не разрешена.';
+        return 'Операция не разрешена. Обратитесь к администратору.';
       case 'weak-password':
-        return 'Слишком простой пароль.';
+        return 'Пароль слишком простой. Используйте минимум 6 символов.';
       case 'user-disabled':
-        return 'Пользователь отключен.';
+        return 'Этот аккаунт заблокирован.';
       case 'user-not-found':
-        return 'Пользователь не найден.';
+        return 'Пользователь с таким email не найден.';
       case 'wrong-password':
-        return 'Неверный пароль.';
+        return 'Неверный пароль. Попробуйте еще раз.';
+      case 'invalid-credential':
+        return 'Неверные учетные данные. Проверьте email и пароль.';
+      case 'too-many-requests':
+        return 'Слишком много попыток входа. Попробуйте позже.';
+      case 'network-request-failed':
+        return 'Ошибка сети. Проверьте подключение к интернету.';
+      case 'requires-recent-login':
+        return 'Требуется повторный вход в систему.';
+      case 'invalid-verification-code':
+        return 'Неверный код подтверждения.';
+      case 'invalid-verification-id':
+        return 'Недействительный идентификатор подтверждения.';
+      case 'account-exists-with-different-credential':
+        return 'Аккаунт с таким email уже существует.';
+      case 'credential-already-in-use':
+        return 'Эти учетные данные уже используются.';
+      case 'timeout':
+        return 'Превышено время ожидания. Попробуйте еще раз.';
       default:
-        return 'Ошибка: ${e.message}';
+        return 'Произошла ошибка: ${e.code}. Попробуйте еще раз.';
     }
   }
 }

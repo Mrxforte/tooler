@@ -83,6 +83,12 @@ class ToolsProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  void clearSelection() {
+    _deselectAllTools();
+    _selectionMode = false;
+    notifyListeners();
+  }
+
   void setFilterLocation(String location) {
     _filterLocation = location;
     notifyListeners();
@@ -350,11 +356,21 @@ class ToolsProvider with ChangeNotifier {
     }
     
     final tool = _tools[toolIndex];
+    
+    // Add to location history
+    final newHistory = LocationHistory(
+      date: DateTime.now(),
+      locationId: newLocationId,
+      locationName: newLocationName,
+    );
+    final updatedHistory = [...tool.locationHistory, newHistory];
+    
     final updatedTool = tool.copyWith(
       currentLocation: newLocationId,
       currentLocationName: newLocationName,
       updatedAt: DateTime.now(),
       isSelected: false,
+      locationHistory: updatedHistory,
     );
     _tools[toolIndex] = updatedTool;
     await LocalDatabase.tools.put(updatedTool.id, updatedTool);
@@ -370,11 +386,20 @@ class ToolsProvider with ChangeNotifier {
       return;
     }
     for (final tool in selected) {
+      // Add to location history
+      final newHistory = LocationHistory(
+        date: DateTime.now(),
+        locationId: newLocationId,
+        locationName: newLocationName,
+      );
+      final updatedHistory = [...tool.locationHistory, newHistory];
+      
       final updatedTool = tool.copyWith(
         currentLocation: newLocationId,
         currentLocationName: newLocationName,
         updatedAt: DateTime.now(),
         isSelected: false,
+        locationHistory: updatedHistory,
       );
       await LocalDatabase.tools.put(updatedTool.id, updatedTool);
       await _addToSyncQueue(action: 'update', collection: 'tools', data: updatedTool.toJson());

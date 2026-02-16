@@ -3,17 +3,20 @@
 // ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison, unused_import, unused_local_variable
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:tooler/views/screens/tools/favorites_screen.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'core/constants/app_constants.dart';
 import 'data/adapters/hive_adapters.dart';
+import 'firebase_options.dart';
 
 // Providers
 import 'viewmodels/theme_provider.dart';
@@ -65,13 +68,16 @@ void main() async {
     Hive.registerAdapter(DailyWorkReportAdapter());
 
     await Firebase.initializeApp(
-      options: FirebaseOptions(
-        apiKey: 'AIzaSyDummyKeyForDevelopment',
-        appId: '1:1234567890:android:abcdef123456',
-        messagingSenderId: '1234567890',
-        projectId: 'tooler-dev',
-        storageBucket: 'tooler-dev.appspot.com',
-      ),
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // Initialize Firebase App Check
+    await FirebaseAppCheck.instance.activate(
+      // Use Play Integrity for Android (production)
+      androidProvider: AndroidProvider.playIntegrity,
+      // Use reCAPTCHA for web
+      // webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+      // For iOS when configured: appleProvider: AppleProvider.appAttest,
     );
 
     const AndroidInitializationSettings androidSettings =
@@ -253,7 +259,7 @@ class _MainHomeState extends State<MainHome> {
       case 2:
         return WorkersListScreen();
       case 3:
-        return NotificationsScreen();
+        return FavoritesScreen();
       case 4:
         return ProfileScreen();
       default:
@@ -267,28 +273,45 @@ class _MainHomeState extends State<MainHome> {
       body: _buildScreen(_navIndex),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex,
-        onTap: (index) => setState(() => _navIndex = index),
+        onTap: (index) {
+          // Dismiss any active selection modes when switching tabs
+          final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+          final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+          final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+          
+          if (toolsProvider.selectionMode) {
+            toolsProvider.toggleSelectionMode();
+          }
+          if (objectsProvider.selectionMode) {
+            objectsProvider.toggleSelectionMode();
+          }
+          if (workerProvider.selectionMode) {
+            workerProvider.toggleSelectionMode();
+          }
+          
+          setState(() => _navIndex = index);
+        },
         elevation: 8,
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.construction),
-            label: 'Tools',
+            label: 'Гараж',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.location_on),
-            label: 'Sites',
+            label: 'Объекты',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.people),
-            label: 'Workers',
+            label: 'Работники',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: 'Alerts',
+            icon: Icon(Icons.star),
+            label: 'Избранное',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person),
-            label: 'Me',
+            label: 'Профиль',
           ),
         ],
       ),

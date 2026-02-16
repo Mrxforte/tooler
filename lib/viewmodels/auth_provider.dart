@@ -105,40 +105,75 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<bool> signInWithEmail(String email, String password) async {
+    _isLoading = true;
+    notifyListeners();
+    
     try {
-      _isLoading = true;
-      notifyListeners();
-      final userCredential =
-          await _auth.signInWithEmailAndPassword(email: email, password: password);
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: email, 
+        password: password
+      );
+      
       _user = userCredential.user;
-      if (_user != null) await _fetchUserData(_user!.uid);
-      if (_rememberMe) await _prefs.setString('saved_email', email);
-      return true;
+      
+      if (_user != null) {
+        await _fetchUserData(_user!.uid);
+        if (_rememberMe) {
+          await _prefs.setString('saved_email', email);
+        }
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        if (navigatorKey.currentContext != null) {
+          ErrorHandler.showErrorDialog(
+            navigatorKey.currentContext!,
+            'Не удалось выполнить вход. Попробуйте еще раз.'
+          );
+        }
+        return false;
+      }
     } on FirebaseAuthException catch (e) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, ErrorHandler.getFirebaseErrorMessage(e));
-      return false;
-    } catch (e) {
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Неизвестная ошибка');
-      return false;
-    } finally {
       _isLoading = false;
       notifyListeners();
+      if (navigatorKey.currentContext != null) {
+        ErrorHandler.showErrorDialog(
+          navigatorKey.currentContext!,
+          ErrorHandler.getFirebaseErrorMessage(e)
+        );
+      }
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      if (navigatorKey.currentContext != null) {
+        ErrorHandler.showErrorDialog(
+          navigatorKey.currentContext!,
+          'Произошла неизвестная ошибка: ${e.toString()}'
+        );
+      }
+      return false;
     }
   }
 
   Future<bool> signUpWithEmail(String email, String password,
       {File? profileImage, String? adminPhrase}) async {
+    _isLoading = true;
+    notifyListeners();
+    
     try {
-      _isLoading = true;
-      notifyListeners();
       final userCredential = await _auth.createUserWithEmailAndPassword(
           email: email, password: password);
+      
       _user = userCredential.user;
+      
       if (profileImage != null && _user != null) {
         final imageUrl = await ImageService.uploadImage(profileImage, _user!.uid);
         if (imageUrl != null) _profileImage = profileImage;
       }
+      
       if (_user != null) {
         final role = (adminPhrase == _adminSecret) ? 'admin' : 'user';
         await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
@@ -151,19 +186,45 @@ class AuthProvider with ChangeNotifier {
         _role = role;
         _canMoveTools = false;
         _canControlObjects = false;
+        
+        if (_rememberMe) {
+          await _prefs.setString('saved_email', email);
+        }
+        
+        _isLoading = false;
+        notifyListeners();
+        return true;
+      } else {
+        _isLoading = false;
+        notifyListeners();
+        if (navigatorKey.currentContext != null) {
+          ErrorHandler.showErrorDialog(
+            navigatorKey.currentContext!,
+            'Не удалось создать аккаунт. Попробуйте еще раз.'
+          );
+        }
+        return false;
       }
-      if (_rememberMe) await _prefs.setString('saved_email', email);
-      return true;
     } on FirebaseAuthException catch (e) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, ErrorHandler.getFirebaseErrorMessage(e));
-      return false;
-    } catch (e) {
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Неизвестная ошибка');
-      return false;
-    } finally {
       _isLoading = false;
       notifyListeners();
+      if (navigatorKey.currentContext != null) {
+        ErrorHandler.showErrorDialog(
+          navigatorKey.currentContext!,
+          ErrorHandler.getFirebaseErrorMessage(e)
+        );
+      }
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      if (navigatorKey.currentContext != null) {
+        ErrorHandler.showErrorDialog(
+          navigatorKey.currentContext!,
+          'Произошла неизвестная ошибка: ${e.toString()}'
+        );
+      }
+      return false;
     }
   }
 

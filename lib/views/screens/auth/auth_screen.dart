@@ -81,26 +81,52 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    // Check password match for signup before starting loading
+    if (!_isLogin && _passwordController.text != _confirmPasswordController.text) {
+      ErrorHandler.showErrorDialog(context, 'Пароли не совпадают');
+      return;
+    }
+    
+    if (!mounted) return;
     setState(() => _isLoading = true);
+    
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (!_isLogin && _passwordController.text != _confirmPasswordController.text) {
-        throw Exception('Пароли не совпадают');
-      }
+      
       final success = _isLogin
           ? await authProvider.signInWithEmail(
-              _emailController.text.trim(), _passwordController.text.trim())
+              _emailController.text.trim(),
+              _passwordController.text.trim())
           : await authProvider.signUpWithEmail(
-              _emailController.text.trim(), _passwordController.text.trim(),
+              _emailController.text.trim(),
+              _passwordController.text.trim(),
               profileImage: _profileImage,
               adminPhrase: _adminPhraseController.text.trim().isNotEmpty
                   ? _adminPhraseController.text.trim()
                   : null);
-      if (!success) return;
+      
+      if (!mounted) return;
+      
+      if (success) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      } else {
+        // Reset loading only if auth failed
+        setState(() => _isLoading = false);
+      }
     } catch (e) {
-      ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
-    } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ErrorHandler.showErrorDialog(context, 'Произошла ошибка: ${e.toString()}');
+      }
     }
   }
 
@@ -210,7 +236,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         labelText: 'Пароль',
                         prefixIcon: const Icon(Icons.lock),
                         suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility : Icons.visibility_off),
+                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
                           onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                         ),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),

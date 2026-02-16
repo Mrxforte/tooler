@@ -101,4 +101,60 @@ class WorkerProvider with ChangeNotifier {
     await loadWorkers();
     toggleSelectionMode(); // exit selection mode
   }
+
+  // Give bonus to a worker
+  Future<void> giveBonus({
+    required String workerId,
+    required double amount,
+    required String reason,
+    required String givenBy,
+    String? notes,
+  }) async {
+    final index = _workers.indexWhere((w) => w.id == workerId);
+    if (index != -1) {
+      final worker = _workers[index];
+      final newTotalBonus = worker.totalBonus + amount;
+      final updated = worker.copyWith(totalBonus: newTotalBonus);
+      _workers[index] = updated;
+      await LocalDatabase.workers.put(updated.id, updated);
+      notifyListeners();
+    }
+  }
+
+  // Give bonus to multiple selected workers
+  Future<void> giveBonusToSelected({
+    required double amount,
+    required String reason,
+    required String givenBy,
+  }) async {
+    for (final w in selectedWorkers) {
+      final newTotalBonus = w.totalBonus + amount;
+      final updated = w.copyWith(totalBonus: newTotalBonus);
+      await LocalDatabase.workers.put(updated.id, updated);
+    }
+    await loadWorkers();
+  }
+
+  // Update monthly bonus allowance
+  Future<void> setMonthlyBonus({
+    required String workerId,
+    required double monthlyAmount,
+  }) async {
+    final index = _workers.indexWhere((w) => w.id == workerId);
+    if (index != -1) {
+      final updated = _workers[index].copyWith(monthlyBonus: monthlyAmount);
+      _workers[index] = updated;
+      await LocalDatabase.workers.put(updated.id, updated);
+      notifyListeners();
+    }
+  }
+
+  // Clear selection
+  void clearSelection() {
+    for (var i = 0; i < _workers.length; i++) {
+      _workers[i] = _workers[i].copyWith(isSelected: false);
+    }
+    _selectionMode = false;
+    notifyListeners();
+  }
 }

@@ -230,7 +230,6 @@ class ReportService {
   static Future<Uint8List> _generateObjectReportPdf(
       ConstructionObject object, List<Tool> toolsOnObject) async {
     final pdf = pw.Document();
-    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.orange700;
     final font = await _loadFont();
 
@@ -464,3 +463,4 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
 © Tooler App
     ''';
   }
+}

@@ -8,6 +8,8 @@ class Worker {
   String role;
   double hourlyRate;
   double dailyRate;
+  double totalBonus; // Total bonuses earned
+  double monthlyBonus; // Monthly bonus allowance
   DateTime createdAt;
   bool isFavorite;
   bool isSelected;
@@ -22,6 +24,8 @@ class Worker {
     this.role = 'worker',
     this.hourlyRate = 0.0,
     this.dailyRate = 0.0,
+    this.totalBonus = 0.0,
+    this.monthlyBonus = 0.0,
     DateTime? createdAt,
     this.isFavorite = false,
     this.isSelected = false,
@@ -37,6 +41,8 @@ class Worker {
         role: json['role'] as String? ?? 'worker',
         hourlyRate: (json['hourlyRate'] as num?)?.toDouble() ?? 0.0,
         dailyRate: (json['dailyRate'] as num?)?.toDouble() ?? 0.0,
+        totalBonus: (json['totalBonus'] as num?)?.toDouble() ?? 0.0,
+        monthlyBonus: (json['monthlyBonus'] as num?)?.toDouble() ?? 0.0,
         createdAt: json['createdAt'] != null
             ? DateTime.parse(json['createdAt'] as String)
             : DateTime.now(),
@@ -54,6 +60,8 @@ class Worker {
         'role': role,
         'hourlyRate': hourlyRate,
         'dailyRate': dailyRate,
+        'totalBonus': totalBonus,
+        'monthlyBonus': monthlyBonus,
         'createdAt': createdAt.toIso8601String(),
         'isFavorite': isFavorite,
         'isSelected': isSelected,
@@ -69,6 +77,8 @@ class Worker {
     String? role,
     double? hourlyRate,
     double? dailyRate,
+    double? totalBonus,
+    double? monthlyBonus,
     DateTime? createdAt,
     bool? isFavorite,
     bool? isSelected,
@@ -83,6 +93,8 @@ class Worker {
       role: role ?? this.role,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       dailyRate: dailyRate ?? this.dailyRate,
+      totalBonus: totalBonus ?? this.totalBonus,
+      monthlyBonus: monthlyBonus ?? this.monthlyBonus,
       createdAt: createdAt ?? this.createdAt,
       isFavorite: isFavorite ?? this.isFavorite,
       isSelected: isSelected ?? this.isSelected,
