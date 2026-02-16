@@ -5,13 +5,23 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/tool.dart';
 import '../../../data/services/report_service.dart';
-import '../../../viewmodels/auth_provider.dart';
+import '../../../viewmodels/auth_provider.dart' as app_auth;
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../widgets/selection_tool_card.dart';
 import 'add_edit_tool_screen.dart';
 import 'tool_details_screen.dart';
 import 'move_tools_screen.dart';
+
+// Export safe alias for main.dart
+class GarageScreen extends StatelessWidget {
+  const GarageScreen({super.key});
+  
+  @override
+  Widget build(BuildContext context) {
+    return EnhancedGarageScreen();
+  }
+}
 
 class EnhancedGarageScreen extends StatefulWidget {
   const EnhancedGarageScreen({super.key});
@@ -31,7 +41,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
-    final authProvider = Provider.of<AuthProvider>(context);
+    final authProvider = Provider.of<app_auth.AuthProvider>(context);
     final garageTools = toolsProvider.garageTools;
 
     return Scaffold(
@@ -221,7 +231,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
 
   void _showGarageSelectionActions(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final auth = Provider.of<app_auth.AuthProvider>(context, listen: false);
     final selectedCount = toolsProvider.selectedTools.length;
 
     showModalBottomSheet(

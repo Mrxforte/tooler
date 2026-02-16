@@ -19,15 +19,15 @@ import 'data/adapters/hive_adapters.dart';
 
 // ViewModels
 import 'viewmodels/theme_provider.dart';
-// TODO: Uncomment after extracting full implementations
-// import 'viewmodels/auth_provider.dart';
-// import 'viewmodels/tools_provider.dart';
-// import 'viewmodels/objects_provider.dart';
-// import 'viewmodels/worker_provider.dart';
-// import 'viewmodels/salary_provider.dart';
-// import 'viewmodels/move_request_provider.dart';
-// import 'viewmodels/batch_move_request_provider.dart';
-// import 'viewmodels/users_provider.dart';
+import 'viewmodels/auth_provider.dart';
+import 'viewmodels/tools_provider.dart';
+import 'viewmodels/objects_provider.dart';
+import 'viewmodels/worker_provider.dart';
+import 'viewmodels/salary_provider.dart';
+import 'viewmodels/move_request_provider.dart';
+import 'viewmodels/batch_move_request_provider.dart';
+import 'viewmodels/users_provider.dart';
+import 'viewmodels/notification_provider.dart';
 
 // Views - Auth Screens
 import 'views/screens/auth/welcome_screen.dart';
@@ -169,16 +169,15 @@ class MyApp extends StatelessWidget {
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => ThemeProvider()),
-            // TODO: Uncomment after extracting full provider implementations
-            // ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
-            // ChangeNotifierProvider(create: (_) => NotificationProvider()),
-            // ChangeNotifierProvider(create: (_) => ToolsProvider()),
-            // ChangeNotifierProvider(create: (_) => ObjectsProvider()),
-            // ChangeNotifierProvider(create: (_) => WorkerProvider()),
-            // ChangeNotifierProvider(create: (_) => SalaryProvider()),
-            // ChangeNotifierProvider(create: (_) => MoveRequestProvider()),
-            // ChangeNotifierProvider(create: (_) => BatchMoveRequestProvider()),
-            // ChangeNotifierProvider(create: (_) => UsersProvider()),
+            ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
+            ChangeNotifierProvider(create: (_) => NotificationProvider()),
+            ChangeNotifierProvider(create: (_) => ToolsProvider()),
+            ChangeNotifierProvider(create: (_) => ObjectsProvider()),
+            ChangeNotifierProvider(create: (_) => WorkerProvider()),
+            ChangeNotifierProvider(create: (_) => SalaryProvider()),
+            ChangeNotifierProvider(create: (_) => MoveRequestProvider()),
+            ChangeNotifierProvider(create: (_) => BatchMoveRequestProvider()),
+            ChangeNotifierProvider(create: (_) => UsersProvider()),
           ],
           child: Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
@@ -203,15 +202,20 @@ class MyApp extends StatelessWidget {
   }
 
   Widget _buildHome() {
-    // TODO: After providers are extracted, implement proper auth flow:
-    // - Check if first time (SharedPreferences)  
-    // - WelcomeScreen → OnboardingScreen → AuthScreen → MainScreen
-    // - For now, showing welcome screen for demonstration
-    
-    return WelcomeScreen(
-      onContinue: () {
-        // Navigate to onboarding or auth screen
-        // This will work fully once AuthProvider is extracted
+    return Consumer<AuthProvider>(
+      builder: (context, authProvider, _) {
+        if (authProvider.isLoggedIn) {
+          // User is authenticated - show main app
+          return GarageScreen();
+        } else {
+          // User not authenticated - show auth flow
+          return WelcomeScreen(
+            onContinue: () {
+              // Navigate to onboarding
+              Navigator.of(context).pushNamed('/onboarding');
+            },
+          );
+        }
       },
     );
   }
