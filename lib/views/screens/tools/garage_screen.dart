@@ -71,6 +71,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      
                       const Text('Мой Гараж',
                           style: TextStyle(
                               fontSize: 32,
@@ -89,7 +90,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               '  Всего  ',
                               '${toolsProvider.totalTools}',
                               Icons.build,
-                              () {},
                             ),
                             const SizedBox(width: 12),
                             _buildStatCard(
@@ -97,7 +97,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               'В гараже',
                               '${garageTools.length}',
                               Icons.garage,
-                              () {},
                             ),
                             const SizedBox(width: 12),
                             _buildStatCard(
@@ -105,7 +104,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               'Избранные',
                               '${toolsProvider.favoriteTools.length}',
                               Icons.favorite,
-                              () {},
                             ),
                           ],
                         ),
@@ -198,11 +196,8 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     String title,
     String value,
     IconData icon,
-    VoidCallback onTap,
   ) =>
-      GestureDetector(
-        onTap: onTap,
-        child: Container(
+      Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.15),
@@ -233,7 +228,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               ),
             ],
           ),
-        ),
       );
 
   Widget _buildEmptyGarage(bool isAdmin) => Center(

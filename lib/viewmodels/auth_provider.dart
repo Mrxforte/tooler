@@ -54,8 +54,8 @@ class AuthProvider with ChangeNotifier {
         _role = null;
         _canMoveTools = false;
         _canControlObjects = false;
+        notifyListeners();
       }
-      notifyListeners();
     });
   }
 
@@ -63,13 +63,16 @@ class AuthProvider with ChangeNotifier {
     try {
       _isLoading = true;
       notifyListeners();
+      
+      // Check if there's a currently signed-in user
       final savedUser = _auth.currentUser;
-      if (savedUser != null && _rememberMe) {
+      if (savedUser != null) {
         _user = savedUser;
         await _fetchUserData(savedUser.uid);
       }
     } catch (e) {
-      // Error handled silently
+      print('Error during auth initialization: $e');
+      // Error handled silently, user will see login screen
     } finally {
       _isLoading = false;
       notifyListeners();

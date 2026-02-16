@@ -41,14 +41,14 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
           (w) => w.email == auth.user?.email && w.role == 'brigadir');
     } catch (e) {}
 
-    if (brigadier == null || brigadier.assignedObjectId == null) {
+    if (brigadier == null || brigadier.assignedObjectIds.isEmpty) {
       return const Scaffold(
         body: Center(child: Text('Вы не привязаны ни к одному объекту')),
       );
     }
 
     final object = objectsProvider.objects.firstWhere(
-        (o) => o.id == brigadier!.assignedObjectId,
+        (o) => o.id == brigadier!.assignedObjectIds.first,
         orElse: () => ConstructionObject(
             id: '',
             name: 'Не найден',
@@ -90,7 +90,7 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _sendDailyReport(context, workersOnObject),
+                          onPressed: () => _sendDailyReport(context, workersOnObject, object.id),
                           icon: const Icon(Icons.send),
                           label: const Text('Отправить отчет'),
                         ),
@@ -240,16 +240,15 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
     );
   }
 
-  void _sendDailyReport(BuildContext context, List<Worker> workers) {
+  void _sendDailyReport(BuildContext context, List<Worker> workers, String objectId) {
     // Gather today's attendances for these workers
     final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
-    final todayAttendances = salaryProvider.getAttendancesForObjectAndDate('', DateTime.now()); // need object ID
-    // This is simplified; in real app you'd filter by object via worker->object relation.
+    final todayAttendances = salaryProvider.getAttendancesForObjectAndDate(objectId, DateTime.now());
 
     // Create report
     final report = DailyWorkReport(
       id: IdGenerator.generateDailyReportId(),
-      objectId: '', // need object ID
+      objectId: objectId,
       brigadierId: firebase_auth.FirebaseAuth.instance.currentUser!.uid,
       date: DateTime.now(),
       attendanceIds: todayAttendances.map((a) => a.id).toList(),

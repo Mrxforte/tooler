@@ -48,7 +48,7 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
     final toolsOnObject =
         toolsProvider.tools.where((tool) => tool.currentLocation == widget.object.id).toList();
     final workersOnObject = workerProvider.workers
-        .where((worker) => worker.assignedObjectId == widget.object.id)
+        .where((worker) => worker.assignedObjectIds.contains(widget.object.id))
         .toList();
 
     return Scaffold(
