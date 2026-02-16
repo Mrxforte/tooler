@@ -4,7 +4,7 @@ class Worker {
   String name;
   String? nickname;
   String? phone;
-  String? assignedObjectId;
+  List<String> assignedObjectIds;
   String role;
   double hourlyRate;
   double dailyRate;
@@ -20,7 +20,7 @@ class Worker {
     required this.name,
     this.nickname,
     this.phone,
-    this.assignedObjectId,
+    List<String>? assignedObjectIds,
     this.role = 'worker',
     this.hourlyRate = 0.0,
     this.dailyRate = 0.0,
@@ -29,7 +29,8 @@ class Worker {
     DateTime? createdAt,
     this.isFavorite = false,
     this.isSelected = false,
-  }) : createdAt = createdAt ?? DateTime.now();
+  })  : assignedObjectIds = assignedObjectIds ?? [],
+        createdAt = createdAt ?? DateTime.now();
 
   factory Worker.fromJson(Map<String, dynamic> json) => Worker(
         id: json['id'] as String,
@@ -37,7 +38,11 @@ class Worker {
         name: json['name'] as String,
         nickname: json['nickname'] as String?,
         phone: json['phone'] as String?,
-        assignedObjectId: json['assignedObjectId'] as String?,
+      assignedObjectIds: json['assignedObjectIds'] != null
+        ? List<String>.from(json['assignedObjectIds'] as List)
+        : json['assignedObjectId'] != null
+          ? [json['assignedObjectId'] as String]
+          : <String>[],
         role: json['role'] as String? ?? 'worker',
         hourlyRate: (json['hourlyRate'] as num?)?.toDouble() ?? 0.0,
         dailyRate: (json['dailyRate'] as num?)?.toDouble() ?? 0.0,
@@ -56,7 +61,7 @@ class Worker {
         'name': name,
         'nickname': nickname,
         'phone': phone,
-        'assignedObjectId': assignedObjectId,
+        'assignedObjectIds': assignedObjectIds,
         'role': role,
         'hourlyRate': hourlyRate,
         'dailyRate': dailyRate,
@@ -73,7 +78,7 @@ class Worker {
     String? name,
     String? nickname,
     String? phone,
-    String? assignedObjectId,
+    List<String>? assignedObjectIds,
     String? role,
     double? hourlyRate,
     double? dailyRate,
@@ -89,7 +94,7 @@ class Worker {
       name: name ?? this.name,
       nickname: nickname ?? this.nickname,
       phone: phone ?? this.phone,
-      assignedObjectId: assignedObjectId ?? this.assignedObjectId,
+      assignedObjectIds: assignedObjectIds ?? this.assignedObjectIds,
       role: role ?? this.role,
       hourlyRate: hourlyRate ?? this.hourlyRate,
       dailyRate: dailyRate ?? this.dailyRate,

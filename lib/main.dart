@@ -1,6 +1,5 @@
 // Tooler - Construction Tool Management App
 // ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison, unused_import, unused_local_variable
-// ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison, unused_import, unused_local_variable
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -103,55 +102,78 @@ void main() async {
 }
 
 ThemeData _buildLightTheme() {
+  const primary = Color(0xFF0E639C);
+  const background = Color(0xFFF3F3F3);
+  const surface = Color(0xFFFFFFFF);
+  const onSurface = Color(0xFF1E1E1E);
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF2563EB),
-      brightness: Brightness.light,
+    colorScheme: const ColorScheme.light(
+      primary: primary,
+      onPrimary: Colors.white,
+      secondary: Color(0xFF1177BB),
+      onSecondary: Colors.white,
+      background: background,
+      onBackground: onSurface,
+      surface: surface,
+      onSurface: onSurface,
     ),
+    scaffoldBackgroundColor: background,
     appBarTheme: AppBarTheme(
       elevation: 0,
-      backgroundColor: const Color(0xFF2563EB),
+      backgroundColor: primary,
       foregroundColor: Colors.white,
       centerTitle: false,
     ),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: Colors.white,
-      selectedItemColor: const Color(0xFF2563EB),
+      backgroundColor: surface,
+      selectedItemColor: primary,
       unselectedItemColor: Colors.grey[400],
       elevation: 8,
       type: BottomNavigationBarType.fixed,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: const Color(0xFF2563EB),
+      backgroundColor: primary,
+      foregroundColor: Colors.white,
     ),
   );
 }
 
 ThemeData _buildDarkTheme() {
+  const primary = Color(0xFF0E639C);
+  const background = Color(0xFF1E1E1E);
+  const surface = Color(0xFF252526);
   return ThemeData(
     useMaterial3: true,
     brightness: Brightness.dark,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF60A5FA),
-      brightness: Brightness.dark,
+    colorScheme: const ColorScheme.dark(
+      primary: primary,
+      onPrimary: Colors.white,
+      secondary: Color(0xFF3794FF),
+      onSecondary: Colors.white,
+      background: background,
+      onBackground: Colors.white,
+      surface: surface,
+      onSurface: Colors.white,
     ),
+    scaffoldBackgroundColor: background,
     appBarTheme: AppBarTheme(
       elevation: 0,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: surface,
       foregroundColor: Colors.white,
       centerTitle: false,
     ),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: Colors.grey[900],
-      selectedItemColor: const Color(0xFF60A5FA),
+      backgroundColor: surface,
+      selectedItemColor: const Color(0xFF3794FF),
       unselectedItemColor: Colors.grey[600],
       elevation: 8,
       type: BottomNavigationBarType.fixed,
     ),
     floatingActionButtonTheme: FloatingActionButtonThemeData(
-      backgroundColor: const Color(0xFF60A5FA),
+      backgroundColor: primary,
+      foregroundColor: Colors.white,
     ),
   );
 }
@@ -212,8 +234,28 @@ class MyApp extends StatelessWidget {
                     : themeProvider.themeMode == 'system'
                         ? ThemeMode.system
                         : ThemeMode.light,
+                routes: {
+                  '/home': (_) => MainHome(),
+                  '/auth': (_) => AuthFlow(),
+                },
                 home: Consumer<AuthProvider>(
                   builder: (context, auth, _) {
+                    // Show loading spinner while auth is initializing
+                    if (auth.isLoading) {
+                      return Scaffold(
+                        body: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              CircularProgressIndicator(),
+                              SizedBox(height: 16),
+                              Text('Загрузка...', style: TextStyle(color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      );
+                    }
+                    // Show main app or auth flow based on login state
                     return auth.isLoggedIn ? MainHome() : AuthFlow();
                   },
                 ),

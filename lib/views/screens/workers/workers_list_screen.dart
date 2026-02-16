@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/worker.dart';
 import '../../../data/models/salary.dart';
+import '../../../data/models/construction_object.dart';
 import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
@@ -71,7 +72,9 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
       displayWorkers = displayWorkers.where((w) => w.role == _filterRole).toList();
     }
     if (_filterObject != null) {
-      displayWorkers = displayWorkers.where((w) => w.assignedObjectId == _filterObject).toList();
+      displayWorkers = displayWorkers
+          .where((w) => w.assignedObjectIds.contains(_filterObject))
+          .toList();
     }
     if (_showFavoritesOnly) {
       displayWorkers = displayWorkers.where((w) => w.isFavorite).toList();
@@ -166,8 +169,10 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                           itemCount: displayWorkers.length,
                           itemBuilder: (context, index) {
                             final worker = displayWorkers[index];
+                            final objectNames = _getWorkerObjectNames(worker, objectsProvider);
                             return WorkerCard(
                               worker: worker,
+                              objectNames: objectNames,
                               selectionMode: workerProvider.selectionMode,
                               onTap: () => Navigator.push(
                                   context,
@@ -219,6 +224,23 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
           ],
         ),
       );
+
+  List<String> _getWorkerObjectNames(Worker worker, ObjectsProvider objectsProvider) {
+    if (worker.assignedObjectIds.isEmpty) return ['Гараж'];
+    return worker.assignedObjectIds
+        .map((id) => objectsProvider.objects
+            .firstWhere(
+              (o) => o.id == id,
+              orElse: () => ConstructionObject(
+                id: id,
+                name: 'Не найден',
+                description: '',
+                userId: 'unknown',
+              ),
+            )
+            .name)
+        .toList();
+  }
 
   void _showWorkerSelectionActions(BuildContext context) {
     final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
@@ -280,45 +302,58 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   void _showMoveWorkersDialog(BuildContext context) {
     final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
     final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
-    String? selectedObjectId;
+    final selectedObjectIds = <String>[];
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Переместить выбранных работников'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Выберите объект или гараж (null):'),
-            DropdownButton<String>(
-              value: selectedObjectId,
-              hint: const Text('Выберите'),
-              items: [
-                const DropdownMenuItem(value: null, child: Text('Гараж (не привязан)')),
-                ...objectsProvider.objects.map((obj) =>
-                    DropdownMenuItem(value: obj.id, child: Text(obj.name))),
-              ],
-              onChanged: (v) => setState(() => selectedObjectId = v),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Переместить выбранных работников'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Выберите один или несколько объектов (пусто = гараж):'),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.maxFinite,
+                height: 220,
+                child: ListView(
+                  children: objectsProvider.objects.map((obj) {
+                    final selected = selectedObjectIds.contains(obj.id);
+                    return CheckboxListTile(
+                      value: selected,
+                      title: Text(obj.name),
+                      dense: true,
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() {
+                          if (value) {
+                            selectedObjectIds.add(obj.id);
+                          } else {
+                            selectedObjectIds.remove(obj.id);
+                          }
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Отмена'),
+            ),
+            TextButton(
+              onPressed: () async {
+                await workerProvider
+                    .moveSelectedWorkers(List<String>.from(selectedObjectIds));
+                Navigator.pop(context);
+              },
+              child: const Text('Переместить'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (selectedObjectId != null) {
-                await workerProvider.moveSelectedWorkers(selectedObjectId, 
-                    objectsProvider.objects.firstWhere((o) => o.id == selectedObjectId).name);
-              } else {
-                await workerProvider.moveSelectedWorkers(null, 'Гараж');
-              }
-              Navigator.pop(context);
-            },
-            child: const Text('Переместить'),
-          ),
-        ],
       ),
     );
   }
@@ -329,6 +364,8 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
     final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
     String entryType = 'salary';
     double amount = 0;
+    double hoursWorked = 0;
+    double bonus = 0;
     String reason = '';
     showDialog(
       context: context,
@@ -347,11 +384,29 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                 ],
                 onChanged: (v) => setState(() => entryType = v!),
               ),
-              TextFormField(
-                decoration: const InputDecoration(labelText: 'Сумма'),
-                keyboardType: TextInputType.number,
-                onChanged: (v) => amount = double.tryParse(v) ?? 0,
-              ),
+              if (entryType != 'salary')
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Сумма'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => amount = double.tryParse(v) ?? 0,
+                ),
+              if (entryType == 'salary') ...[
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Часы работы'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => hoursWorked = double.tryParse(v) ?? 0,
+                ),
+                TextFormField(
+                  decoration: const InputDecoration(labelText: 'Бонус (на работника)'),
+                  keyboardType: TextInputType.number,
+                  onChanged: (v) => bonus = double.tryParse(v) ?? 0,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Сумма считается по формуле: часы * ставка + бонус',
+                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
               TextFormField(
                 decoration: InputDecoration(labelText: entryType == 'salary' ? 'Примечание' : 'Причина'),
                 onChanged: (v) => reason = v,
@@ -367,11 +422,13 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
               onPressed: () async {
                 for (final w in workerProvider.selectedWorkers) {
                   if (entryType == 'salary') {
+                    final calculatedAmount = (hoursWorked * w.hourlyRate) + bonus;
                     await salaryProvider.addSalary(SalaryEntry(
                       id: IdGenerator.generateSalaryId(),
                       workerId: w.id,
                       date: DateTime.now(),
-                      amount: amount,
+                      hoursWorked: hoursWorked,
+                      amount: calculatedAmount,
                       notes: reason,
                     ));
                   } else if (entryType == 'advance') {
@@ -432,10 +489,17 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
 // ========== WORKER CARD WITH BOUNCE ANIMATION ==========
 class WorkerCard extends StatefulWidget {
   final Worker worker;
+  final List<String> objectNames;
   final bool selectionMode;
   final VoidCallback onTap;
 
-  const WorkerCard({super.key, required this.worker, required this.selectionMode, required this.onTap});
+  const WorkerCard({
+    super.key,
+    required this.worker,
+    required this.objectNames,
+    required this.selectionMode,
+    required this.onTap,
+  });
 
   @override
   State<WorkerCard> createState() => _WorkerCardState();
@@ -676,6 +740,16 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
                         ),
                     ],
                   ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.objectNames.join(', '),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
               ],
             ),
           ),

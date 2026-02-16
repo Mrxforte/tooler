@@ -24,7 +24,7 @@ enum ReportType { pdf, text, screenshot }
 /// inventory reports, worker reports, and sharing functionality.
 class ReportService {
   static Future<pw.Font> _loadFont() async {
-    final fontData = await rootBundle.load('assets/fonts/Roboto-Regular.ttf');
+    final fontData = await rootBundle.load('assets/fonts/robo.ttf');
     return pw.Font.ttf(fontData);
   }
 

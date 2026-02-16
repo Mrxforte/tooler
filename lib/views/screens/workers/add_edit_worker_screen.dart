@@ -25,7 +25,7 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
   final _hourlyRateController = TextEditingController();
   final _dailyRateController = TextEditingController();
   String _role = 'worker';
-  String? _selectedObjectId;
+  List<String> _selectedObjectIds = [];
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
       _hourlyRateController.text = widget.worker!.hourlyRate.toString();
       _dailyRateController.text = widget.worker!.dailyRate.toString();
       _role = widget.worker!.role;
-      _selectedObjectId = widget.worker!.assignedObjectId;
+      _selectedObjectIds = List<String>.from(widget.worker!.assignedObjectIds);
     }
   }
 
@@ -92,16 +92,43 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
                 onChanged: (v) => setState(() => _role = v!),
               ),
               const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: _selectedObjectId,
-                decoration: const InputDecoration(
-                    labelText: 'Привязка к объекту', prefixIcon: Icon(Icons.location_city)),
-                items: [
-                  const DropdownMenuItem(value: null, child: Text('Не привязан (Гараж)')),
-                  ...objectsProvider.objects.map((obj) =>
-                      DropdownMenuItem(value: obj.id, child: Text(obj.name))),
-                ],
-                onChanged: (v) => setState(() => _selectedObjectId = v),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'Привязка к объектам',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: objectsProvider.objects.map((obj) {
+                  final selected = _selectedObjectIds.contains(obj.id);
+                  return FilterChip(
+                    label: Text(obj.name),
+                    selected: selected,
+                    onSelected: (value) {
+                      setState(() {
+                        if (value) {
+                          _selectedObjectIds.add(obj.id);
+                        } else {
+                          _selectedObjectIds.remove(obj.id);
+                        }
+                      });
+                    },
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  _selectedObjectIds.isEmpty
+                      ? 'Работник будет в гараже (не привязан)'
+                      : 'Выбрано объектов: ${_selectedObjectIds.length}',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -138,7 +165,7 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
       name: _nameController.text.trim(),
       nickname: _nicknameController.text.isNotEmpty ? _nicknameController.text.trim() : null,
       phone: _phoneController.text.isNotEmpty ? _phoneController.text.trim() : null,
-      assignedObjectId: _selectedObjectId,
+      assignedObjectIds: List<String>.from(_selectedObjectIds),
       role: _role,
       hourlyRate: double.tryParse(_hourlyRateController.text) ?? 0,
       dailyRate: double.tryParse(_dailyRateController.text) ?? 0,

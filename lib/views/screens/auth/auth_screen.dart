@@ -109,19 +109,24 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       
       if (success) {
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 1),
-          ),
-        );
-        Navigator.of(context).popUntil((route) => route.isFirst);
-      } else {
-        // Reset loading only if auth failed
-        setState(() => _isLoading = false);
-      }
+        // Auth successful - MaterialApp will rebuild automatically
+        // Show success message briefly before automatic navigation
+        Navigator.popUntil(context, (route) => route.isFirst); // Ensure we're on the root
+        if (mounted) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
+                backgroundColor: Colors.green,
+                duration: const Duration(milliseconds: 800),
+              ),
+            );
+          }
+          setState(() => _isLoading = false);
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
+          }
+      }}
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);

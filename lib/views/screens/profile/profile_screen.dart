@@ -464,6 +464,9 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   GestureDetector(
                     onTap: () async {
                       await authProvider.signOut();
+                      if (!mounted) return;
+                      Navigator.of(context)
+                          .pushNamedAndRemoveUntil('/auth', (_) => false);
                     },
                     child: Container(
                       padding: const EdgeInsets.all(16),

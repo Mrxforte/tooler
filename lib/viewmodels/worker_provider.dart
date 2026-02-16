@@ -89,13 +89,13 @@ class WorkerProvider with ChangeNotifier {
   }
 
   List<Worker> getWorkersOnObject(String objectId) {
-    return _workers.where((w) => w.assignedObjectId == objectId).toList();
+    return _workers.where((w) => w.assignedObjectIds.contains(objectId)).toList();
   }
 
   // Move selected workers to another object
-  Future<void> moveSelectedWorkers(String? targetObjectId, String targetObjectName) async {
+  Future<void> moveSelectedWorkers(List<String> targetObjectIds) async {
     for (final w in selectedWorkers) {
-      final updated = w.copyWith(assignedObjectId: targetObjectId);
+      final updated = w.copyWith(assignedObjectIds: targetObjectIds);
       await LocalDatabase.workers.put(updated.id, updated);
     }
     await loadWorkers();

@@ -13,7 +13,7 @@ class WelcomeScreen extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 Theme.of(context).colorScheme.primary,
-                Theme.of(context).colorScheme.secondary,
+                Theme.of(context).colorScheme.primary.withValues(alpha: 0.85),
               ],
             ),
           ),
@@ -23,7 +23,7 @@ class WelcomeScreen extends StatelessWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.build, size: 100, color: Colors.white),
+                  Icon(Icons.build, size: 100, color: Theme.of(context).colorScheme.onPrimary),
                   const SizedBox(height: 32),
                   const Text('Добро пожаловать в Tooler!',
                       style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
@@ -37,6 +37,8 @@ class WelcomeScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: onContinue,
                     style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.onPrimary,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
                     ),
