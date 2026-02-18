@@ -3,6 +3,7 @@
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -72,14 +73,21 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Initialize Firebase App Check
-    await FirebaseAppCheck.instance.activate(
-      // Use Play Integrity for Android (production)
-      androidProvider: AndroidProvider.playIntegrity,
-      // Use reCAPTCHA for web
-      // webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
-      // For iOS when configured: appleProvider: AppleProvider.appAttest,
-    );
+    // Initialize Firebase App Check with fallback for connectivity issues
+    try {
+      await FirebaseAppCheck.instance.activate(
+        // Use Debug provider for development - use Play Integrity in production
+        androidProvider: kDebugMode 
+            ? AndroidProvider.debug 
+            : AndroidProvider.playIntegrity,
+        // Use reCAPTCHA for web
+        // webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
+        // For iOS when configured: appleProvider: AppleProvider.appAttest,
+      );
+    } catch (e) {
+      print('Firebase App Check initialization failed: $e');
+      print('Using fallback without App Check');
+    }
 
     const AndroidInitializationSettings androidSettings =
         AndroidInitializationSettings('@mipmap/ic_launcher');

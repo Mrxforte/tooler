@@ -165,128 +165,21 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
+      appBar: AppBar(
+        centerTitle: true,
+        title: const Text('Гараж'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => authProvider.signOut(),
+          ),
+        ],
+      ) ,
       body: (toolsProvider.isLoading && garageTools.isEmpty && !_loadingTimeout)
           ? _buildLoadingScreen()
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary,
-                    borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(30),
-                        bottomRight: Radius.circular(30)),
-                  ),
-                //   child: Column(
-                //     crossAxisAlignment: CrossAxisAlignment.start,
-                //     children: [
-                //       const SizedBox(height: 20),
-                //       Text(
-                //         authProvider.isAdmin ? 'Все инструменты' : 'Мой Гараж',
-                //         style: const TextStyle(
-                //             fontSize: 32,
-                //             fontWeight: FontWeight.bold,
-                //             color: Colors.white)),
-                //       Text('${garageTools.length} инструментов доступно',
-                //           style: const TextStyle(fontSize: 16, color: Colors.white70)),
-                //       const SizedBox(height: 20),
-                //       Consumer3<ToolsProvider, WorkerProvider, UsersProvider>(
-                //         builder: (context, toolsProvider, workerProvider, usersProvider, _) =>
-                //             SingleChildScrollView(
-                //               scrollDirection: Axis.horizontal,
-                //               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                //               child: Row(
-                //                 children: [
-                //                   _buildStatCard(
-                //                     context,
-                //                     '  Всего  ',
-                //                     '${toolsProvider.totalTools}',
-                //                     Icons.build,
-                //                     onTap: () {
-                //                       // Clear all filters to show all tools
-                //                       setState(() {
-                //                         _filterBrand = null;
-                //                         _showFavoritesOnly = false;
-                //                         _createdDateFrom = null;
-                //                         _createdDateTo = null;
-                //                         _searchController.clear();
-                //                       });
-                //                     },
-                //                   ),
-                //                   const SizedBox(width: 12),
-                //                   _buildStatCard(
-                //                     context,
-                //                     'В гараже',
-                //                     '${garageTools.length}',
-                //                     Icons.garage,
-                //                   ),
-                //                   const SizedBox(width: 12),
-                //                   _buildStatCard(
-                //                     context,
-                //                     'Избранные',
-                //                     '${toolsProvider.favoriteTools.length}',
-                //                     Icons.favorite,
-                //                   ),
-                //                   const SizedBox(width: 12),
-                //                   _buildStatCard(
-                //                     context,
-                //                     'Пользователи',
-                //                     '${usersProvider.users.length}',
-                //                     Icons.people,
-                //                     onTap: () {
-                //                       if (authProvider.isAdmin) {
-                //                         // Navigate to users screen for admin
-                //                         Navigator.push(
-                //                           context,
-                //                           MaterialPageRoute(
-                //                             builder: (context) => const AdminUsersScreen(),
-                //                           ),
-                //                         );
-                //                       } else {
-                //                         // Show info dialog for non-admin
-                //                         showDialog(
-                //                           context: context,
-                //                           builder: (context) => AlertDialog(
-                //                             title: const Text('Зарегистрированные пользователи'),
-                //                             content: Column(
-                //                               mainAxisSize: MainAxisSize.min,
-                //                               crossAxisAlignment: CrossAxisAlignment.start,
-                //                               children: [
-                //                                 Text(
-                //                                   'Всего пользователей: ${usersProvider.users.length}',
-                //                                   style: const TextStyle(
-                //                                     fontSize: 16,
-                //                                     fontWeight: FontWeight.bold,
-                //                                   ),
-                //                                 ),
-                //                                 const SizedBox(height: 12),
-                //                                 const Text(
-                //                                   'Управление пользователями доступно только администраторам.',
-                //                                   style: TextStyle(color: Colors.grey),
-                //                                 ),
-                //                               ],
-                //                             ),
-                //                             actions: [
-                //                               TextButton(
-                //                                 onPressed: () => Navigator.pop(context),
-                //                                 child: const Text('Закрыть'),
-                //                               ),
-                //                             ],
-                //                           ),
-                //                         );
-                //                       }
-                //                     },
-                //                   ),
-                //                 ],
-                //               ),
-                //             ),
-                //       ),
-                //     ],
-                //   ),
-                ),
-                
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: TextField(
@@ -415,7 +308,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                     ],
                   ),
                 ),
-                Expanded(
+                Flexible(
                   child: garageTools.isEmpty
                       ? _buildEmptyGarage(authProvider.isAdmin)
                       : ListView.builder(
@@ -438,15 +331,11 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               ],
             ),
       floatingActionButton: toolsProvider.selectionMode && toolsProvider.hasSelectedTools
-          ? Container(
-              height: 56,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: FloatingActionButton.extended(
-                onPressed: () => _showGarageSelectionActions(context),
-                icon: const Icon(Icons.more_vert),
-                label: Text('Выбрано: ${toolsProvider.selectedTools.length}'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
-              ),
+          ? FloatingActionButton.extended(
+              onPressed: () => _showGarageSelectionActions(context),
+              icon: const Icon(Icons.more_vert),
+              label: Text('Выбрано: ${toolsProvider.selectedTools.length}'),
+              backgroundColor: Theme.of(context).colorScheme.primary,
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -672,62 +561,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         ),
       );
 
-  Widget _buildStatCard(
-    BuildContext context,
-    String title,
-    String value,
-    IconData icon, {
-    VoidCallback? onTap,
-  }) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : Colors.white;
-    final iconColor = isDark ? Colors.white70 : Colors.white;
-    
-final cardWidget = Container(
-    height: 100,
-    width: 110,
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-    decoration: BoxDecoration(
-      color: Colors.white.withValues(alpha: 0.15),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-    ),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, size: 22, color: iconColor),
-        const SizedBox(height: 6),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 11,
-            color: textColor.withValues(alpha: 0.7),
-            fontWeight: FontWeight.w500,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ],
-    ),
-);
-    
-    if (onTap != null) {
-      return GestureDetector(
-        onTap: onTap,
-        child: cardWidget,
-      );
-    }
-    return cardWidget;
-  }
 
   Widget _buildEmptyGarage(bool isAdmin) => Center(
         child: Column(
