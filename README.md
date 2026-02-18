@@ -692,7 +692,7 @@ flutter build web --release
 - Tap "Sign Up"
 - Enter email and password
 - (Optional) Add profile photo
-- **Admin Access**: Enter secret phrase `admin123` to create admin account
+- **Admin Access**: Enter secret phrase `admin123` to create admin account (default secret, can be changed later by admins)
 - Complete registration
 
 #### 3. Login
@@ -837,6 +837,17 @@ flutter build web --release
 4. Includes all tools and statistics
 
 ### 👨‍💼 Admin Functions
+
+#### Manage Admin Settings
+1. Go to **Profile** → **Настройки администратора** (Admin Settings)
+2. View current admin secret word
+3. To change the secret word:
+   - Enter new secret word (minimum 6 characters)
+   - Confirm new secret word
+   - Tap **Save**
+   - Confirm the change
+4. **Important**: Inform new administrators of the updated secret word
+5. Existing admins retain their privileges after secret change
 
 #### Manage Users
 1. Go to **Settings** → **Admin Panel**

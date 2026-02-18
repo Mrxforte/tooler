@@ -8,9 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
+import 'admin_settings_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-const String _adminSecret = 'your_admin_secret_phrase'; // TODO: Change to real secret
 
 /// AuthProvider - Handles authentication, user permissions, role management
 /// 
@@ -24,6 +24,7 @@ const String _adminSecret = 'your_admin_secret_phrase'; // TODO: Change to real 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
+  final AdminSettingsProvider _adminSettings;
   User? _user;
   bool _isLoading = false;
   bool _rememberMe = false;
@@ -43,7 +44,7 @@ class AuthProvider with ChangeNotifier {
   bool get canMoveTools => _canMoveTools || isAdmin;
   bool get canControlObjects => _canControlObjects || isAdmin;
 
-  AuthProvider(this._prefs) {
+  AuthProvider(this._prefs, this._adminSettings) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
     _initializeAuth();
     _auth.authStateChanges().listen((user) {
@@ -178,7 +179,9 @@ class AuthProvider with ChangeNotifier {
       }
       
       if (_user != null) {
-        final role = (adminPhrase == _adminSecret) ? 'admin' : 'user';
+        // Fetch current admin secret from Firestore
+        final currentSecret = await _adminSettings.getSecretWord();
+        final role = (adminPhrase == currentSecret) ? 'admin' : 'user';
         await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
           'email': email,
           'role': role,

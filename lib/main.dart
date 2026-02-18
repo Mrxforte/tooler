@@ -20,6 +20,7 @@ import 'firebase_options.dart';
 // Providers
 import 'viewmodels/theme_provider.dart';
 import 'viewmodels/auth_provider.dart';
+import 'viewmodels/admin_settings_provider.dart';
 import 'viewmodels/tools_provider.dart';
 import 'viewmodels/objects_provider.dart';
 import 'viewmodels/worker_provider.dart';
@@ -210,7 +211,17 @@ class MyApp extends StatelessWidget {
         return MultiProvider(
           providers: [
             ChangeNotifierProvider(create: (_) => ThemeProvider()),
-            ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
+            ChangeNotifierProvider(create: (_) => AdminSettingsProvider()),
+            ChangeNotifierProxyProvider<AdminSettingsProvider, AuthProvider>(
+              create: (context) => AuthProvider(
+                prefs,
+                Provider.of<AdminSettingsProvider>(context, listen: false),
+              ),
+              update: (context, adminSettings, previousAuth) => previousAuth ?? AuthProvider(
+                prefs,
+                adminSettings,
+              ),
+            ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),

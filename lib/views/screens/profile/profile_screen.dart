@@ -24,6 +24,7 @@ import '../admin/move_requests_screen.dart';
 import '../admin/batch_move_requests_screen.dart';
 import '../admin/users_screen.dart';
 import '../admin/daily_reports_screen.dart';
+import '../admin/admin_settings_screen.dart';
 import '../workers/workers_list_screen.dart';
 import '../workers/brigadier_screen.dart';
 import '../tools/garage_screen.dart';
@@ -396,6 +397,17 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                       onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(builder: (context) => const AdminDailyReportsScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      title: 'Настройки администратора',
+                      subtitle: 'Изменить секретное слово',
+                      icon: Icons.admin_panel_settings,
+                      color: const Color(0xFF6366F1),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const AdminSettingsScreen()),
                       ),
                     ),
                   ] else if (authProvider.isBrigadir) ...[
