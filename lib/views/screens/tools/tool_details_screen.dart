@@ -139,7 +139,10 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                             color: tool.isFavorite ? Colors.red : null,
                             size: 30,
                           ),
-                          onPressed: () => tp.toggleFavorite(tool.id),
+                          onPressed: () {
+                            HapticFeedback.mediumImpact();
+                            tp.toggleFavorite(tool.id);
+                          },
                         ),
                       ),
                     ],

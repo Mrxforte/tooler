@@ -1,5 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -339,7 +343,10 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
             worker.isFavorite ? Icons.favorite : Icons.favorite_border,
             color: worker.isFavorite ? Colors.red : null,
           ),
-          onPressed: () => workerProvider.toggleFavorite(worker.id),
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            workerProvider.toggleFavorite(worker.id);
+          },
         ),
       ),
     );

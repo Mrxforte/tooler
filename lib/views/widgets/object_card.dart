@@ -2,10 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import '../../data/models/construction_object.dart';
-import '../../viewmodels/objects_provider.dart';
-
+import '
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;
   final VoidCallback onTap;

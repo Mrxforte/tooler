@@ -41,7 +41,6 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   @override
   Widget build(BuildContext context) {
     final objectsProvider = Provider.of<ObjectsProvider>(context);
-    final toolsProvider = Provider.of<ToolsProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
 
     List<ConstructionObject> displayObjects = objectsProvider.objects;
