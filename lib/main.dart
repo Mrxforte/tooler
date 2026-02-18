@@ -1078,15 +1078,20 @@ class AuthProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _rememberMe = false;
   File? _profileImage;
+  bool _isAdmin = false;
+  String _secretWord = '';
 
   User? get user => _user;
   bool get isLoading => _isLoading;
   bool get isLoggedIn => _user != null;
   bool get rememberMe => _rememberMe;
   File? get profileImage => _profileImage;
+  bool get isAdmin => _isAdmin;
+  String get secretWord => _secretWord;
 
   AuthProvider(this._prefs) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
+    _secretWord = _prefs.getString('secret_word') ?? 'admin123';
     _initializeAuth();
   }
 
@@ -1098,12 +1103,31 @@ class AuthProvider with ChangeNotifier {
       final savedUser = _auth.currentUser;
       if (savedUser != null && _rememberMe) {
         _user = savedUser;
+        await _loadAdminStatus();
       }
     } catch (e) {
       print('Auth initialization error: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _loadAdminStatus() async {
+    try {
+      if (_user != null) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_user!.uid)
+            .get();
+        
+        if (userDoc.exists) {
+          _isAdmin = userDoc.data()?['isAdmin'] as bool? ?? false;
+        }
+      }
+    } catch (e) {
+      print('Error loading admin status: $e');
+      _isAdmin = false;
     }
   }
 
@@ -1118,6 +1142,7 @@ class AuthProvider with ChangeNotifier {
       );
 
       _user = userCredential.user;
+      await _loadAdminStatus();
 
       if (_rememberMe) {
         await _prefs.setString('saved_email', email);
@@ -1206,6 +1231,7 @@ class AuthProvider with ChangeNotifier {
       await _auth.signOut();
       _user = null;
       _profileImage = null;
+      _isAdmin = false;
       await _prefs.remove('profile_image_url');
       notifyListeners();
     } catch (e) {
@@ -1237,6 +1263,26 @@ class AuthProvider with ChangeNotifier {
       }
     }
     notifyListeners();
+  }
+
+  Future<bool> changeSecretWord(String currentWord, String newWord) async {
+    try {
+      if (!_isAdmin) {
+        return false;
+      }
+      
+      if (currentWord != _secretWord) {
+        return false;
+      }
+      
+      _secretWord = newWord;
+      await _prefs.setString('secret_word', newWord);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      print('Error changing secret word: $e');
+      return false;
+    }
   }
 }
 
@@ -1879,10 +1925,27 @@ class ToolsProvider with ChangeNotifier {
 
       // Pull changes from Firebase
       try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('tools')
-            .where('userId', isEqualTo: user.uid)
-            .get();
+        // Check if user is admin
+        bool isAdmin = false;
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          isAdmin = userDoc.data()?['isAdmin'] as bool? ?? false;
+        } catch (e) {
+          print('Error checking admin status: $e');
+        }
+
+        // Fetch tools based on admin status
+        final snapshot = isAdmin
+            ? await FirebaseFirestore.instance
+                .collection('tools')
+                .get()
+            : await FirebaseFirestore.instance
+                .collection('tools')
+                .where('userId', isEqualTo: user.uid)
+                .get();
 
         for (final doc in snapshot.docs) {
           final toolData = doc.data();
@@ -2256,10 +2319,27 @@ class ObjectsProvider with ChangeNotifier {
 
       // Pull changes from Firebase
       try {
-        final snapshot = await FirebaseFirestore.instance
-            .collection('objects')
-            .where('userId', isEqualTo: user.uid)
-            .get();
+        // Check if user is admin
+        bool isAdmin = false;
+        try {
+          final userDoc = await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          isAdmin = userDoc.data()?['isAdmin'] as bool? ?? false;
+        } catch (e) {
+          print('Error checking admin status: $e');
+        }
+
+        // Fetch objects based on admin status
+        final snapshot = isAdmin
+            ? await FirebaseFirestore.instance
+                .collection('objects')
+                .get()
+            : await FirebaseFirestore.instance
+                .collection('objects')
+                .where('userId', isEqualTo: user.uid)
+                .get();
 
         for (final doc in snapshot.docs) {
           final objectData = doc.data();
