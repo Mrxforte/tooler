@@ -55,6 +55,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '927665559732',
     projectId: 'myblog-8ca17',
     authDomain: 'myblog-8ca17.firebaseapp.com',
+    databaseURL: 'https://myblog-8ca17-default-rtdb.firebaseio.com',
     storageBucket: 'myblog-8ca17.firebasestorage.app',
     measurementId: 'G-4NB18PWJXH',
   );
@@ -64,6 +65,8 @@ class DefaultFirebaseOptions {
     appId: '1:927665559732:android:853addd3bc7720b1325fe1',
     messagingSenderId: '927665559732',
     projectId: 'myblog-8ca17',
+    databaseURL: 'https://myblog-8ca17-default-rtdb.firebaseio.com',
     storageBucket: 'myblog-8ca17.firebasestorage.app',
   );
+
 }

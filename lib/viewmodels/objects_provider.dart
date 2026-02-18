@@ -8,11 +8,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/models/construction_object.dart';
-import '../data/models/sync_item.dart';
-import '../data/repositories/local_database.dart';
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
 import 'auth_provider.dart' as app_auth;
+import 'tools_provider.dart' as app_tools;
 
 /// ObjectsProvider - Provider for construction objects management
 /// 
@@ -26,7 +25,7 @@ import 'auth_provider.dart' as app_auth;
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class ObjectsProvider with ChangeNotifier {
-  List<ConstructionObject> _objects = [];
+  final List<ConstructionObject> _objects = [];
   bool _isLoading = false;
   String _searchQuery = '';
   String _sortBy = 'name';
@@ -80,19 +79,35 @@ class ObjectsProvider with ChangeNotifier {
     if (index == -1) return;
     final updated = _objects[index].copyWith(isFavorite: !_objects[index].isFavorite);
     _objects[index] = updated;
-    await LocalDatabase.objects.put(updated.id, updated);
-    await _addToSyncQueue(action: 'update', collection: 'objects', data: updated.toJson());
+    
+    // Update UI immediately (optimistic update)
     notifyListeners();
+    
+    // Save to Firebase in background (don't await)
+    FirebaseFirestore.instance
+        .collection('objects')
+        .doc(objectId)
+        .update({'isFavorite': updated.isFavorite})
+        .catchError((e) => null); // Error handled silently
   }
 
   Future<void> toggleFavoriteForSelected() async {
     final selected = _objects.where((o) => o.isSelected).toList();
     for (final obj in selected) {
-      final updated = obj.copyWith(isFavorite: !obj.isFavorite);
-      await LocalDatabase.objects.put(updated.id, updated);
-      await _addToSyncQueue(action: 'update', collection: 'objects', data: updated.toJson());
+      final index = _objects.indexWhere((o) => o.id == obj.id);
+      if (index != -1) {
+        final updated = obj.copyWith(isFavorite: !obj.isFavorite);
+        _objects[index] = updated;
+        
+        // Save to Firebase in background (don't await)
+        FirebaseFirestore.instance
+            .collection('objects')
+            .doc(obj.id)
+            .update({'isFavorite': updated.isFavorite})
+            .catchError((e) => null); // Error handled silently
+      }
     }
-    await loadObjects();
+    // Update UI immediately
     notifyListeners();
   }
 
@@ -142,12 +157,8 @@ class ObjectsProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      await LocalDatabase.init();
-      final cached = LocalDatabase.objects.values.toList();
-      if (cached.isNotEmpty) _objects = cached.whereType<ConstructionObject>().toList();
-      if (forceRefresh || await LocalDatabase.shouldRefreshCache()) {
-        await _syncWithFirebase();
-      }
+      // Load directly from Firebase (no local caching)
+      await _syncWithFirebase();
     } catch (e) {
       // Error loading objects handled silently
     } finally {
@@ -180,9 +191,11 @@ class ObjectsProvider with ChangeNotifier {
           obj = obj.copyWith(localImagePath: imageFile.path);
         }
       }
+      
+      // Save to Firebase directly
+      await FirebaseFirestore.instance.collection('objects').doc(obj.id).set(obj.toJson());
       _objects.add(obj);
-      await LocalDatabase.objects.put(obj.id, obj);
-      await _addToSyncQueue(action: 'create', collection: 'objects', data: obj.toJson());
+      
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект добавлен');
       }
@@ -229,8 +242,10 @@ class ObjectsProvider with ChangeNotifier {
         return;
       }
       _objects[index] = obj;
-      await LocalDatabase.objects.put(obj.id, obj);
-      await _addToSyncQueue(action: 'update', collection: 'objects', data: obj.toJson());
+      
+      // Save to Firebase directly
+      await FirebaseFirestore.instance.collection('objects').doc(obj.id).update(obj.toJson());
+      
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект обновлён');
       }
@@ -269,10 +284,23 @@ class ObjectsProvider with ChangeNotifier {
         }
         return;
       }
+
+      final toolsProvider = Provider.of<app_tools.ToolsProvider>(navigatorKey.currentContext!, listen: false);
+      final toolsToMove = toolsProvider.tools.where((t) => t.currentLocation == objectId).toList();
+      for (final tool in toolsToMove) {
+        await toolsProvider.moveTool(tool.id, 'garage', 'Гараж');
+      }
+
       _objects.removeAt(index);
-      await LocalDatabase.objects.delete(objectId);
-      await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': objectId});
       notifyListeners();
+
+      // Delete from Firebase
+      try {
+        await FirebaseFirestore.instance.collection('objects').doc(objectId).delete();
+      } catch (e) {
+        // Firebase deletion error
+      }
+
       if (_canUseContext(context)) {
         ErrorHandler.showSuccessDialog(context!, 'Объект успешно удалён');
       }
@@ -309,8 +337,11 @@ class ObjectsProvider with ChangeNotifier {
         return;
       }
       for (final obj in selected) {
-        await LocalDatabase.objects.delete(obj.id);
-        await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': obj.id});
+        try {
+          await FirebaseFirestore.instance.collection('objects').doc(obj.id).delete();
+        } catch (e) {
+          // Firebase deletion error for individual object
+        }
       }
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
@@ -326,21 +357,6 @@ class ObjectsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> _addToSyncQueue(
-      {required String action,
-      required String collection,
-      required Map<String, dynamic> data}) async {
-    try {
-      await LocalDatabase.syncQueue.put('${DateTime.now().millisecondsSinceEpoch}',
-          SyncItem(
-              id: '${DateTime.now().millisecondsSinceEpoch}',
-              action: action,
-              collection: collection,
-              data: data));
-    } catch (e) {
-      // Sync queue error handled silently
-    }
-  }
 
   Future<void> _syncWithFirebase() async {
     try {
@@ -359,6 +375,9 @@ class ObjectsProvider with ChangeNotifier {
         // Admin status check handled silently
       }
 
+      // Clear objects list before syncing to avoid duplicates
+      _objects.clear();
+
       // Admin sees all objects, others only their own
       Query query = FirebaseFirestore.instance.collection('objects');
       if (!isAdmin) {
@@ -369,7 +388,6 @@ class ObjectsProvider with ChangeNotifier {
         try {
           final obj = ConstructionObject.fromJson(doc.data() as Map<String, dynamic>);
           _objects.add(obj);
-          await LocalDatabase.objects.put(obj.id, obj);
         } catch (e) {
           // Error parsing object handled silently
         }

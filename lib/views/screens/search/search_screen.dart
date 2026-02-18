@@ -16,11 +16,18 @@ class SearchScreen extends StatefulWidget {
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<Tool> _searchResults = [];
+  ToolsProvider? _toolsProvider;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
   }
 
   @override
@@ -31,12 +38,13 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   void _onSearchChanged() {
+    if (!mounted || _toolsProvider == null) return;
     final q = _searchController.text.toLowerCase();
     if (q.isEmpty) {
       setState(() => _searchResults = []);
       return;
     }
-    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final toolsProvider = _toolsProvider!;
     setState(() => _searchResults = toolsProvider.tools
         .where((t) =>
             t.title.toLowerCase().contains(q) ||
@@ -49,43 +57,50 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: TextField(
-            controller: _searchController,
-            autofocus: true,
-            decoration: const InputDecoration(
-                hintText: 'Поиск инструментов...',
-                border: InputBorder.none,
-                hintStyle: TextStyle(color: Colors.white70)),
-            style: const TextStyle(color: Colors.white),
-          ),
-          actions: [
-            IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () {
-                  _searchController.clear();
-                  setState(() => _searchResults = []);
-                })
-          ],
+    appBar: AppBar(
+      title: TextField(
+        controller: _searchController,
+        autofocus: true,
+        decoration: const InputDecoration(
+          hintText: 'Поиск инструментов...',
+          border: InputBorder.none,
+          hintStyle: TextStyle(color: Colors.white70),
         ),
-        body: _searchResults.isEmpty
-            ? _buildEmptySearchScreen()
-            : ListView.builder(
-                itemCount: _searchResults.length,
-                itemBuilder: (context, index) {
-                  final tool = _searchResults[index];
-                  return SelectionToolCard(
-                    tool: tool,
-                    selectionMode: false,
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) =>
-                                EnhancedToolDetailsScreen(tool: tool))),
-                  );
-                },
-              ),
-      );
+        style: const TextStyle(color: Colors.white),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.clear),
+          onPressed: () {
+            _searchController.clear();
+            setState(() => _searchResults = []);
+          },
+        )
+      ],
+    ),
+    body: RefreshIndicator(
+      onRefresh: () => Provider.of<ToolsProvider>(context, listen: false)
+          .loadTools(forceRefresh: true),
+      child: _searchResults.isEmpty
+          ? _buildEmptySearchScreen()
+          : ListView.builder(
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) {
+              final tool = _searchResults[index];
+              return SelectionToolCard(
+                tool: tool,
+                selectionMode: false,
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => EnhancedToolDetailsScreen(tool: tool),
+                  ),
+                ),
+              );
+            },
+          ),
+    ),
+  );
 
   Widget _buildEmptySearchScreen() => Center(
         child: Column(
@@ -99,5 +114,9 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ],
         ),
-      );
+     ); 
+
+
+
+
 }

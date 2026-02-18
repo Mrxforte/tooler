@@ -21,7 +21,9 @@ class AdminMoveRequestsScreen extends StatelessWidget {
     final pending = reqProvider.pendingRequests;
     return Scaffold(
       appBar: AppBar(title: Text('Запросы на перемещение (${pending.length})')),
-      body: pending.isEmpty
+      body: RefreshIndicator(
+        onRefresh: () => reqProvider.loadRequests(),
+        child: pending.isEmpty
           ? const Center(child: Text('Нет ожидающих запросов'))
           : ListView.builder(
               itemCount: pending.length,
@@ -83,6 +85,7 @@ class AdminMoveRequestsScreen extends StatelessWidget {
                 );
               },
             ),
+        ),
     );
   }
 }

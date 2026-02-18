@@ -45,4 +45,7 @@ class IdGenerator {
 
   static String generateBonusId() =>
       'BON-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+
+  static String generatePayoutId() =>
+      'PAY-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
 }

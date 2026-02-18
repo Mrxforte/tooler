@@ -187,8 +187,10 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ],
         ],
       ),
-      body: Column(
-        children: [
+      body: RefreshIndicator(
+        onRefresh: () => usersProvider.loadUsers(forceRefresh: true),
+        child: Column(
+          children: [
           // Search and filter section
           Container(
             color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
@@ -279,6 +281,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
         ],
       ),
+        ),
       floatingActionButton: usersProvider.selectionMode && usersProvider.hasSelectedUsers
           ? Column(
               mainAxisSize: MainAxisSize.min,

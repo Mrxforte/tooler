@@ -22,9 +22,11 @@ class AdminBatchMoveRequestsScreen extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text('Групповые запросы (${pending.length})')),
-      body: pending.isEmpty
-          ? const Center(child: Text('Нет ожидающих групповых запросов'))
-          : ListView.builder(
+      body: RefreshIndicator(
+        onRefresh: () => batchProvider.loadRequests(),
+        child: pending.isEmpty
+            ? const Center(child: Text('Нет ожидающих групповых запросов'))
+            : ListView.builder(
               itemCount: pending.length,
               itemBuilder: (context, index) {
                 final req = pending[index];
@@ -95,6 +97,8 @@ class AdminBatchMoveRequestsScreen extends StatelessWidget {
                 );
               },
             ),
+        ),
+    
     );
   }
 }

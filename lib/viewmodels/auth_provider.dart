@@ -168,8 +168,25 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
     
     try {
-      final userCredential = await _auth.createUserWithEmailAndPassword(
-          email: email, password: password);
+      UserCredential userCredential;
+      try {
+        userCredential = await _auth.createUserWithEmailAndPassword(
+            email: email, password: password);
+      } catch (e) {
+        // Handle network errors with reCAPTCHA in development
+        if (e.toString().contains('network') || 
+            e.toString().contains('timeout') ||
+            e.toString().contains('No address associated with hostname')) {
+          debugPrint('Network error during sign-up: $e');
+          debugPrint('Attempting fallback sign-up method...');
+          // Retry with small delay for network recovery
+          await Future.delayed(const Duration(seconds: 1));
+          userCredential = await _auth.createUserWithEmailAndPassword(
+              email: email, password: password);
+        } else {
+          rethrow;
+        }
+      }
       
       _user = userCredential.user;
       

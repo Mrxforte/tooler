@@ -126,11 +126,14 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                       ),
                       TextButton(
                         onPressed: () async {
-                          Navigator.pop(context);
+                          Navigator.pop(context); // Close dialog
+                          final navigator = Navigator.of(context);
                           await Provider.of<ObjectsProvider>(context, listen: false)
                               .deleteObject(widget.object!.id, context: context);
-                          await Future.delayed(const Duration(milliseconds: 2000));
-                          Navigator.pop(context);
+                          await Future.delayed(const Duration(milliseconds: 500));
+                          if (context.mounted) {
+                            navigator.pop(); // Close screen
+                          }
                         },
                         child: const Text('Удалить', style: TextStyle(color: Colors.red)),
                       ),
@@ -143,7 +146,8 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+          : SafeArea(
+              child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Form(
                 key: _formKey,
@@ -212,6 +216,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                 ),
               ),
             ),
+          ),
     );
   }
   Widget _getImageWidget() {

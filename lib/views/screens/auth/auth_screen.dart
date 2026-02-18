@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -66,7 +67,6 @@ class _AuthScreenState extends State<AuthScreen> {
     
     try {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
       final success = _isLogin
           ? await authProvider.signInWithEmail(
               _emailController.text.trim(),
@@ -78,28 +78,30 @@ class _AuthScreenState extends State<AuthScreen> {
               adminPhrase: _adminPhraseController.text.trim().isNotEmpty
                   ? _adminPhraseController.text.trim()
                   : null);
-      
+
       if (!mounted) return;
-      
+
       if (success) {
-        // Auth successful - MaterialApp will rebuild automatically
-        // Show success message briefly before automatic navigation
-        Navigator.popUntil(context, (route) => route.isFirst); // Ensure we're on the root
+        Navigator.popUntil(context, (route) => route.isFirst);
         if (mounted) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
-                backgroundColor: Colors.green,
-                duration: const Duration(milliseconds: 800),
-              ),
-            );
-          }
-          setState(() => _isLoading = false);
-          if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
-          }
-      }}
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
+              backgroundColor: Colors.green,
+              duration: const Duration(milliseconds: 800),
+            ),
+          );
+        }
+        setState(() => _isLoading = false);
+        if (mounted) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (_) => false);
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ErrorHandler.showErrorDialog(context, ErrorHandler.getFirebaseErrorMessage(e));
+      }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);

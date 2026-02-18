@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tooler/views/screens/tools/favorites_screen.dart';
@@ -15,7 +14,6 @@ import 'package:workmanager/workmanager.dart';
 import 'package:timezone/data/latest.dart' as tz;
 
 import 'core/constants/app_constants.dart';
-import 'data/adapters/hive_adapters.dart';
 import 'firebase_options.dart';
 
 // Providers
@@ -24,8 +22,6 @@ import 'viewmodels/auth_provider.dart';
 import 'viewmodels/admin_settings_provider.dart';
 import 'viewmodels/tools_provider.dart';
 import 'viewmodels/objects_provider.dart';
-import 'viewmodels/worker_provider.dart';
-import 'viewmodels/salary_provider.dart';
 import 'viewmodels/move_request_provider.dart';
 import 'viewmodels/batch_move_request_provider.dart';
 import 'viewmodels/users_provider.dart';
@@ -37,7 +33,6 @@ import 'views/screens/auth/onboarding_screen.dart';
 import 'views/screens/auth/auth_screen.dart';
 import 'views/screens/tools/garage_screen.dart';
 import 'views/screens/objects/objects_list_screen.dart';
-import 'views/screens/workers/workers_list_screen.dart';
 import 'views/screens/notifications/notifications_screen.dart';
 import 'views/screens/profile/profile_screen.dart';
 
@@ -53,22 +48,6 @@ void main() async {
   tz.initializeTimeZones();
 
   try {
-    await Hive.initFlutter();
-    Hive.registerAdapter(ToolAdapter());
-    Hive.registerAdapter(LocationHistoryAdapter());
-    Hive.registerAdapter(ConstructionObjectAdapter());
-    Hive.registerAdapter(SyncItemAdapter());
-    Hive.registerAdapter(MoveRequestAdapter());
-    Hive.registerAdapter(BatchMoveRequestAdapter());
-    Hive.registerAdapter(NotificationAdapter());
-    Hive.registerAdapter(WorkerAdapter());
-    Hive.registerAdapter(SalaryEntryAdapter());
-    Hive.registerAdapter(AdvanceAdapter());
-    Hive.registerAdapter(PenaltyAdapter());
-    Hive.registerAdapter(AttendanceAdapter());
-    Hive.registerAdapter(DailyWorkReportAdapter());
-    Hive.registerAdapter(BonusEntryAdapter());
-
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
@@ -136,6 +115,7 @@ ThemeData _buildLightTheme() {
       foregroundColor: Colors.white,
       centerTitle: false,
     ),
+    fontFamily: 'Robo',
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: surface,
       selectedItemColor: primary,
@@ -174,6 +154,7 @@ ThemeData _buildDarkTheme() {
       foregroundColor: Colors.white,
       centerTitle: false,
     ),
+    fontFamily: 'Robo',
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: surface,
       selectedItemColor: const Color(0xFF3794FF),
@@ -199,7 +180,7 @@ Duration _getTimeUntil7PM() {
   return time.difference(now);
 }
 
-class MyApp extends StatelessWidget {
+  class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
@@ -234,8 +215,6 @@ class MyApp extends StatelessWidget {
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),
-            ChangeNotifierProvider(create: (_) => WorkerProvider()),
-            ChangeNotifierProvider(create: (_) => SalaryProvider()),
             ChangeNotifierProvider(create: (_) => MoveRequestProvider()),
             ChangeNotifierProvider(create: (_) => BatchMoveRequestProvider()),
             ChangeNotifierProvider(create: (_) => UsersProvider()),
@@ -317,12 +296,7 @@ class _MainHomeState extends State<MainHome> {
   @override
   void initState() {
     super.initState();
-    // Load workers, tools, objects on app startup
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<WorkerProvider>(context, listen: false).loadWorkers();
-      Provider.of<ToolsProvider>(context, listen: false).loadTools();
-      Provider.of<ObjectsProvider>(context, listen: false).loadObjects();
-    });
+    // Data loading is now lazy - each screen loads its own data when accessed
   }
 
   Widget _buildScreen(int index) {
@@ -332,10 +306,8 @@ class _MainHomeState extends State<MainHome> {
       case 1:
         return ObjectsListScreen();
       case 2:
-        return WorkersListScreen();
-      case 3:
         return FavoritesScreen();
-      case 4:
+      case 3:
         return ProfileScreen();
       default:
         return GarageScreen();
@@ -352,16 +324,12 @@ class _MainHomeState extends State<MainHome> {
           // Dismiss any active selection modes when switching tabs
           final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
           final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
-          final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
           
           if (toolsProvider.selectionMode) {
             toolsProvider.toggleSelectionMode();
           }
           if (objectsProvider.selectionMode) {
             objectsProvider.toggleSelectionMode();
-          }
-          if (workerProvider.selectionMode) {
-            workerProvider.toggleSelectionMode();
           }
           
           setState(() => _navIndex = index);
@@ -375,10 +343,6 @@ class _MainHomeState extends State<MainHome> {
           BottomNavigationBarItem(
             icon: Icon(Icons.location_city),
             label: 'Объекты',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Работники',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.favorite),

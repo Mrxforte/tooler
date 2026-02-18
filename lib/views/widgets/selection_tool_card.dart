@@ -11,76 +11,98 @@ class SelectionToolCard extends StatelessWidget {
   final Tool tool;
   final bool selectionMode;
   final VoidCallback onTap;
+  final String? subtitleOverride;
+  final Widget? trailingOverride;
 
   const SelectionToolCard({
     super.key,
     required this.tool,
     required this.selectionMode,
     required this.onTap,
+    this.subtitleOverride,
+    this.trailingOverride,
   });
 
   @override
   Widget build(BuildContext context) {
-    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-    
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      elevation: tool.isSelected ? 4 : 1,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: tool.isSelected
-              ? Theme.of(context).colorScheme.primary
-              : Colors.transparent,
-          width: 2,
-        ),
-      ),
-      child: Container(
-        color: tool.isSelected
-            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
-            : null,
-        child: ListTile(
-        leading: selectionMode 
-            ? Checkbox(
-                value: tool.isSelected,
-                onChanged: (_) {
-                  HapticFeedback.selectionClick();
-                  toolsProvider.toggleToolSelection(tool.id);
-                },
-              )
-            : _buildLeadingImage(context),
-        title: Text(tool.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(tool.brand, style: const TextStyle(fontSize: 13)),
-            if (tool.description.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                tool.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+    return Consumer<ToolsProvider>(
+      builder: (context, toolsProvider, _) {
+        // Get fresh tool state from provider (using unfiltered lookup)
+        final updatedTool = toolsProvider.getToolById(tool.id) ?? tool;
+        
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          elevation: updatedTool.isSelected ? 4 : 1,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(
+              color: updatedTool.isSelected
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Container(
+            color: updatedTool.isSelected
+                ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+                : null,
+            child: ListTile(
+            leading: selectionMode 
+                ? Checkbox(
+                    value: updatedTool.isSelected,
+                    onChanged: (_) {
+                      HapticFeedback.selectionClick();
+                      toolsProvider.toggleToolSelection(tool.id);
+                    },
+                  )
+                : _buildLeadingImage(context),
+        title: Text(updatedTool.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: subtitleOverride != null
+            ? Text(subtitleOverride!, style: const TextStyle(fontSize: 13))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.location_on, size: 14, color: Colors.blue),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          updatedTool.currentLocationName.isNotEmpty
+                              ? updatedTool.currentLocationName
+                              : 'Нет локации',
+                          style: const TextStyle(fontSize: 13, color: Colors.blue),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text('${updatedTool.brand}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  if (updatedTool.description.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      updatedTool.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
-        ),
-        isThreeLine: tool.description.isNotEmpty,
-        trailing: Consumer<ToolsProvider>(
-          builder: (context, tp, _) {
-            return IconButton(
+        isThreeLine: updatedTool.description.isNotEmpty,
+        trailing: trailingOverride ?? IconButton(
               icon: Icon(
-                tool.isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: tool.isFavorite ? Colors.red : null,
+                updatedTool.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: updatedTool.isFavorite ? Colors.red : null,
               ),
               onPressed: () {
                 HapticFeedback.mediumImpact();
-                tp.toggleFavorite(tool.id);
+                toolsProvider.toggleFavorite(tool.id);
               },
-            );
-          },
-        ),
+            ),
         onTap: () {
           HapticFeedback.selectionClick();
           onTap();
@@ -94,50 +116,57 @@ class SelectionToolCard extends StatelessWidget {
         },
       ),
       ),
+        );
+      },
     );
   }
 
   Widget _buildLeadingImage(BuildContext context) {
-    if (tool.displayImage != null) {
+    if (tool.imageUrl != null && tool.imageUrl!.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
+        child: Image.network(
+          tool.imageUrl!,
           width: 56,
           height: 56,
-          child: Image(
-            image: tool.displayImage!.startsWith('http')
-                ? NetworkImage(tool.displayImage!) as ImageProvider
-                : FileImage(File(tool.displayImage!)),
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildIconFallback(context);
-            },
-          ),
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) {
+            return _buildPlaceholderImage();
+          },
         ),
       );
+    } else if (tool.localImagePath != null && tool.localImagePath!.isNotEmpty) {
+      final file = File(tool.localImagePath!);
+      if (file.existsSync()) {
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.file(
+            file,
+            width: 56,
+            height: 56,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildPlaceholderImage();
+            },
+          ),
+        );
+      }
     }
-    return _buildIconFallback(context);
+    return _buildPlaceholderImage();
   }
 
-  Widget _buildIconFallback(BuildContext context) {
+  Widget _buildPlaceholderImage() {
     return Container(
       width: 56,
       height: 56,
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
-            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
-          ],
-        ),
+        color: Colors.grey[200],
         borderRadius: BorderRadius.circular(8),
       ),
       child: Icon(
-        Icons.build_circle,
-        size: 32,
-        color: Theme.of(context).colorScheme.primary,
+        Icons.build,
+        color: Colors.grey[400],
+        size: 28,
       ),
     );
   }
