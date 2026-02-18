@@ -28,7 +28,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   DateTime? _createdDateTo;
   int _minToolCount = 0;
   int _maxToolCount = 100;
-  List<String> _activeFilters = [];
+  final List<String> _activeFilters = [];
 
   @override
   void initState() {

@@ -97,11 +97,15 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       } else {
         await toolsProvider.updateTool(tool, imageFile: _imageFile, context: context);
       }
+      if (!mounted) return;
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка сохранения: $e');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
   @override
@@ -166,8 +170,8 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                              Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
                             ],
                           ),
                           border: Border.all(color: Colors.grey.shade300),
@@ -259,14 +263,14 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Image.network(_imageUrl!,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _buildPlaceholder()));
+              errorBuilder: (_, _, _) => _buildPlaceholder()));
     }
     if (_localImagePath != null) {
       return ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Image.file(File(_localImagePath!),
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _buildPlaceholder()));
+              errorBuilder: (_, _, _) => _buildPlaceholder()));
     }
     return _buildPlaceholder();
   }

@@ -1,10 +1,11 @@
 // ignore_for_file: unused_field
 
-/// SalaryProvider - Provider for salaries, advances, penalties, attendance, daily reports
+// SalaryProvider - Provider for salaries, advances, penalties, attendance, daily reports
 
 import 'package:flutter/material.dart';
 import '../data/models/salary.dart';
 import '../data/models/attendance.dart';
+import '../data/models/bonus_model.dart';
 import '../data/repositories/local_database.dart';
 
 class SalaryProvider with ChangeNotifier {
@@ -14,6 +15,7 @@ class SalaryProvider with ChangeNotifier {
   // NEW: Attendance and daily reports
   List<Attendance> _attendances = [];
   List<DailyWorkReport> _dailyReports = [];
+  List<BonusEntry> _bonuses = [];
 
   Future<void> loadData() async {
     await LocalDatabase.init();
@@ -22,6 +24,7 @@ class SalaryProvider with ChangeNotifier {
     _penalties = LocalDatabase.penalties.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     _attendances = LocalDatabase.attendances.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     _dailyReports = LocalDatabase.dailyReports.values.toList()..sort((a, b) => b.date.compareTo(a.date));
+    _bonuses = LocalDatabase.bonuses.values.toList()..sort((a, b) => b.date.compareTo(a.date));
     notifyListeners();
   }
 
@@ -46,6 +49,13 @@ class SalaryProvider with ChangeNotifier {
     return list;
   }
 
+  List<BonusEntry> getBonusesForWorker(String workerId, {DateTime? start, DateTime? end}) {
+    var list = _bonuses.where((b) => b.workerId == workerId).toList();
+    if (start != null) list = list.where((b) => b.date.isAfter(start)).toList();
+    if (end != null) list = list.where((b) => b.date.isBefore(end)).toList();
+    return list;
+  }
+
   // NEW: Attendance methods
   List<Attendance> getAttendancesForWorker(String workerId, {DateTime? start, DateTime? end}) {
     var list = _attendances.where((a) => a.workerId == workerId).toList();
@@ -55,8 +65,13 @@ class SalaryProvider with ChangeNotifier {
   }
 
   List<Attendance> getAttendancesForObjectAndDate(String objectId, DateTime date) {
-    // Not directly; need worker->object mapping. We'll handle in UI.
-    return [];
+    return _attendances
+        .where((a) => a.objectId == objectId && _isSameDay(a.date, date))
+        .toList();
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   Future<void> addAttendance(Attendance attendance) async {
@@ -126,6 +141,15 @@ class SalaryProvider with ChangeNotifier {
   Future<void> deletePenalty(String id) async {
     _penalties.removeWhere((p) => p.id == id);
     await LocalDatabase.penalties.delete(id);
+    notifyListeners();
+  }
+
+  Future<void> clearAttendancesForWorker(String workerId) async {
+    final attendancesForWorker = _attendances.where((a) => a.workerId == workerId).toList();
+    for (var attendance in attendancesForWorker) {
+      await LocalDatabase.attendances.delete(attendance.id);
+    }
+    _attendances.removeWhere((a) => a.workerId == workerId);
     notifyListeners();
   }
 }

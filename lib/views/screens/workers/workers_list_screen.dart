@@ -36,7 +36,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   double _maxHourlyRate = 1000;
   DateTime? _hireDateFrom;
   DateTime? _hireDateTo;
-  List<String> _activeFilters = [];
+  final List<String> _activeFilters = [];
 
   @override
   void initState() {
@@ -531,17 +531,21 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.people, size: 80, color: Colors.grey.shade300),
-            const SizedBox(height: 20),
+            Icon(Icons.people_outline, size: 100, color: Colors.grey.shade400),
+            const SizedBox(height: 24),
             const Text('Нет работников',
-                style: TextStyle(fontSize: 18, color: Colors.grey)),
-            const SizedBox(height: 10),
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: Colors.grey)),
+            const SizedBox(height: 8),
+            const Text('Добавьте работников для начала работы',
+                style: TextStyle(fontSize: 14, color: Colors.grey)),
+            const SizedBox(height: 32),
             if (isAdmin)
-              ElevatedButton(
+              ElevatedButton.icon(
                 onPressed: () => Navigator.push(
                     context,
                     MaterialPageRoute(builder: (context) => const AddEditWorkerScreen())),
-                child: const Text('Добавить работника'),
+                icon: const Icon(Icons.add),
+                label: const Text('Добавить работника'),
               ),
           ],
         ),
@@ -550,17 +554,15 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   List<String> _getWorkerObjectNames(Worker worker, ObjectsProvider objectsProvider) {
     if (worker.assignedObjectIds.isEmpty) return ['Гараж'];
     return worker.assignedObjectIds
-        .map((id) => objectsProvider.objects
-            .firstWhere(
-              (o) => o.id == id,
-              orElse: () => ConstructionObject(
-                id: id,
-                name: 'Не найден',
-                description: '',
-                userId: 'unknown',
-              ),
-            )
-            .name)
+        .map((id) {
+          try {
+            final obj = objectsProvider.objects
+                .firstWhere((o) => o.id == id);
+            return obj.name;
+          } catch (e) {
+            return 'Архив';
+          }
+        })
         .toList();
   }
 
@@ -1114,19 +1116,52 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Удалить работника'),
-        content: Text('Удалить "${worker.name}"?'),
+        title: Text('Удалить работника: ${worker.name}'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Это действие не может быть отменено.'),
+            SizedBox(height: 16),
+            Text('Все данные о работнике будут удалены:', style: TextStyle(fontWeight: FontWeight.w600)),
+            SizedBox(height: 8),
+            Text('• Запись о работнике'),
+            Text('• Зарплата и бонусы'),
+            Text('• История посещаемости'),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Отмена'),
           ),
-          TextButton(
-            onPressed: () {
-              Provider.of<WorkerProvider>(context, listen: false).deleteWorker(worker.id);
-              Navigator.pop(context);
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                Provider.of<WorkerProvider>(context, listen: false).deleteWorker(worker.id);
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('✓ Работник "${worker.name}" удален'),
+                    backgroundColor: Colors.green,
+                    duration: const Duration(seconds: 2),
+                  ),
+                );
+              } catch (e) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Ошибка при удалении работника'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Удалить'),
           ),
         ],
       ),

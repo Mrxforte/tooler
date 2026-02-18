@@ -1,4 +1,4 @@
-// ignore_for_file: unused_field, unused_import
+// ignore_for_file: unused_field, unused_import, use_build_context_synchronously
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -28,6 +28,9 @@ import '../core/utils/id_generator.dart';
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 class ToolsProvider with ChangeNotifier {
+  bool _canUseContext(BuildContext? context) =>
+      context != null && context.mounted;
+
   final List<Tool> _tools = [];
   bool _isLoading = false;
   String _searchQuery = '';
@@ -210,13 +213,13 @@ class ToolsProvider with ChangeNotifier {
       _tools.add(tool);
       await LocalDatabase.tools.put(tool.id, tool);
       await _addToSyncQueue(action: 'create', collection: 'tools', data: tool.toJson());
-      if (context != null) {
-        ErrorHandler.showSuccessDialog(context, 'Инструмент добавлен');
+      if (_canUseContext(context)) {
+        ErrorHandler.showSuccessDialog(context!, 'Инструмент добавлен');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'Ошибка: $e');
       }
     } finally {
       _isLoading = false;
@@ -245,16 +248,16 @@ class ToolsProvider with ChangeNotifier {
         _tools[index] = tool;
         await LocalDatabase.tools.put(tool.id, tool);
         await _addToSyncQueue(action: 'update', collection: 'tools', data: tool.toJson());
-        if (context != null) {
-          ErrorHandler.showSuccessDialog(context, 'Инструмент обновлён');
+        if (_canUseContext(context)) {
+          ErrorHandler.showSuccessDialog(context!, 'Инструмент обновлён');
         }
       } else {
         throw Exception('Инструмент не найден');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'Ошибка: $e');
       }
     } finally {
       _isLoading = false;
@@ -266,8 +269,8 @@ class ToolsProvider with ChangeNotifier {
     try {
       final index = _tools.indexWhere((t) => t.id == toolId);
       if (index == -1) {
-        if (context != null) {
-          ErrorHandler.showErrorDialog(context, 'Инструмент не найден');
+        if (_canUseContext(context)) {
+          ErrorHandler.showErrorDialog(context!, 'Инструмент не найден');
         }
         return;
       }
@@ -275,13 +278,13 @@ class ToolsProvider with ChangeNotifier {
       await LocalDatabase.tools.delete(toolId);
       await _addToSyncQueue(action: 'delete', collection: 'tools', data: {'id': toolId});
       notifyListeners();
-      if (context != null) {
-        ErrorHandler.showSuccessDialog(context, 'Инструмент успешно удалён');
+      if (_canUseContext(context)) {
+        ErrorHandler.showSuccessDialog(context!, 'Инструмент успешно удалён');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'Ошибка при удалении: $e');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'Ошибка при удалении: $e');
       }
     }
   }
@@ -328,6 +331,27 @@ class ToolsProvider with ChangeNotifier {
     }
   }
 
+  Future<void> duplicateSelectedTools() async {
+    try {
+      final selected = _tools.where((t) => t.isSelected).toList();
+      if (selected.isEmpty) {
+        ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты');
+        return;
+      }
+      for (final tool in selected) {
+        await duplicateTool(tool);
+      }
+      _selectionMode = false;
+      ErrorHandler.showSuccessDialog(
+          navigatorKey.currentContext!, 'Продублировано ${selected.length} инструментов');
+    } catch (e, s) {
+      ErrorHandler.handleError(e, s);
+      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
+    } finally {
+      notifyListeners();
+    }
+  }
+
   Future<void> toggleFavorite(String toolId) async {
     final index = _tools.indexWhere((t) => t.id == toolId);
     if (index == -1) return;
@@ -360,14 +384,17 @@ class ToolsProvider with ChangeNotifier {
       ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден');
       return;
     }
-    // TODO: Create MoveRequest and notify admins
+    // NOTE: Create MoveRequest and notify admins
     ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Запрос отправлен администратору');
   }
 
   Future<void> moveTool(String toolId, String newLocationId, String newLocationName) async {
+    final ctx = navigatorKey.currentContext;
     final toolIndex = _tools.indexWhere((t) => t.id == toolId);
     if (toolIndex == -1) {
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден');
+      if (ctx != null && ctx.mounted) {
+        ErrorHandler.showErrorDialog(ctx, 'Инструмент не найден');
+      }
       return;
     }
     
@@ -391,14 +418,19 @@ class ToolsProvider with ChangeNotifier {
     _tools[toolIndex] = updatedTool;
     await LocalDatabase.tools.put(updatedTool.id, updatedTool);
     await _addToSyncQueue(action: 'update', collection: 'tools', data: updatedTool.toJson());
-    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент перемещён в $newLocationName');
+    if (ctx != null && ctx.mounted) {
+      ErrorHandler.showSuccessDialog(ctx, 'Инструмент перемещён в $newLocationName');
+    }
     notifyListeners();
   }
 
   Future<void> moveSelectedTools(String newLocationId, String newLocationName) async {
+    final ctx = navigatorKey.currentContext;
     final selected = _tools.where((t) => t.isSelected).toList();
     if (selected.isEmpty) {
-      ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты');
+      if (ctx != null && ctx.mounted) {
+        ErrorHandler.showWarningDialog(ctx, 'Выберите инструменты');
+      }
       return;
     }
     for (final tool in selected) {
@@ -422,8 +454,10 @@ class ToolsProvider with ChangeNotifier {
     }
     await loadTools();
     _selectionMode = false;
-    ErrorHandler.showSuccessDialog(navigatorKey.currentContext!,
-        'Перемещено ${selected.length} инструментов в $newLocationName');
+    if (ctx != null && ctx.mounted) {
+      ErrorHandler.showSuccessDialog(
+        ctx, 'Перемещено ${selected.length} инструментов в $newLocationName');
+    }
   }
 
   Future<void> requestMoveSelectedTools(
@@ -432,7 +466,7 @@ class ToolsProvider with ChangeNotifier {
       ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты');
       return;
     }
-    // TODO: Create BatchMoveRequest and notify admins
+    // NOTE: Create BatchMoveRequest and notify admins
     ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Запрос отправлен администратору');
   }
 

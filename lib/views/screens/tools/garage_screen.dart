@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/tool.dart';
@@ -9,10 +10,14 @@ import '../../../core/utils/error_handler.dart';
 import '../../../viewmodels/auth_provider.dart' as app_auth;
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
+import '../../../viewmodels/worker_provider.dart';
+import '../../../viewmodels/users_provider.dart';
 import '../../widgets/selection_tool_card.dart';
 import 'add_edit_tool_screen.dart';
 import 'tool_details_screen.dart';
 import 'move_tools_screen.dart';
+import '../workers/workers_list_screen.dart';
+import '../admin/users_screen.dart';
 
 // Export safe alias for main.dart
 class GarageScreen extends StatelessWidget {
@@ -39,11 +44,13 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   bool _showFavoritesOnly = false;
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
-  List<String> _activeFilters = [];
+  final List<String> _activeFilters = [];
 
   @override
   void initState() {
     super.initState();
+    // Hide Android status bar for fullscreen
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<ToolsProvider>(context, listen: false).loadTools();
     });
@@ -51,6 +58,8 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
 
   @override
   void dispose() {
+    // Restore status bar when leaving
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _searchController.dispose();
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
     if (toolsProvider.selectionMode) {
@@ -75,7 +84,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         .toList()
       ..sort();
 
-    // Apply filters
+    // Apply filters with null safety
     if (_filterBrand != null && _filterBrand != 'all') {
       garageTools = garageTools.where((t) => t.brand == _filterBrand).toList();
     }
@@ -141,7 +150,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      
+                      const SizedBox(height: 20),
                       Text(
                         authProvider.isAdmin ? 'Все инструменты' : 'Мой Гараж',
                         style: const TextStyle(
@@ -152,29 +161,102 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                       Text('${garageTools.length} инструментов доступно',
                           style: const TextStyle(fontSize: 16, color: Colors.white70)),
                       const SizedBox(height: 20),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
+                      Consumer2<WorkerProvider, UsersProvider>(
+                        builder: (context, workerProvider, usersProvider, _) => Row(
                           children: [
-                            _buildStatCard(
-                              context,
-                              '  Всего  ',
-                              '${toolsProvider.totalTools}',
-                              Icons.build,
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                '  Всего  ',
+                                '${toolsProvider.totalTools}',
+                                Icons.build,
+                                onTap: () {
+                                  // Clear all filters to show all tools
+                                  setState(() {
+                                    _filterBrand = null;
+                                    _showFavoritesOnly = false;
+                                    _createdDateFrom = null;
+                                    _createdDateTo = null;
+                                    _searchController.clear();
+                                  });
+                                },
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            _buildStatCard(
-                              context,
-                              'В гараже',
-                              '${garageTools.length}',
-                              Icons.garage,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'В гараже',
+                                '${garageTools.length}',
+                                Icons.garage,
+                              ),
                             ),
-                            const SizedBox(width: 12),
-                            _buildStatCard(
-                              context,
-                              'Избранные',
-                              '${toolsProvider.favoriteTools.length}',
-                              Icons.favorite,
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'Пользователи',
+                                '${usersProvider.users.length}',
+                                Icons.people,
+                                onTap: () {
+                                  if (authProvider.isAdmin) {
+                                    // Navigate to users screen for admin
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const AdminUsersScreen(),
+                                      ),
+                                    );
+                                  } else {
+                                    // Show info dialog for non-admin
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Зарегистрированные пользователи'),
+                                        content: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Всего пользователей: ${usersProvider.users.length}',
+                                              style: const TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'Управление пользователями доступно только администраторам.',
+                                              style: TextStyle(color: Colors.grey),
+                                            ),
+                                          ],
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('Закрыть'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildStatCard(
+                                context,
+                                'Работники',
+                                '${workerProvider.workers.length}',
+                                Icons.person_outline,
+                                onTap: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const WorkersListScreen(),
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -332,11 +414,15 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
               ],
             ),
       floatingActionButton: toolsProvider.selectionMode && toolsProvider.hasSelectedTools
-          ? FloatingActionButton.extended(
-              onPressed: () => _showGarageSelectionActions(context),
-              icon: const Icon(Icons.more_vert),
-              label: Text('${toolsProvider.selectedTools.length}'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+          ? Container(
+              height: 56,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: FloatingActionButton.extended(
+                onPressed: () => _showGarageSelectionActions(context),
+                icon: const Icon(Icons.more_vert),
+                label: Text('Выбрано: ${toolsProvider.selectedTools.length}'),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -533,40 +619,47 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     BuildContext context,
     String title,
     String value,
-    IconData icon,
-  ) =>
-      Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 22, color: Colors.white),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.white;
+    final iconColor = isDark ? Colors.white70 : Colors.white;
+    
+    final cardWidget = Container(
+        height: 120,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 22, color: iconColor),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
-              const SizedBox(height: 2),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
+        ),
+    );
+    
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: cardWidget,
       );
+    }
+    return cardWidget;
+  }
 
   Widget _buildEmptyGarage(bool isAdmin) => Center(
         child: Column(
@@ -624,6 +717,14 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   toolsProvider.toggleFavoriteForSelected();
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.content_copy, color: Colors.purple),
+                title: const Text('Дублировать выбранные'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await toolsProvider.duplicateSelectedTools();
+                },
+              ),
               if (auth.canMoveTools) ...[
                 ListTile(
                   leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
@@ -679,23 +780,38 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
 
   void _showMultiDeleteDialog(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final count = toolsProvider.selectedTools.length;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Подтверждение удаления'),
-        content:
-            Text('Удалить выбранные ${toolsProvider.selectedTools.length} инструментов?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Вы уверены, что хотите удалить $count инструментов из гаража?'),
+            const SizedBox(height: 8),
+            const Text(
+              'Это действие нельзя отменить.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Отмена'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await toolsProvider.deleteSelectedTools();
             },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Удалить'),
           ),
         ],
       ),
@@ -731,7 +847,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               ...selectedTools.take(5).map((t) =>
-                  Text('• ${t.title} (${t.currentLocationName})')).toList(),
+                  Text('• ${t.title} (${t.currentLocationName})')),
               if (selectedTools.length > 5) Text('... и еще ${selectedTools.length - 5}'),
               const Divider(height: 30),
               ListTile(

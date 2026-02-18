@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
 import '../../../data/models/construction_object.dart';
+import '../../../data/models/worker.dart';
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
@@ -40,6 +41,11 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (!_tabController.indexIsChanging) {
+        setState(() {});
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<WorkerProvider>(context, listen: false).loadWorkers();
     });
@@ -124,6 +130,13 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
                 (type) => ReportService.shareObjectReport(
                     widget.object, toolsOnObject, context, type)),
           ),
+          if (auth.isAdmin)
+            IconButton(
+              icon: const Icon(Icons.event_note),
+              onPressed: workersOnObject.isEmpty
+                  ? null
+                  : () => _showAddWorkDaySheet(context, workersOnObject),
+            ),
           if (auth.canControlObjects)
             IconButton(
               icon: const Icon(Icons.edit),
@@ -144,247 +157,432 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: CustomScrollView(
+        slivers: [
           // Header with object image
-          Container(
-            height: 200,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.grey.shade100, Colors.grey.shade200],
+          SliverToBoxAdapter(
+            child: Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Colors.grey.shade100, Colors.grey.shade200],
+                ),
+              ),
+              child: widget.object.displayImage != null
+                  ? Image(
+                      image: widget.object.displayImage!.startsWith('http')
+                          ? NetworkImage(widget.object.displayImage!) as ImageProvider
+                          : FileImage(File(widget.object.displayImage!)),
+                      fit: BoxFit.cover)
+                  : Center(
+                      child:
+                          Icon(Icons.location_city, size: 80, color: Colors.grey.shade300),
+                    ),
+            ),
+          ),
+          // Stats row (second layer)
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _buildStatTile(
+                      icon: Icons.build,
+                      label: 'Инструменты',
+                      value: toolsOnObject.length.toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatTile(
+                      icon: Icons.people,
+                      label: 'Работники',
+                      value: workersOnObject.length.toString(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: _buildStatTile(
+                      icon: Icons.calendar_today,
+                      label: 'Дата',
+                      value: DateFormat('dd.MM').format(widget.object.createdAt),
+                    ),
+                  ),
+                ],
               ),
             ),
-            child: widget.object.displayImage != null
-                ? Image(
-                    image: widget.object.displayImage!.startsWith('http')
-                        ? NetworkImage(widget.object.displayImage!) as ImageProvider
-                        : FileImage(File(widget.object.displayImage!)),
-                    fit: BoxFit.cover)
-                : Center(
-                    child:
-                        Icon(Icons.location_city, size: 80, color: Colors.grey.shade300),
-                  ),
           ),
           // Object info
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.object.name,
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                if (widget.object.description.isNotEmpty)
-                  Text(widget.object.description,
-                      style: const TextStyle(fontSize: 16, color: Colors.grey)),
-                const SizedBox(height: 16),
-                // Stats row
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.build,
-                        label: 'Инструменты',
-                        value: toolsOnObject.length.toString(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.people,
-                        label: 'Работники',
-                        value: workersOnObject.length.toString(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: _buildStatTile(
-                        icon: Icons.calendar_today,
-                        label: 'Дата',
-                        value: DateFormat('dd.MM').format(widget.object.createdAt),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(widget.object.name,
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (widget.object.description.isNotEmpty)
+                    Text(widget.object.description,
+                        style: const TextStyle(fontSize: 16, color: Colors.grey)),
+                ],
+              ),
             ),
           ),
           // Tab bar
-          TabBar(
-            controller: _tabController,
-            tabs: [
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.build_circle, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Инструменты (${toolsOnObject.length})'),
-                  ],
-                ),
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: _SliverAppBarDelegate(
+              TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.build_circle, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Инструменты (${toolsOnObject.length})'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.people, size: 20),
+                        const SizedBox(width: 8),
+                        Text('Работники (${workersOnObject.length})'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              Tab(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.people, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Работники (${workersOnObject.length})'),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
           // Tab content
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                // Tools tab
-                Column(
+          if (_tabController.index == 0) ...[
+            // Tools tab
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: TextField(
+                  controller: _toolsSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'Поиск инструментов...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: TextField(
-                        controller: _toolsSearchController,
-                        decoration: InputDecoration(
-                          hintText: 'Поиск инструментов...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        onChanged: (_) => setState(() {}),
-                      ),
+                    FilterChip(
+                      label: const Text('Все'),
+                      selected: !_toolsShowFavoritesOnly,
+                      onSelected: (_) => setState(() => _toolsShowFavoritesOnly = false),
                     ),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          FilterChip(
-                            label: const Text('Все'),
-                            selected: !_toolsShowFavoritesOnly,
-                            onSelected: (_) => setState(() => _toolsShowFavoritesOnly = false),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Избранные'),
-                            selected: _toolsShowFavoritesOnly,
-                            onSelected: (_) => setState(() => _toolsShowFavoritesOnly = !_toolsShowFavoritesOnly),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            hint: const Text('Сортировка'),
-                            value: _toolsSortBy,
-                            items: const [
-                              DropdownMenuItem(value: 'name', child: Text('По названию')),
-                              DropdownMenuItem(value: 'date', child: Text('По дате')),
-                              DropdownMenuItem(value: 'brand', child: Text('По бренду')),
-                            ],
-                            onChanged: (v) => setState(() => _toolsSortBy = v ?? 'name'),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Избранные'),
+                      selected: _toolsShowFavoritesOnly,
+                      onSelected: (_) => setState(() => _toolsShowFavoritesOnly = !_toolsShowFavoritesOnly),
                     ),
-                    Expanded(
-                      child: toolsOnObject.isEmpty
-                          ? _buildEmptyState(
-                              icon: Icons.build,
-                              title: 'На объекте нет инструментов',
-                              subtitle: 'Переместите инструменты на этот объект',
-                            )
-                          : ListView.builder(
-                              itemCount: toolsOnObject.length,
-                              itemBuilder: (context, index) {
-                                final tool = toolsOnObject[index];
-                                return SelectionToolCard(
-                                  tool: tool,
-                                  selectionMode: false,
-                                  onTap: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                          builder: (context) =>
-                                              EnhancedToolDetailsScreen(tool: tool))),
-                                );
-                              },
-                            ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      hint: const Text('Сортировка'),
+                      value: _toolsSortBy,
+                      items: const [
+                        DropdownMenuItem(value: 'name', child: Text('По названию')),
+                        DropdownMenuItem(value: 'date', child: Text('По дате')),
+                        DropdownMenuItem(value: 'brand', child: Text('По бренду')),
+                      ],
+                      onChanged: (v) => setState(() => _toolsSortBy = v ?? 'name'),
                     ),
                   ],
                 ),
-                // Workers tab
-                Column(
+              ),
+            ),
+            toolsOnObject.isEmpty
+                ? SliverFillRemaining(
+                    child: _buildEmptyState(
+                      icon: Icons.build,
+                      title: 'На объекте нет инструментов',
+                      subtitle: 'Переместите инструменты на этот объект',
+                    ),
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final tool = toolsOnObject[index];
+                        return SelectionToolCard(
+                          tool: tool,
+                          selectionMode: false,
+                          onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) =>
+                                      EnhancedToolDetailsScreen(tool: tool))),
+                        );
+                      },
+                      childCount: toolsOnObject.length,
+                    ),
+                  ),
+          ] else ...[
+            // Workers tab
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: TextField(
+                  controller: _workersSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'Поиск работников...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Row(
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: TextField(
-                        controller: _workersSearchController,
-                        decoration: InputDecoration(
-                          hintText: 'Поиск работников...',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
+                    FilterChip(
+                      label: const Text('Все'),
+                      selected: !_workersShowFavoritesOnly,
+                      onSelected: (_) => setState(() => _workersShowFavoritesOnly = false),
+                    ),
+                    const SizedBox(width: 8),
+                    FilterChip(
+                      label: const Text('Избранные'),
+                      selected: _workersShowFavoritesOnly,
+                      onSelected: (_) => setState(() => _workersShowFavoritesOnly = !_workersShowFavoritesOnly),
+                    ),
+                    const SizedBox(width: 8),
+                    DropdownButton<String>(
+                      hint: const Text('Сортировка'),
+                      value: _workersSortBy,
+                      items: const [
+                        DropdownMenuItem(value: 'name', child: Text('По имени')),
+                        DropdownMenuItem(value: 'date', child: Text('По дате')),
+                        DropdownMenuItem(value: 'salary', child: Text('По ставке')),
+                      ],
+                      onChanged: (v) => setState(() => _workersSortBy = v ?? 'name'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            workersOnObject.isEmpty
+                ? SliverFillRemaining(
+                    child: _buildEmptyState(
+                      icon: Icons.people,
+                      title: 'На объекте нет работников',
+                      subtitle: 'Назначьте работников на этот объект',
+                    ),
+                  )
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) {
+                        final worker = workersOnObject[index];
+                        return _buildWorkerCard(context, worker, workerProvider);
+                      },
+                      childCount: workersOnObject.length,
+                    ),
+                  ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAddWorkDaySheet(BuildContext context, List<Worker> workersOnObject) {
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    final extraHoursController = TextEditingController();
+    final notesController = TextEditingController();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final selectedWorkerIds = <String>{};
+        DateTime selectedDate = DateTime.now();
+        bool isHalfDay = false;
+
+        return StatefulBuilder(
+          builder: (sheetContext, setState) => Padding(
+            padding: EdgeInsets.only(
+              left: 16,
+              right: 16,
+              top: 16,
+              bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Добавить рабочий день',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Дата'),
+                    subtitle: Text(DateFormat('dd.MM.yyyy').format(selectedDate)),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: sheetContext,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selectedDate = picked;
+                        });
+                      }
+                    },
+                  ),
+                  const Divider(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Полный день'),
+                          selected: !isHalfDay,
+                          onSelected: (selected) {
+                            setState(() {
+                              isHalfDay = false;
+                            });
+                          },
                         ),
-                        onChanged: (_) => setState(() {}),
                       ),
-                    ),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Row(
-                        children: [
-                          FilterChip(
-                            label: const Text('Все'),
-                            selected: !_workersShowFavoritesOnly,
-                            onSelected: (_) => setState(() => _workersShowFavoritesOnly = false),
-                          ),
-                          const SizedBox(width: 8),
-                          FilterChip(
-                            label: const Text('Избранные'),
-                            selected: _workersShowFavoritesOnly,
-                            onSelected: (_) => setState(() => _workersShowFavoritesOnly = !_workersShowFavoritesOnly),
-                          ),
-                          const SizedBox(width: 8),
-                          DropdownButton<String>(
-                            hint: const Text('Сортировка'),
-                            value: _workersSortBy,
-                            items: const [
-                              DropdownMenuItem(value: 'name', child: Text('По имени')),
-                              DropdownMenuItem(value: 'date', child: Text('По дате')),
-                              DropdownMenuItem(value: 'salary', child: Text('По ставке')),
-                            ],
-                            onChanged: (v) => setState(() => _workersSortBy = v ?? 'name'),
-                          ),
-                        ],
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('Полдня'),
+                          selected: isHalfDay,
+                          onSelected: (selected) {
+                            setState(() {
+                              isHalfDay = true;
+                            });
+                          },
+                        ),
                       ),
-                    ),
+                    ],
+                  ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: extraHoursController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(
+                    labelText: 'Доп. часы (опционально)',
+                    hintText: 'Например: 2',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: notesController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Заметка (опционально)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Работники',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                ...workersOnObject.map((worker) => CheckboxListTile(
+                      value: selectedWorkerIds.contains(worker.id),
+                      title: Text(worker.name),
+                      subtitle: Text(worker.email),
+                      onChanged: (checked) {
+                        setState(() {
+                          if (checked == true) {
+                            selectedWorkerIds.add(worker.id);
+                          } else {
+                            selectedWorkerIds.remove(worker.id);
+                          }
+                        });
+                      },
+                    )).toList(),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
                     Expanded(
-                      child: workersOnObject.isEmpty
-                          ? _buildEmptyState(
-                              icon: Icons.people,
-                              title: 'На объекте нет работников',
-                              subtitle: 'Назначьте работников на этот объект',
-                            )
-                          : ListView.builder(
-                              itemCount: workersOnObject.length,
-                              itemBuilder: (context, index) {
-                                final worker = workersOnObject[index];
-                                return _buildWorkerCard(context, worker, workerProvider);
-                              },
-                            ),
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(sheetContext),
+                        child: const Text('Отмена'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          if (selectedWorkerIds.isEmpty) {
+                            ScaffoldMessenger.of(sheetContext).showSnackBar(
+                              const SnackBar(content: Text('Выберите работников')),
+                            );
+                            return;
+                          }
+                          final extraHours =
+                              double.tryParse(extraHoursController.text.trim()) ?? 0;
+                          final dayFraction = isHalfDay ? 0.5 : 1.0;
+                          await workerProvider.addWorkEntries(
+                            objectId: widget.object.id,
+                            workerIds: selectedWorkerIds.toList(),
+                            date: selectedDate,
+                            dayFraction: dayFraction,
+                            extraHours: extraHours,
+                            notes: notesController.text.trim().isEmpty
+                                ? null
+                                : notesController.text.trim(),
+                          );
+                          if (!sheetContext.mounted) return;
+                          Navigator.pop(sheetContext);
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Рабочий день добавлен')),
+                          );
+                        },
+                        child: const Text('Добавить'),
+                      ),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
+        ));
+      },
+    ).whenComplete(() {
+      extraHoursController.dispose();
+      notesController.dispose();
+    });
   }
 
   Widget _buildStatTile({
@@ -514,5 +712,31 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
         ),
       ),
     );
+  }
+}
+
+// Delegate for sticky tab bar in sliver
+class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverAppBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: Theme.of(context).scaffoldBackgroundColor,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
+    return false;
   }
 }

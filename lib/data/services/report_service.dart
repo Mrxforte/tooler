@@ -1,7 +1,6 @@
 // ignore_for_file: unused_import, unused_element
 
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -68,7 +67,7 @@ class ReportService {
               ),
             ),
             pw.SizedBox(height: 20),
-            pw.Text('${tool.title}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, font: font)),
+            pw.Text(tool.title, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, font: font)),
             pw.SizedBox(height: 10),
             pw.Text('Бренд: ${tool.brand}', style: pw.TextStyle(fontSize: 12, font: font)),
             pw.Text('ID: ${tool.uniqueId}', style: pw.TextStyle(fontSize: 12, font: font)),
@@ -110,12 +109,17 @@ class ReportService {
         final tempDir = await getTemporaryDirectory();
         final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
         await pdfFile.writeAsBytes(pdfBytes);
-        await Share.shareXFiles([XFile(pdfFile.path)],
-            text: '🔧 ОТЧЕТ ОБ ИНСТРУМЕНТЕ: ${tool.title}');
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile(pdfFile.path)],
+          text: '🔧 ОТЧЕТ ОБ ИНСТРУМЕНТЕ: ${tool.title}',
+        ));
       } else {
-        await Share.share(_generateToolReportText(tool));
+        await SharePlus.instance.share(ShareParams(
+          text: _generateToolReportText(tool),
+        ));
       }
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }
@@ -128,12 +132,17 @@ class ReportService {
         final tempDir = await getTemporaryDirectory();
         final pdfFile = File('${tempDir.path}/object_report_${object.id}.pdf');
         await pdfFile.writeAsBytes(pdfBytes);
-        await Share.shareXFiles([XFile(pdfFile.path)],
-            text: '🏢 ОТЧЕТ ОБ ОБЪЕКТЕ: ${object.name}');
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile(pdfFile.path)],
+          text: '🏢 ОТЧЕТ ОБ ОБЪЕКТЕ: ${object.name}',
+        ));
       } else {
-        await Share.share(_generateObjectReportText(object, toolsOnObject));
+        await SharePlus.instance.share(ShareParams(
+          text: _generateObjectReportText(object, toolsOnObject),
+        ));
       }
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }
@@ -145,19 +154,38 @@ class ReportService {
       List<Penalty> penalties,
       BuildContext context,
       ReportType reportType,
-      {DateTime? startDate, DateTime? endDate}) async {
+      {DateTime? startDate,
+      DateTime? endDate,
+      List<dynamic>? bonuses,
+      List<dynamic>? attendances,
+      List<dynamic>? objects}) async {
     try {
       if (reportType == ReportType.pdf) {
         final pdfBytes = await _generateWorkerReportPdf(
-            worker, salaries, advances, penalties, startDate ?? DateTime(2020), endDate ?? DateTime.now());
+          worker,
+          salaries,
+          advances,
+          penalties,
+          startDate ?? DateTime(2020),
+          endDate ?? DateTime.now(),
+          bonuses: bonuses ?? [],
+          attendances: attendances ?? [],
+          objects: objects ?? [],
+        );
         final tempDir = await getTemporaryDirectory();
         final pdfFile = File('${tempDir.path}/worker_report_${worker.id}.pdf');
         await pdfFile.writeAsBytes(pdfBytes);
-        await Share.shareXFiles([XFile(pdfFile.path)], text: '👤 ОТЧЕТ ПО РАБОТНИКУ: ${worker.name}');
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile(pdfFile.path)],
+          text: '👤 ОТЧЕТ ПО РАБОТНИКУ: ${worker.name}',
+        ));
       } else {
-        await Share.share(_generateWorkerReportText(worker, salaries, advances, penalties));
+        await SharePlus.instance.share(ShareParams(
+          text: _generateWorkerReportText(worker, salaries, advances, penalties),
+        ));
       }
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }
@@ -223,6 +251,7 @@ class ReportService {
       final pdfBytes = await _generateToolReportPdf(tool);
       await Printing.layoutPdf(onLayout: (_) => pdfBytes);
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Не удалось напечатать отчет: $e');
     }
   }
@@ -253,7 +282,7 @@ class ReportService {
               ),
             ),
             pw.SizedBox(height: 20),
-            pw.Text('${object.name}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, font: font)),
+            pw.Text(object.name, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, font: font)),
             pw.SizedBox(height: 10),
             pw.Text('Описание: ${object.description.isNotEmpty ? object.description : 'Нет'}',
                 style: pw.TextStyle(fontSize: 12, font: font)),
@@ -293,48 +322,543 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
     ''';
   }
 
-  static Future<Uint8List> _generateWorkerReportPdf(Worker worker, List<SalaryEntry> salaries,
-      List<Advance> advances, List<Penalty> penalties, DateTime startDate, DateTime endDate) async {
+  static Future<Uint8List> _generateWorkerReportPdf(
+    Worker worker,
+    List<SalaryEntry> salaries,
+    List<Advance> advances,
+    List<Penalty> penalties,
+    DateTime startDate,
+    DateTime endDate, {
+    List<dynamic> bonuses = const [],
+    List<dynamic> attendances = const [],
+    List<dynamic> objects = const [],
+  }) async {
     final pdf = pw.Document();
     final primaryColor = PdfColors.teal700;
+    final accentColor = PdfColors.teal600;
     final font = await _loadFont();
 
     double totalSalaries = salaries.fold(0, (sum, e) => sum + e.amount);
     double totalAdvances = advances.fold(0, (sum, e) => sum + (e.repaid ? 0 : e.amount));
     double totalPenalties = penalties.fold(0, (sum, e) => sum + e.amount);
-    double balance = totalSalaries - totalAdvances - totalPenalties;
+    double totalBonuses = bonuses.fold(0.0, (sum, e) => sum + (e.amount ?? 0));
+    double balance = totalSalaries - totalAdvances - totalPenalties + totalBonuses;
 
     pdf.addPage(pw.Page(
       pageFormat: PdfPageFormat.a4,
+      margin: const pw.EdgeInsets.all(20),
       build: (pw.Context context) {
         return pw.Column(
           crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
+            // Header
             pw.Container(
-              padding: const pw.EdgeInsets.all(20),
-              decoration: pw.BoxDecoration(color: primaryColor, borderRadius: pw.BorderRadius.circular(10)),
+              padding: const pw.EdgeInsets.all(16),
+              decoration: pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.circular(8),
+              ),
               child: pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                 children: [
-                  pw.Text('👤', style: const pw.TextStyle(fontSize: 40)),
-                  pw.SizedBox(width: 10),
-                  pw.Text('ОТЧЕТ ПО РАБОТНИКУ',
-                      style: pw.TextStyle(
-                          fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.white, font: font)),
+                  pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('ОТЧЕТ ПО РАБОТНИКУ',
+                          style: pw.TextStyle(
+                              fontSize: 20,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                              font: font)),
+                      pw.SizedBox(height: 4),
+                      pw.Text(worker.name,
+                          style: pw.TextStyle(
+                              fontSize: 16, color: PdfColors.white, font: font)),
+                    ],
+                  ),
+                  pw.Text('📅 ${DateFormat('dd.MM.yyyy').format(DateTime.now())}',
+                      style: pw.TextStyle(fontSize: 12, color: PdfColors.white)),
                 ],
               ),
             ),
+            pw.SizedBox(height: 16),
+            
+            // Worker Info Section
+            pw.Text('ИНФОРМАЦИЯ О РАБОТНИКЕ',
+                style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: accentColor,
+                    font: font)),
+            pw.SizedBox(height: 8),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(10),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: accentColor),
+                borderRadius: pw.BorderRadius.circular(4),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Email:', style: pw.TextStyle(fontSize: 10, font: font)),
+                      pw.Text(worker.email, style: pw.TextStyle(fontSize: 10, font: font)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Роль:', style: pw.TextStyle(fontSize: 10, font: font)),
+                      pw.Text(worker.role, style: pw.TextStyle(fontSize: 10, font: font)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Почасовая ставка:', style: pw.TextStyle(fontSize: 10, font: font)),
+                      pw.Text('${worker.hourlyRate.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(fontSize: 10, font: font)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 4),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Дневная ставка:', style: pw.TextStyle(fontSize: 10, font: font)),
+                      pw.Text('${worker.dailyRate.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(fontSize: 10, font: font)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 14),
+
+            // Financial Summary Table
+            pw.Text('ФИНАНСОВАЯ СВОДКА',
+                style: pw.TextStyle(
+                    fontSize: 12,
+                    fontWeight: pw.FontWeight.bold,
+                    color: accentColor,
+                    font: font)),
+            pw.SizedBox(height: 8),
+            pw.Table(
+              border: pw.TableBorder.all(color: accentColor, width: 0.5),
+              children: [
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                      color: PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.1)),
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('Показатель',
+                          style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              font: font)),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text('Сумма',
+                          style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              font: font)),
+                    ),
+                  ],
+                ),
+                pw.TableRow(children: [
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(6),
+                    child: pw.Text('Зарплата', style: pw.TextStyle(fontSize: 9, font: font)),
+                  ),
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(6),
+                    alignment: pw.Alignment.centerRight,
+                    child: pw.Text('${totalSalaries.toStringAsFixed(2)} ₽',
+                        style: pw.TextStyle(
+                            fontSize: 9,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.green900,
+                            font: font)),
+                  ),
+                ]),
+                if (totalBonuses > 0)
+                  pw.TableRow(children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('Бонусы', style: pw.TextStyle(fontSize: 9, font: font)),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text('${totalBonuses.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(
+                              fontSize: 9,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.green700,
+                              font: font)),
+                    ),
+                  ]),
+                if (totalAdvances > 0)
+                  pw.TableRow(children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('Авансы', style: pw.TextStyle(fontSize: 9, font: font)),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text('−${totalAdvances.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(
+                              fontSize: 9,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.orange,
+                              font: font)),
+                    ),
+                  ]),
+                if (totalPenalties > 0)
+                  pw.TableRow(children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('Штрафы', style: pw.TextStyle(fontSize: 9, font: font)),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text('−${totalPenalties.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(
+                              fontSize: 9,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.red,
+                              font: font)),
+                    ),
+                  ]),
+                pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                      color: PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.15)),
+                  children: [
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Text('ИТОГО К ВЫПЛАТЕ',
+                          style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              font: font)),
+                    ),
+                    pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      alignment: pw.Alignment.centerRight,
+                      child: pw.Text('${balance.toStringAsFixed(2)} ₽',
+                          style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              color: balance >= 0 ? PdfColors.green : PdfColors.red,
+                              font: font)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            
+            if (attendances.isNotEmpty) ...[
+              pw.SizedBox(height: 14),
+              pw.Text('РАБОЧИЕ ДНИ',
+                  style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: accentColor,
+                      font: font)),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(color: accentColor, width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(0.7),
+                  1: const pw.FlexColumnWidth(1.8),
+                  2: const pw.FlexColumnWidth(2.5),
+                  3: const pw.FlexColumnWidth(1.5),
+                  4: const pw.FlexColumnWidth(1),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                        color: PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.1)),
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.center,
+                        child: pw.Text('№',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Дата',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Объект',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Тип / Часы',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.center,
+                        child: pw.Text('Статус',
+                            style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                    ],
+                  ),
+                  ...attendances.asMap().entries.map((entry) {
+                    final index = entry.key + 1;
+                    final att = entry.value;
+                    String objName = 'Без объекта';
+                    if (att.objectId != null && objects.isNotEmpty) {
+                      try {
+                        final match = objects
+                            .firstWhere((o) => o.id == att.objectId, orElse: () => null);
+                        if (match != null) objName = match.name ?? 'Объект';
+                      } catch (e) {
+                        // empty
+                      }
+                    }
+                    final dayFrac = att.dayFraction > 0 ? att.dayFraction : (att.hoursWorked / 10);
+                    String dayType = '';
+                    if (att.dayFraction == 1.0) {
+                      dayType = 'Полный день';
+                    } else if (att.dayFraction == 0.5) {
+                      dayType = 'Полдня';
+                    } else if (att.extraHours > 0) {
+                      dayType = '${att.extraHours.toStringAsFixed(0)} ч';
+                    } else {
+                      dayType = '${dayFrac.toStringAsFixed(1)} дн';
+                    }
+                    
+                    return pw.TableRow(children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.center,
+                        child: pw.Text('$index',
+                            style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(
+                            DateFormat('dd.MM.yyyy').format(att.date),
+                            style: pw.TextStyle(fontSize: 8, font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(objName,
+                            style: pw.TextStyle(fontSize: 8, font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text(dayType,
+                            style: pw.TextStyle(fontSize: 8, font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.center,
+                        child: pw.Text('✓ Работал',
+                            style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font,
+                                color: PdfColors.green)),
+                      ),
+                    ]);
+                  }),
+                ],
+              ),
+            ],
+
+            if (bonuses.isNotEmpty) ...[
+              pw.SizedBox(height: 14),
+              pw.Text('БОНУСЫ И ПООЩРЕНИЯ',
+                  style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: accentColor,
+                      font: font)),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(color: accentColor, width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(2),
+                  1: const pw.FlexColumnWidth(1.5),
+                  2: const pw.FlexColumnWidth(1.5),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                        color: PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.1)),
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Причина',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.centerRight,
+                        child: pw.Text('Сумма',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Дата',
+                            style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                    ],
+                  ),
+                  ...bonuses.take(10).map((bonus) => pw.TableRow(children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                              bonus.reason ?? 'Бонус',
+                              style: pw.TextStyle(fontSize: 8, font: font)),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Text(
+                              '+${(bonus.amount ?? 0).toStringAsFixed(2)} ₽',
+                              style: pw.TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.green700,
+                                  font: font)),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                              DateFormat('dd.MM.yy').format(bonus.date ?? DateTime.now()),
+                              style: pw.TextStyle(fontSize: 8, font: font)),
+                        ),
+                      ])),
+                ],
+              ),
+            ],
+
+            if ((penalties as List).isNotEmpty) ...[
+              pw.SizedBox(height: 14),
+              pw.Text('ШТРАФЫ И УДЕРЖАНИЯ',
+                  style: pw.TextStyle(
+                      fontSize: 12,
+                      fontWeight: pw.FontWeight.bold,
+                      color: accentColor,
+                      font: font)),
+              pw.SizedBox(height: 8),
+              pw.Table(
+                border: pw.TableBorder.all(color: accentColor, width: 0.5),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(2),
+                  1: const pw.FlexColumnWidth(1.5),
+                  2: const pw.FlexColumnWidth(1.5),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: pw.BoxDecoration(
+                        color: PdfColor(primaryColor.red, primaryColor.green, primaryColor.blue, 0.1)),
+                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Причина',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        alignment: pw.Alignment.centerRight,
+                        child: pw.Text('Сумма',
+                            style: pw.TextStyle(
+                                fontSize: 9,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.all(6),
+                        child: pw.Text('Дата',
+                            style: pw.TextStyle(
+                                fontSize: 8,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                      ),
+                    ],
+                  ),
+                  ...(penalties as List).take(10).map((pnl) => pw.TableRow(children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                              pnl.reason ?? 'Штраф',
+                              style: pw.TextStyle(fontSize: 8, font: font)),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          alignment: pw.Alignment.centerRight,
+                          child: pw.Text(
+                              '−${pnl.amount.toStringAsFixed(2)} ₽',
+                              style: pw.TextStyle(
+                                  fontSize: 8,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.red,
+                                  font: font)),
+                        ),
+                        pw.Container(
+                          padding: const pw.EdgeInsets.all(6),
+                          child: pw.Text(
+                              DateFormat('dd.MM.yy').format(pnl.date),
+                              style: pw.TextStyle(fontSize: 8, font: font)),
+                        ),
+                      ])),
+                ],
+              ),
+            ],
+
             pw.SizedBox(height: 20),
-            pw.Text('${worker.name}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, font: font)),
-            pw.SizedBox(height: 10),
-            pw.Text('Email: ${worker.email}', style: pw.TextStyle(fontSize: 12, font: font)),
-            pw.Text('Роль: ${worker.role}', style: pw.TextStyle(fontSize: 12, font: font)),
-            pw.SizedBox(height: 15),
-            pw.Text('ФИНАНСЫ:', style: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold, font: font)),
-            pw.Text('Зарплата: ${totalSalaries.toStringAsFixed(2)} ₽', style: pw.TextStyle(fontSize: 12, font: font)),
-            pw.Text('Авансы: ${totalAdvances.toStringAsFixed(2)} ₽', style: pw.TextStyle(fontSize: 12, font: font)),
-            pw.Text('Штрафы: ${totalPenalties.toStringAsFixed(2)} ₽', style: pw.TextStyle(fontSize: 12, font: font)),
-            pw.Text('ИТОГО: ${balance.toStringAsFixed(2)} ₽',
-                style: pw.TextStyle(fontSize: 12, fontWeight: pw.FontWeight.bold, font: font)),
+            pw.Divider(),
+            pw.SizedBox(height: 6),
+            pw.Text(
+              '© Tooler App • Отчет сгенерирован ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}',
+              style: pw.TextStyle(fontSize: 8, color: PdfColors.grey),
+              textAlign: pw.TextAlign.center,
+            ),
           ],
         );
       },
@@ -380,11 +904,17 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
         final tempDir = await getTemporaryDirectory();
         final pdfFile = File('${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
         await pdfFile.writeAsBytes(pdfBytes);
-        await Share.shareXFiles([XFile(pdfFile.path)], text: '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler');
+        await SharePlus.instance.share(ShareParams(
+          files: [XFile(pdfFile.path)],
+          text: '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler',
+        ));
       } else {
-        await Share.share(_generateInventoryReportText(tools, objects));
+        await SharePlus.instance.share(ShareParams(
+          text: _generateInventoryReportText(tools, objects),
+        ));
       }
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }

@@ -82,7 +82,7 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _showAttendanceDialog(context, workersOnObject),
+                          onPressed: () => _showAttendanceDialog(context, workersOnObject, object.id),
                           icon: const Icon(Icons.today),
                           label: const Text('Отметить явку'),
                         ),
@@ -111,7 +111,7 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
                               subtitle: Text('Ставка: дн ${w.dailyRate} / час ${w.hourlyRate}'),
                               trailing: IconButton(
                                 icon: const Icon(Icons.check, color: Colors.green),
-                                onPressed: () => _markPresent(w, context),
+                                onPressed: () => _markPresent(w, context, object.id),
                               ),
                             );
                           },
@@ -162,20 +162,23 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
     );
   }
 
-  void _markPresent(Worker worker, BuildContext context) {
+  void _markPresent(Worker worker, BuildContext context, String objectId) {
     // Simple: add attendance for today
     final attendance = Attendance(
       id: IdGenerator.generateAttendanceId(),
       workerId: worker.id,
+      objectId: objectId,
       date: DateTime.now(),
       present: true,
       hoursWorked: 8, // default
+      dayFraction: 0.8,
+      extraHours: 0,
     );
     Provider.of<SalaryProvider>(context, listen: false).addAttendance(attendance);
     ErrorHandler.showSuccessDialog(context, '${worker.name} отмечен');
   }
 
-  void _showAttendanceDialog(BuildContext context, List<Worker> workers) {
+  void _showAttendanceDialog(BuildContext context, List<Worker> workers, String objectId) {
     List<bool> present = List.generate(workers.length, (_) => true);
     List<double> hours = List.generate(workers.length, (_) => 8.0);
     showDialog(
@@ -220,12 +223,17 @@ class _BrigadierScreenState extends State<BrigadierScreen> {
                 final salaryProvider = Provider.of<SalaryProvider>(context, listen: false);
                 for (int i = 0; i < workers.length; i++) {
                   if (present[i]) {
+                    final hoursWorked = hours[i];
+                    final dayFraction = hoursWorked / 10;
                     salaryProvider.addAttendance(Attendance(
                       id: IdGenerator.generateAttendanceId(),
                       workerId: workers[i].id,
+                      objectId: objectId,
                       date: DateTime.now(),
                       present: true,
-                      hoursWorked: hours[i],
+                      hoursWorked: hoursWorked,
+                      dayFraction: dayFraction,
+                      extraHours: 0,
                     ));
                   }
                 }

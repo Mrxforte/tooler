@@ -72,7 +72,7 @@ class AuthProvider with ChangeNotifier {
         await _fetchUserData(savedUser.uid);
       }
     } catch (e) {
-      print('Error during auth initialization: $e');
+      debugPrint('Error during auth initialization: $e');
       // Error handled silently, user will see login screen
     } finally {
       _isLoading = false;
@@ -102,7 +102,7 @@ class AuthProvider with ChangeNotifier {
         _canControlObjects = false;
       }
     } catch (e) {
-      print('Error fetching user data: $e');
+      debugPrint('Error fetching user data: $e');
       _role = 'user';
     }
     notifyListeners();

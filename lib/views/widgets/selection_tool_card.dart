@@ -1,5 +1,6 @@
 // SelectionToolCard widget for displaying tools with selection mode support
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -24,7 +25,21 @@ class SelectionToolCard extends StatelessWidget {
     
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
+      elevation: tool.isSelected ? 4 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: tool.isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Container(
+        color: tool.isSelected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+            : null,
+        child: ListTile(
         leading: selectionMode 
             ? Checkbox(
                 value: tool.isSelected,
@@ -33,9 +48,25 @@ class SelectionToolCard extends StatelessWidget {
                   toolsProvider.toggleToolSelection(tool.id);
                 },
               )
-            : const Icon(Icons.build),
-        title: Text(tool.title),
-        subtitle: Text(tool.brand),
+            : _buildLeadingImage(context),
+        title: Text(tool.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(tool.brand, style: const TextStyle(fontSize: 13)),
+            if (tool.description.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                tool.description,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
+          ],
+        ),
+        isThreeLine: tool.description.isNotEmpty,
         trailing: Consumer<ToolsProvider>(
           builder: (context, tp, _) {
             return IconButton(
@@ -61,6 +92,52 @@ class SelectionToolCard extends StatelessWidget {
             toolsProvider.toggleToolSelection(tool.id);
           }
         },
+      ),
+      ),
+    );
+  }
+
+  Widget _buildLeadingImage(BuildContext context) {
+    if (tool.displayImage != null) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 56,
+          height: 56,
+          child: Image(
+            image: tool.displayImage!.startsWith('http')
+                ? NetworkImage(tool.displayImage!) as ImageProvider
+                : FileImage(File(tool.displayImage!)),
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return _buildIconFallback(context);
+            },
+          ),
+        ),
+      );
+    }
+    return _buildIconFallback(context);
+  }
+
+  Widget _buildIconFallback(BuildContext context) {
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+            Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(
+        Icons.build_circle,
+        size: 32,
+        color: Theme.of(context).colorScheme.primary,
       ),
     );
   }

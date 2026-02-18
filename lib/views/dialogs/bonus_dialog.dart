@@ -9,6 +9,7 @@ class BonusDialog extends StatefulWidget {
   final VoidCallback? onBonusAdded;
 
   const BonusDialog({
+    super.key,
     required this.worker,
     this.onBonusAdded,
   });
@@ -38,7 +39,7 @@ class _BonusDialogState extends State<BonusDialog> {
     super.dispose();
   }
 
-  void _giveBonus() {
+  Future<void> _giveBonus() async {
     final amountStr = _amountController.text.trim();
     final reason = _reasonController.text.trim();
 
@@ -67,23 +68,26 @@ class _BonusDialogState extends State<BonusDialog> {
     final currentUser = context.read<AuthProvider>().user;
     final workerProvider = context.read<WorkerProvider>();
 
-    workerProvider.giveBonus(
-      workerId: widget.worker.id,
-      amount: amount,
-      reason: reason,
-      givenBy: currentUser?.email ?? 'Unknown',
-      notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
-    ).then((_) {
+    try {
+      await workerProvider.giveBonus(
+        workerId: widget.worker.id,
+        amount: amount,
+        reason: reason,
+        givenBy: currentUser?.email ?? 'Unknown',
+        notes: _notesController.text.trim().isNotEmpty ? _notesController.text.trim() : null,
+      );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Бонус выдан: $amount')),
       );
       widget.onBonusAdded?.call();
       Navigator.pop(context);
-    }).catchError((e) {
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка: $e')),
       );
-    });
+    }
   }
 
   @override
@@ -105,7 +109,7 @@ class _BonusDialogState extends State<BonusDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Icons.card_giftcard, color: primaryColor, size: 24),
@@ -146,7 +150,7 @@ class _BonusDialogState extends State<BonusDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -164,7 +168,7 @@ class _BonusDialogState extends State<BonusDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -182,7 +186,7 @@ class _BonusDialogState extends State<BonusDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),

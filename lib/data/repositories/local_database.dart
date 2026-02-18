@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:hive/hive.dart';
 import '../models/tool.dart';
 import '../models/construction_object.dart';
@@ -7,6 +9,7 @@ import '../models/worker.dart';
 import '../models/salary.dart';
 import '../models/attendance.dart';
 import '../models/sync_item.dart';
+import '../models/bonus_model.dart';
 
 class LocalDatabase {
   static const String toolsBox = 'tools';
@@ -22,6 +25,7 @@ class LocalDatabase {
   static const String penaltiesBox = 'penalties';
   static const String attendancesBox = 'attendances';
   static const String dailyReportsBox = 'daily_reports';
+  static const String bonusesBox = 'bonuses';
 
   static Future<void> init() async {
     try {
@@ -38,8 +42,9 @@ class LocalDatabase {
       await Hive.openBox<Penalty>(penaltiesBox);
       await Hive.openBox<Attendance>(attendancesBox);
       await Hive.openBox<DailyWorkReport>(dailyReportsBox);
+      await Hive.openBox<BonusEntry>(bonusesBox);
     } catch (e) {
-      print('Error opening Hive boxes: $e');
+      log('Error opening Hive boxes: $e');
     }
   }
 
@@ -57,6 +62,7 @@ class LocalDatabase {
   static Box<Penalty> get penalties => Hive.box<Penalty>(penaltiesBox);
   static Box<Attendance> get attendances => Hive.box<Attendance>(attendancesBox);
   static Box<DailyWorkReport> get dailyReports => Hive.box<DailyWorkReport>(dailyReportsBox);
+  static Box<BonusEntry> get bonuses => Hive.box<BonusEntry>(bonusesBox);
 
   static Future<void> saveCacheTimestamp() async {
     try {

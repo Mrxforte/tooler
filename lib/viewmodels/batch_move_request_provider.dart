@@ -1,14 +1,14 @@
 // ignore_for_file: unused_field
 
-/// BatchMoveRequestProvider - Extract from main.dart lines 2173-2215
-/// Provider for batch (multiple tools) move requests
+// BatchMoveRequestProvider - Extract from main.dart lines 2173-2215
+// Provider for batch (multiple tools) move requests
 
 import 'package:flutter/material.dart';
 
 class BatchMoveRequestProvider with ChangeNotifier {
-  // TODO: Extract full implementation from main.dart lines 2173-2215
-  
-  List<dynamic> _requests = [];
+  // NOTE: Extract full implementation from main.dart lines 2173-2215
+
+  final List<dynamic> _requests = [];
 
   List<dynamic> get pendingRequests => [];
 

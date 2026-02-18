@@ -1,7 +1,10 @@
-/// WorkerProvider - Provider for worker management with selection and favorites
+// WorkerProvider - Provider for worker management with selection and favorites
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/utils/id_generator.dart';
+import '../data/models/attendance.dart';
+import '../data/models/bonus_model.dart';
 import '../data/models/worker.dart';
 import '../data/repositories/local_database.dart';
 
@@ -115,6 +118,7 @@ class WorkerProvider with ChangeNotifier {
     required String givenBy,
     String? notes,
   }) async {
+    await LocalDatabase.init();
     final index = _workers.indexWhere((w) => w.id == workerId);
     if (index != -1) {
       final worker = _workers[index];
@@ -122,6 +126,16 @@ class WorkerProvider with ChangeNotifier {
       final updated = worker.copyWith(totalBonus: newTotalBonus);
       _workers[index] = updated;
       await LocalDatabase.workers.put(updated.id, updated);
+      final bonusEntry = BonusEntry(
+        id: IdGenerator.generateBonusId(),
+        workerId: workerId,
+        amount: amount,
+        reason: reason,
+        date: DateTime.now(),
+        givenBy: givenBy,
+        notes: notes,
+      );
+      await LocalDatabase.bonuses.put(bonusEntry.id, bonusEntry);
       notifyListeners();
     }
   }
@@ -132,12 +146,50 @@ class WorkerProvider with ChangeNotifier {
     required String reason,
     required String givenBy,
   }) async {
+    await LocalDatabase.init();
     for (final w in selectedWorkers) {
       final newTotalBonus = w.totalBonus + amount;
       final updated = w.copyWith(totalBonus: newTotalBonus);
       await LocalDatabase.workers.put(updated.id, updated);
+      final bonusEntry = BonusEntry(
+        id: IdGenerator.generateBonusId(),
+        workerId: w.id,
+        amount: amount,
+        reason: reason,
+        date: DateTime.now(),
+        givenBy: givenBy,
+      );
+      await LocalDatabase.bonuses.put(bonusEntry.id, bonusEntry);
     }
     await loadWorkers();
+  }
+
+  Future<void> addWorkEntries({
+    required String objectId,
+    required List<String> workerIds,
+    required DateTime date,
+    required double dayFraction,
+    required double extraHours,
+    String? notes,
+  }) async {
+    await LocalDatabase.init();
+    final baseHours = dayFraction * 10;
+    final hoursWorked = baseHours + extraHours;
+
+    for (final workerId in workerIds) {
+      final entry = Attendance(
+        id: IdGenerator.generateAttendanceId(),
+        workerId: workerId,
+        objectId: objectId,
+        date: date,
+        present: true,
+        hoursWorked: hoursWorked,
+        dayFraction: dayFraction,
+        extraHours: extraHours,
+        notes: notes,
+      );
+      await LocalDatabase.attendances.put(entry.id, entry);
+    }
   }
 
   // Update monthly bonus allowance

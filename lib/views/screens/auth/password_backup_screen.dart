@@ -66,13 +66,15 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
     ''';
 
     try {
-      await Share.share(
-        backupContent,
+      await SharePlus.instance.share(ShareParams(
+        text: backupContent,
         subject: 'Резервная копия Tooler - ${widget.userEmail}',
-      );
+      ));
+      if (!mounted) return;
       setState(() => _backupCreated = true);
       ErrorHandler.showSuccessDialog(context, 'Резервная копия создана и готова к отправке');
     } catch (e) {
+      if (!mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка при создании резервной копии: $e');
     }
   }
@@ -116,10 +118,10 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Column(

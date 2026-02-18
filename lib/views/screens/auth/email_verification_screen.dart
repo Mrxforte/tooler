@@ -43,6 +43,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.reload();
+        if (!mounted) return;
         if (user.emailVerified) {
           ErrorHandler.showSuccessDialog(context, 'Email подтвержден успешно!');
           Navigator.pop(context, true);
@@ -54,9 +55,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     } finally {
-      setState(() => _isVerifying = false);
+      if (mounted) {
+        setState(() => _isVerifying = false);
+      }
     }
   }
 
@@ -65,6 +69,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         await user.sendEmailVerification();
+        if (!mounted) return;
         ErrorHandler.showSuccessDialog(context, 'Письмо отправлено на $widget.email');
         setState(() {
           _countdown = 60;
@@ -73,6 +78,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
         _startCountdown();
       }
     } catch (e) {
+      if (!mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }
@@ -93,7 +99,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                     width: 80,
                     height: 80,
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Icon(
@@ -118,7 +124,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(

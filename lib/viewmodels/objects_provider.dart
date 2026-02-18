@@ -1,4 +1,4 @@
-// ignore_for_file: unused_field
+// ignore_for_file: unused_field, use_build_context_synchronously
 
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -42,6 +42,9 @@ class ObjectsProvider with ChangeNotifier {
   int get totalObjects => _objects.length;
   // NEW: Favorites
   List<ConstructionObject> get favoriteObjects => _objects.where((o) => o.isFavorite).toList();
+
+  bool _canUseContext(BuildContext? context) =>
+      context != null && context.mounted;
 
   void toggleSelectionMode() {
     HapticFeedback.mediumImpact();
@@ -154,10 +157,14 @@ class ObjectsProvider with ChangeNotifier {
   }
 
   Future<void> addObject(ConstructionObject obj, {File? imageFile}) async {
-    final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.canControlObjects) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, 'У вас нет прав на добавление объектов');
+    final ctx = navigatorKey.currentContext;
+    final auth = ctx != null
+        ? Provider.of<app_auth.AuthProvider>(ctx, listen: false)
+        : null;
+    if (auth != null && !auth.canControlObjects) {
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showErrorDialog(ctx!, 'У вас нет прав на добавление объектов');
+      }
       return;
     }
     try {
@@ -176,10 +183,14 @@ class ObjectsProvider with ChangeNotifier {
       _objects.add(obj);
       await LocalDatabase.objects.put(obj.id, obj);
       await _addToSyncQueue(action: 'create', collection: 'objects', data: obj.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект добавлен');
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showSuccessDialog(ctx!, 'Объект добавлен');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showErrorDialog(ctx!, 'Ошибка: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -187,10 +198,14 @@ class ObjectsProvider with ChangeNotifier {
   }
 
   Future<void> updateObject(ConstructionObject obj, {File? imageFile}) async {
-    final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.canControlObjects) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, 'У вас нет прав на редактирование объектов');
+    final ctx = navigatorKey.currentContext;
+    final auth = ctx != null
+        ? Provider.of<app_auth.AuthProvider>(ctx, listen: false)
+        : null;
+    if (auth != null && !auth.canControlObjects) {
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showErrorDialog(ctx!, 'У вас нет прав на редактирование объектов');
+      }
       return;
     }
     try {
@@ -208,16 +223,22 @@ class ObjectsProvider with ChangeNotifier {
       }
       final index = _objects.indexWhere((o) => o.id == obj.id);
       if (index == -1) {
-        ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Объект не найден');
+        if (_canUseContext(ctx)) {
+          ErrorHandler.showErrorDialog(ctx!, 'Объект не найден');
+        }
         return;
       }
       _objects[index] = obj;
       await LocalDatabase.objects.put(obj.id, obj);
       await _addToSyncQueue(action: 'update', collection: 'objects', data: obj.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект обновлён');
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showSuccessDialog(ctx!, 'Объект обновлён');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
+      if (_canUseContext(ctx)) {
+        ErrorHandler.showErrorDialog(ctx!, 'Ошибка: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -235,16 +256,16 @@ class ObjectsProvider with ChangeNotifier {
     }
     
     if (!canDelete) {
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'У вас нет прав на удаление объектов');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'У вас нет прав на удаление объектов');
       }
       return;
     }
     try {
       final index = _objects.indexWhere((o) => o.id == objectId);
       if (index == -1) {
-        if (context != null) {
-          ErrorHandler.showErrorDialog(context, 'Объект не найден');
+        if (_canUseContext(context)) {
+          ErrorHandler.showErrorDialog(context!, 'Объект не найден');
         }
         return;
       }
@@ -252,13 +273,13 @@ class ObjectsProvider with ChangeNotifier {
       await LocalDatabase.objects.delete(objectId);
       await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': objectId});
       notifyListeners();
-      if (context != null) {
-        ErrorHandler.showSuccessDialog(context, 'Объект успешно удалён');
+      if (_canUseContext(context)) {
+        ErrorHandler.showSuccessDialog(context!, 'Объект успешно удалён');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'Ошибка при удалении: $e');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'Ошибка при удалении: $e');
       }
     }
   }
@@ -282,8 +303,8 @@ class ObjectsProvider with ChangeNotifier {
     try {
       final selected = _objects.where((o) => o.isSelected).toList();
       if (selected.isEmpty) {
-        if (context != null) {
-          ErrorHandler.showWarningDialog(context, 'Выберите объекты');
+        if (_canUseContext(context)) {
+          ErrorHandler.showWarningDialog(context!, 'Выберите объекты');
         }
         return;
       }
@@ -294,13 +315,13 @@ class ObjectsProvider with ChangeNotifier {
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
       notifyListeners();
-      if (context != null) {
-        ErrorHandler.showSuccessDialog(context, 'Удалено ${selected.length} объектов');
+      if (_canUseContext(context)) {
+        ErrorHandler.showSuccessDialog(context!, 'Удалено ${selected.length} объектов');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      if (_canUseContext(context)) {
+        ErrorHandler.showErrorDialog(context!, 'Ошибка: $e');
       }
     }
   }

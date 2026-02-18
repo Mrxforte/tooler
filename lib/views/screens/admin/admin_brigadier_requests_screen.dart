@@ -5,7 +5,7 @@ import '../../../viewmodels/brigadier_request_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 
 class AdminBrigadierRequestsScreen extends StatefulWidget {
-  const AdminBrigadierRequestsScreen();
+  const AdminBrigadierRequestsScreen({super.key});
 
   @override
   State<AdminBrigadierRequestsScreen> createState() => _AdminBrigadierRequestsScreenState();
@@ -133,7 +133,7 @@ class _AdminBrigadierRequestsScreenState extends State<AdminBrigadierRequestsScr
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: _getStatusColor(request.status).withOpacity(0.1),
+                    color: _getStatusColor(request.status).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(
@@ -234,7 +234,7 @@ class _AdminBrigadierRequestsScreenState extends State<AdminBrigadierRequestsScr
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -256,7 +256,7 @@ class _AdminBrigadierRequestsScreenState extends State<AdminBrigadierRequestsScr
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(

@@ -1,5 +1,5 @@
-/// UsersProvider - User management for admin
-/// Manages user roles, permissions, and admin operations
+// UsersProvider - User management for admin
+// Manages user roles, permissions, and admin operations
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,6 +16,7 @@ class UsersProvider with ChangeNotifier {
   bool get selectionMode => _selectionMode;
   List<AppUser> get selectedUsers => _users.where((u) => u.isSelected).toList();
   bool get hasSelectedUsers => _users.any((u) => u.isSelected);
+  bool get allSelected => _users.isNotEmpty && _users.every((u) => u.isSelected);
 
   void toggleSelectionMode() {
     HapticFeedback.mediumImpact();
@@ -40,6 +41,13 @@ class UsersProvider with ChangeNotifier {
   void selectAllUsers() {
     for (var i = 0; i < _users.length; i++) {
       _users[i] = _users[i].copyWith(isSelected: true);
+    }
+    notifyListeners();
+  }
+
+  void clearSelection() {
+    for (var i = 0; i < _users.length; i++) {
+      _users[i] = _users[i].copyWith(isSelected: false);
     }
     notifyListeners();
   }

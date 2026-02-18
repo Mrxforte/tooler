@@ -14,11 +14,20 @@ import '../../../data/services/report_service.dart';
 import '../../../core/utils/error_handler.dart';
 import 'add_edit_tool_screen.dart';
 
-class EnhancedToolDetailsScreen extends StatelessWidget {
+class EnhancedToolDetailsScreen extends StatefulWidget {
   final Tool tool;
   const EnhancedToolDetailsScreen({super.key, required this.tool});
+
+  @override
+  State<EnhancedToolDetailsScreen> createState() => _EnhancedToolDetailsScreenState();
+}
+
+class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
+  bool _isDescriptionExpanded = false;
+
   @override
   Widget build(BuildContext context) {
+    final tool = widget.tool;
     final theme = Theme.of(context);
     final auth = Provider.of<AuthProvider>(context);
     return Scaffold(
@@ -43,8 +52,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              theme.colorScheme.primary.withOpacity(0.2),
-                              theme.colorScheme.secondary.withOpacity(0.2),
+                              theme.colorScheme.primary.withValues(alpha: 0.2),
+                              theme.colorScheme.secondary.withValues(alpha: 0.2),
                             ],
                           ),
                         ),
@@ -52,7 +61,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                           child: Icon(
                             Icons.build,
                             size: 100,
-                            color: theme.colorScheme.primary.withOpacity(0.5),
+                            color: theme.colorScheme.primary.withValues(alpha: 0.5),
                           ),
                         ),
                       ),
@@ -157,8 +166,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              theme.colorScheme.primary.withOpacity(0.1),
-                              theme.colorScheme.secondary.withOpacity(0.1),
+                              theme.colorScheme.primary.withValues(alpha: 0.1),
+                              theme.colorScheme.secondary.withValues(alpha: 0.1),
                             ],
                           ),
                           borderRadius: BorderRadius.circular(20),
@@ -182,25 +191,80 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                       elevation: 2,
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15)),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.white,
+                              theme.colorScheme.primary.withValues(alpha: 0.02),
+                            ],
+                          ),
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              'Описание',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w600,
-                                  color: theme.colorScheme.primary),
+                            InkWell(
+                              onTap: () {
+                                setState(() {
+                                  _isDescriptionExpanded = !_isDescriptionExpanded;
+                                });
+                              },
+                              borderRadius: BorderRadius.circular(15),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.description_outlined,
+                                      color: theme.colorScheme.primary,
+                                      size: 22,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Text(
+                                      'Описание',
+                                      style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w600,
+                                          color: theme.colorScheme.primary),
+                                    ),
+                                    const Spacer(),
+                                    Icon(
+                                      _isDescriptionExpanded
+                                          ? Icons.keyboard_arrow_up
+                                          : Icons.keyboard_arrow_down,
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
-                            const SizedBox(height: 10),
-                            Text(
-                              tool.description,
-                              style: TextStyle(
-                                  fontSize: 16,
-                                  height: 1.5,
-                                  color: Colors.grey[700]),
+                            AnimatedCrossFade(
+                              firstChild: const SizedBox.shrink(),
+                              secondChild: Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                child: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade50,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    tool.description,
+                                    style: TextStyle(
+                                        fontSize: 15,
+                                        height: 1.6,
+                                        color: Colors.grey[800],
+                                        letterSpacing: 0.2),
+                                  ),
+                                ),
+                              ),
+                              crossFadeState: _isDescriptionExpanded
+                                  ? CrossFadeState.showSecond
+                                  : CrossFadeState.showFirst,
+                              duration: const Duration(milliseconds: 200),
                             ),
                           ],
                         ),
@@ -375,7 +439,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Подтверждение удаления'),
-        content: Text('Удалить "${tool.title}"?'),
+        content: Text('Удалить "${widget.tool.title}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -385,7 +449,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               await Provider.of<ToolsProvider>(context, listen: false)
-                  .deleteTool(tool.id, context: context);
+                  .deleteTool(widget.tool.id, context: context);
               await Future.delayed(const Duration(milliseconds: 2000));
               Navigator.pop(context);
             },

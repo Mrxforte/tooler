@@ -42,4 +42,7 @@ class IdGenerator {
   
   static String generateDailyReportId() =>
       'DR-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
+
+  static String generateBonusId() =>
+      'BON-${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(9999)}';
 }

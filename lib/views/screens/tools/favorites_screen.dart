@@ -4,10 +4,13 @@ import 'package:provider/provider.dart';
 
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
+import '../../../viewmodels/worker_provider.dart';
 import '../../../views/widgets/selection_tool_card.dart';
 import '../../../views/widgets/object_card.dart';
+import '../../widgets/worker_card_simple.dart';
 import 'tool_details_screen.dart';
 import '../objects/object_details_screen.dart';
+import '../workers/worker_details_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -22,12 +25,30 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
+    // Load workers data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<WorkerProvider>(context, listen: false).loadWorkers();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    // Clear selection modes when leaving
+    final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    
+    if (toolsProvider.selectionMode) {
+      toolsProvider.toggleSelectionMode();
+    }
+    if (objectsProvider.selectionMode) {
+      objectsProvider.toggleSelectionMode();
+    }
+    if (workerProvider.selectionMode) {
+      workerProvider.toggleSelectionMode();
+    }
     super.dispose();
   }
 
@@ -35,28 +56,42 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final objectsProvider = Provider.of<ObjectsProvider>(context);
+    final workerProvider = Provider.of<WorkerProvider>(context);
     final favoriteTools = toolsProvider.favoriteTools;
     final favoriteObjects = objectsProvider.favoriteObjects;
+    final favoriteWorkers = workerProvider.favoriteWorkers;
     
-    final isToolsTab = _tabController.index == 0;
-    final isSelectionMode = isToolsTab ? toolsProvider.selectionMode : objectsProvider.selectionMode;
-    final hasSelected = isToolsTab ? toolsProvider.hasSelectedTools : objectsProvider.hasSelectedObjects;
+    final currentTab = _tabController.index;
+    final isSelectionMode = currentTab == 0
+        ? toolsProvider.selectionMode
+        : currentTab == 1
+            ? objectsProvider.selectionMode
+            : workerProvider.selectionMode;
+    final hasSelected = currentTab == 0
+        ? toolsProvider.hasSelectedTools
+        : currentTab == 1
+            ? objectsProvider.hasSelectedObjects
+            : workerProvider.hasSelectedWorkers;
 
     return Scaffold(
       appBar: AppBar(
         title: isSelectionMode
-            ? Text(isToolsTab 
+            ? Text(currentTab == 0
                 ? 'Выбрано: ${toolsProvider.selectedTools.length}'
-                : 'Выбрано: ${objectsProvider.selectedObjects.length}')
+                : currentTab == 1
+                    ? 'Выбрано: ${objectsProvider.selectedObjects.length}'
+                    : 'Выбрано: ${workerProvider.selectedWorkers.length}')
             : const Text('Избранное'),
         leading: isSelectionMode
             ? IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () {
-                  if (isToolsTab) {
+                  if (currentTab == 0) {
                     toolsProvider.toggleSelectionMode();
-                  } else {
+                  } else if (currentTab == 1) {
                     objectsProvider.toggleSelectionMode();
+                  } else {
+                    workerProvider.toggleSelectionMode();
                   }
                 },
               )
@@ -67,10 +102,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
               icon: const Icon(Icons.checklist),
               tooltip: 'Выбрать',
               onPressed: () {
-                if (isToolsTab) {
+                if (currentTab == 0) {
                   toolsProvider.toggleSelectionMode();
-                } else {
+                } else if (currentTab == 1) {
                   objectsProvider.toggleSelectionMode();
+                } else {
+                  workerProvider.toggleSelectionMode();
                 }
               },
             ),
@@ -78,9 +115,14 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
         bottom: TabBar(
           controller: _tabController,
           onTap: (_) => setState(() {}),
+          labelColor: Colors.amber[700],
+          unselectedLabelColor: Colors.white,
+          indicatorColor: Colors.amber[700],
+          indicatorWeight: 3,
           tabs: const [
             Tab(text: 'Инструменты', icon: Icon(Icons.build)),
             Tab(text: 'Объекты', icon: Icon(Icons.location_city)),
+            Tab(text: 'Работники', icon: Icon(Icons.person)),
           ],
         ),
       ),
@@ -125,6 +167,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
                               context,
                               MaterialPageRoute(
                                   builder: (context) => ObjectDetailsScreen(object: object))),
+                    );  
+                  },
+                ),
+          // Workers tab
+          favoriteWorkers.isEmpty
+              ? _buildEmptyFavorites(Icons.person, 'Нет избранных работников')
+              : ListView.builder(
+                  itemCount: favoriteWorkers.length,
+                  itemBuilder: (context, index) {
+                    if (index >= favoriteWorkers.length) return const SizedBox.shrink();
+                    final worker = favoriteWorkers[index];
+                    return WorkerCardSimple(
+                      worker: worker,
+                      selectionMode: workerProvider.selectionMode,
+                      onTap: workerProvider.selectionMode
+                          ? () => workerProvider.toggleWorkerSelection(worker.id)
+                          : () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                  builder: (context) => WorkerDetailsScreen(worker: worker))),
                     );
                   },
                 ),
@@ -133,10 +195,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
       floatingActionButton: isSelectionMode && hasSelected
           ? FloatingActionButton.extended(
               onPressed: () {
-                if (isToolsTab) {
-                  _showBatchActionsSheet(context, toolsProvider, true);
+                if (currentTab == 0) {
+                  _showBatchActionsSheet(context, toolsProvider, 'tools');
+                } else if (currentTab == 1) {
+                  _showBatchActionsSheet(context, objectsProvider, 'objects');
                 } else {
-                  _showBatchActionsSheet(context, objectsProvider, false);
+                  _showBatchActionsSheet(context, workerProvider, 'workers');
                 }
               },
               icon: const Icon(Icons.more_horiz),
@@ -146,7 +210,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
     );
   }
 
-  void _showBatchActionsSheet(BuildContext context, dynamic provider, bool isTools) {
+  void _showBatchActionsSheet(BuildContext context, dynamic provider, String type) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -178,10 +242,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
               title: const Text('Убрать из избранного'),
               onTap: () async {
                 Navigator.pop(context);
-                if (isTools) {
+                if (type == 'tools') {
                   await (provider as ToolsProvider).toggleFavoriteForSelected();
-                } else {
+                } else if (type == 'objects') {
                   await (provider as ObjectsProvider).toggleFavoriteForSelected();
+                } else {
+                  await (provider as WorkerProvider).toggleFavoriteForSelected();
                 }
                 if (context.mounted) {
                   HapticFeedback.mediumImpact();
@@ -194,7 +260,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
                 }
               },
             ),
-            if (isTools) ...[
+            if (type == 'tools') ...[
               ListTile(
                 leading: const Icon(Icons.drive_file_move, color: Colors.blue),
                 title: const Text('Переместить'),

@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 class ErrorHandler {
@@ -29,8 +30,8 @@ class ErrorHandler {
   }
   
   static void handleError(Object error, StackTrace stackTrace) {
-    print('Error: $error');
-    print('Stack trace: $stackTrace');
+    debugPrint('Error: $error');
+    debugPrint('Stack trace: $stackTrace');
   }
   
   static String getFirebaseErrorMessage(FirebaseAuthException e) {

@@ -22,7 +22,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
   String _permissionsFilter = 'all'; // all, can_move, can_control, both
-  List<String> _activeFilters = [];
+  final List<String> _activeFilters = [];
 
   @override
   void initState() {
@@ -129,12 +129,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             : null,
         actions: [
           if (usersProvider.selectionMode) ...[
-            if (usersProvider.hasSelectedUsers)
-              IconButton(
-                icon: const Icon(Icons.select_all),
-                tooltip: 'Выбрать все',
-                onPressed: () => usersProvider.selectAllUsers(),
-              ),
+            IconButton(
+              icon: Icon(usersProvider.allSelected
+                  ? Icons.deselect
+                  : Icons.select_all),
+              tooltip: usersProvider.allSelected
+                  ? 'Снять выбор'
+                  : 'Выбрать все',
+              onPressed: () {
+                if (usersProvider.allSelected) {
+                  usersProvider.clearSelection();
+                } else {
+                  usersProvider.selectAllUsers();
+                }
+              },
+            ),
           ] else ...[
             Stack(
               alignment: Alignment.center,

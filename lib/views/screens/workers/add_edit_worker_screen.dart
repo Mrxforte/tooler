@@ -83,7 +83,7 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _role,
+                initialValue: _role,
                 decoration: const InputDecoration(
                     labelText: 'Роль', prefixIcon: Icon(Icons.work)),
                 items: const [

@@ -610,7 +610,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward, color: color.withOpacity(0.6)),
+              Icon(Icons.arrow_forward, color: color.withValues(alpha: 0.6)),
             ],
           ),
         ),
@@ -645,7 +645,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: color.withOpacity(0.15),
+                      color: color.withValues(alpha: 0.15),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(icon, color: color, size: 32),
@@ -695,11 +695,15 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
       final tempDir = await getTemporaryDirectory();
       final file = File('${tempDir.path}/tooler_backup_${DateTime.now().millisecondsSinceEpoch}.json');
       await file.writeAsString(jsonStr);
-      await Share.shareXFiles([XFile(file.path)],
-          text:
-              '📱 Резервная копия Tooler\n\n📅 Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}\n🛠️ Инструментов: ${tp.tools.length}\n🏢 Объектов: ${op.objects.length}\n\n— Создано в Tooler App —');
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(file.path)],
+        text:
+            '📱 Резервная копия Tooler\n\n📅 Дата: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}\n🛠️ Инструментов: ${tp.tools.length}\n🏢 Объектов: ${op.objects.length}\n\n— Создано в Tooler App —',
+      ));
+      if (!context.mounted) return;
       ErrorHandler.showSuccessDialog(context, 'Резервная копия создана');
     } catch (e) {
+      if (!context.mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
     }
   }

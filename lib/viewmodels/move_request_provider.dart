@@ -1,14 +1,14 @@
 // ignore_for_file: unused_field
 
-/// MoveRequestProvider - Extract from main.dart lines 2131-2173
-/// Provider for single tool move requests
+// MoveRequestProvider - Extract from main.dart lines 2131-2173
+// Provider for single tool move requests
 
 import 'package:flutter/material.dart';
 
 class MoveRequestProvider with ChangeNotifier {
-  // TODO: Extract full implementation from main.dart lines 2131-2173
-  
-  List<dynamic> _requests = [];
+  // NOTE: Extract full implementation from main.dart lines 2131-2173
+
+  final List<dynamic> _requests = [];
 
   List<dynamic> get pendingRequests => [];
 

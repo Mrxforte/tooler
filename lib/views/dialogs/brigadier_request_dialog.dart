@@ -12,6 +12,7 @@ class BrigadierRequestDialog extends StatefulWidget {
   final VoidCallback? onRequestCreated;
 
   const BrigadierRequestDialog({
+    super.key,
     required this.objectId,
     required this.requestType,
     required this.title,
@@ -38,35 +39,35 @@ class _BrigadierRequestDialogState extends State<BrigadierRequestDialog> {
     super.dispose();
   }
 
-  void _createRequest() {
+  Future<void> _createRequest() async {
     final reason = _reasonController.text.trim();
 
     final currentUser = context.read<AuthProvider>().user;
     final requestProvider = context.read<BrigadierRequestProvider>();
 
-    requestProvider
-        .createRequest(
-          brigadierId: currentUser?.uid ?? 'unknown',
-          objectId: widget.objectId,
-          type: widget.requestType,
-          data: {
-            'requestType': widget.requestType.toString().split('.').last,
-            'timestamp': DateTime.now().toIso8601String(),
-          },
-          reason: reason.isNotEmpty ? reason : null,
-        )
-        .then((_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Запрос отправлен администратору')),
-          );
-          widget.onRequestCreated?.call();
-          Navigator.pop(context);
-        })
-        .catchError((e) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка: $e')),
-          );
-        });
+    try {
+      await requestProvider.createRequest(
+        brigadierId: currentUser?.uid ?? 'unknown',
+        objectId: widget.objectId,
+        type: widget.requestType,
+        data: {
+          'requestType': widget.requestType.toString().split('.').last,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+        reason: reason.isNotEmpty ? reason : null,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Запрос отправлен администратору')),
+      );
+      widget.onRequestCreated?.call();
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Ошибка: $e')),
+      );
+    }
   }
 
   @override
@@ -88,7 +89,7 @@ class _BrigadierRequestDialogState extends State<BrigadierRequestDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
@@ -124,9 +125,9 @@ class _BrigadierRequestDialogState extends State<BrigadierRequestDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                  border: Border.all(color: Colors.orange.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -155,7 +156,7 @@ class _BrigadierRequestDialogState extends State<BrigadierRequestDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),

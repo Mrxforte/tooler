@@ -13,6 +13,7 @@ class Worker {
   DateTime createdAt;
   bool isFavorite;
   bool isSelected;
+  List<Map<String, dynamic>> vaxtas; // Work history records (payment periods)
 
   Worker({
     required this.id,
@@ -29,8 +30,10 @@ class Worker {
     DateTime? createdAt,
     this.isFavorite = false,
     this.isSelected = false,
+    List<Map<String, dynamic>>? vaxtas,
   })  : assignedObjectIds = assignedObjectIds ?? [],
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        vaxtas = vaxtas ?? [];
 
   factory Worker.fromJson(Map<String, dynamic> json) => Worker(
         id: json['id'] as String,
@@ -53,6 +56,7 @@ class Worker {
             : DateTime.now(),
         isFavorite: json['isFavorite'] as bool? ?? false,
         isSelected: json['isSelected'] as bool? ?? false,
+        vaxtas: json['vaxtas'] != null ? List<Map<String, dynamic>>.from(json['vaxtas'] as List) : [],
       );
 
   Map<String, dynamic> toJson() => {
@@ -70,6 +74,7 @@ class Worker {
         'createdAt': createdAt.toIso8601String(),
         'isFavorite': isFavorite,
         'isSelected': isSelected,
+        'vaxtas': vaxtas,
       };
 
   Worker copyWith({
@@ -87,6 +92,7 @@ class Worker {
     DateTime? createdAt,
     bool? isFavorite,
     bool? isSelected,
+    List<Map<String, dynamic>>? vaxtas,
   }) {
     return Worker(
       id: id ?? this.id,
@@ -103,6 +109,7 @@ class Worker {
       createdAt: createdAt ?? this.createdAt,
       isFavorite: isFavorite ?? this.isFavorite,
       isSelected: isSelected ?? this.isSelected,
+      vaxtas: vaxtas ?? this.vaxtas,
     );
   }
 }

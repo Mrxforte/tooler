@@ -24,7 +24,21 @@ class ObjectCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: ListTile(
+      elevation: object.isSelected ? 4 : 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: object.isSelected
+              ? Theme.of(context).colorScheme.primary
+              : Colors.transparent,
+          width: 2,
+        ),
+      ),
+      child: Container(
+        color: object.isSelected
+            ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
+            : null,
+        child: ListTile(
         leading: selectionMode
             ? Checkbox(
                 value: object.isSelected,
@@ -61,6 +75,7 @@ class ObjectCard extends StatelessWidget {
             objectsProvider.toggleObjectSelection(object.id);
           }
         },
+      ),
       ),
     );
   }

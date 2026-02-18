@@ -66,6 +66,7 @@ void main() async {
     Hive.registerAdapter(PenaltyAdapter());
     Hive.registerAdapter(AttendanceAdapter());
     Hive.registerAdapter(DailyWorkReportAdapter());
+    Hive.registerAdapter(BonusEntryAdapter());
 
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -246,8 +247,8 @@ class MyApp extends StatelessWidget {
                         ? ThemeMode.system
                         : ThemeMode.light,
                 routes: {
-                  '/home': (_) => MainHome(),
-                  '/auth': (_) => AuthFlow(),
+                  '/home': (_) => const MainHome(),
+                  '/auth': (_) => const AuthFlow(),
                 },
                 home: Consumer<AuthProvider>(
                   builder: (context, auth, _) {
@@ -267,7 +268,7 @@ class MyApp extends StatelessWidget {
                       );
                     }
                     // Show main app or auth flow based on login state
-                    return auth.isLoggedIn ? MainHome() : AuthFlow();
+                    return auth.isLoggedIn ? const MainHome() : const AuthFlow();
                   },
                 ),
               );
@@ -280,6 +281,7 @@ class MyApp extends StatelessWidget {
 }
 
 class AuthFlow extends StatelessWidget {
+  const AuthFlow({super.key});
   @override
   Widget build(BuildContext context) {
     return WelcomeScreen(
@@ -296,6 +298,7 @@ class AuthFlow extends StatelessWidget {
 }
 
 class MainHome extends StatefulWidget {
+  const MainHome({super.key});
   @override
   State<MainHome> createState() => _MainHomeState();
 }

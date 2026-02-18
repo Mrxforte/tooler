@@ -8,6 +8,7 @@ class BatchBonusDialog extends StatefulWidget {
   final VoidCallback? onBonusAdded;
 
   const BatchBonusDialog({
+    super.key,
     required this.selectedCount,
     this.onBonusAdded,
   });
@@ -34,7 +35,7 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
     super.dispose();
   }
 
-  void _giveBatchBonus() {
+  Future<void> _giveBatchBonus() async {
     final amountStr = _amountController.text.trim();
     final reason = _reasonController.text.trim();
 
@@ -63,11 +64,13 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
     final currentUser = context.read<AuthProvider>().user;
     final workerProvider = context.read<WorkerProvider>();
 
-    workerProvider.giveBonusToSelected(
-      amount: amount,
-      reason: reason,
-      givenBy: currentUser?.email ?? 'Unknown',
-    ).then((_) {
+    try {
+      await workerProvider.giveBonusToSelected(
+        amount: amount,
+        reason: reason,
+        givenBy: currentUser?.email ?? 'Unknown',
+      );
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -77,11 +80,12 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
       );
       widget.onBonusAdded?.call();
       Navigator.pop(context);
-    }).catchError((e) {
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ошибка: $e')),
       );
-    });
+    }
   }
 
   @override
@@ -103,7 +107,7 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: primaryColor.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Icons.card_giftcard, color: primaryColor, size: 24),
@@ -135,9 +139,9 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: primaryColor.withOpacity(0.1),
+                  color: primaryColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: primaryColor.withOpacity(0.3)),
+                  border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   children: [
@@ -166,7 +170,7 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),
@@ -184,7 +188,7 @@ class _BatchBonusDialogState extends State<BatchBonusDialog> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: primaryColor.withOpacity(0.3)),
+                    borderSide: BorderSide(color: primaryColor.withValues(alpha: 0.3)),
                   ),
                 ),
               ),

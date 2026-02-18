@@ -66,9 +66,11 @@ class _AuthScreenState extends State<AuthScreen> {
               try {
                 await FirebaseAuth.instance
                     .sendPasswordResetEmail(email: emailController.text.trim());
+                if (!context.mounted) return;
                 ErrorHandler.showSuccessDialog(context, 'Письмо для сброса пароля отправлено');
                 Navigator.pop(context);
               } catch (e) {
+                if (!context.mounted) return;
                 ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
               }
             },
@@ -173,7 +175,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         onTap: _pickProfileImage,
                         child: CircleAvatar(
                           radius: 60,
-                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

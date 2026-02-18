@@ -7,6 +7,7 @@ import '../models/worker.dart';
 import '../models/salary.dart';
 import '../models/attendance.dart';
 import '../models/sync_item.dart';
+import '../models/bonus_model.dart';
 
 class ToolAdapter extends TypeAdapter<Tool> {
   @override
@@ -190,4 +191,14 @@ class DailyWorkReportAdapter extends TypeAdapter<DailyWorkReport> {
   @override
   void write(BinaryWriter writer, DailyWorkReport obj) =>
       writer.writeMap(obj.toJson());
+}
+
+class BonusEntryAdapter extends TypeAdapter<BonusEntry> {
+  @override
+  final int typeId = 13;
+  @override
+  BonusEntry read(BinaryReader reader) => BonusEntry.fromJson(
+      reader.readMap().map((key, value) => MapEntry(key.toString(), value)));
+  @override
+  void write(BinaryWriter writer, BonusEntry obj) => writer.writeMap(obj.toJson());
 }

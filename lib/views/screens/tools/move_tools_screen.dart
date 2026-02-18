@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: library_private_types_in_public_api, use_build_context_synchronously
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -81,7 +81,7 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
                   child: ListTile(
                     leading: CircleAvatar(
                         backgroundColor:
-                            Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                            Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
                         child: Icon(Icons.build,
                             color: Theme.of(context).colorScheme.primary)),
                     title: Text(tool.title),
@@ -107,11 +107,11 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
                       try {
                         await toolsProvider.moveSelectedTools(
                             _selectedLocationId!, _selectedLocationName!);
-                        if (mounted) Navigator.pop(context);
+                        if (!mounted) return;
+                        Navigator.pop(context);
                       } catch (e) {
-                        if (mounted) {
-                          ErrorHandler.showErrorDialog(context, 'Ошибка перемещения: $e');
-                        }
+                        if (!mounted) return;
+                        ErrorHandler.showErrorDialog(context, 'Ошибка перемещения: $e');
                       } finally {
                         if (mounted) setState(() => _isProcessing = false);
                       }
