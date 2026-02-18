@@ -7,6 +7,7 @@ class AppUser {
   final bool canMoveTools;
   final bool canControlObjects;
   final DateTime createdAt;
+  final bool isSelected;
 
   AppUser({
     required this.uid,
@@ -14,6 +15,7 @@ class AppUser {
     required this.role,
     this.canMoveTools = false,
     this.canControlObjects = false,
+    this.isSelected = false,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -36,4 +38,24 @@ class AppUser {
         'canControlObjects': canControlObjects,
         'createdAt': Timestamp.fromDate(createdAt),
       };
+
+  AppUser copyWith({
+    String? uid,
+    String? email,
+    String? role,
+    bool? canMoveTools,
+    bool? canControlObjects,
+    bool? isSelected,
+    DateTime? createdAt,
+  }) {
+    return AppUser(
+      uid: uid ?? this.uid,
+      email: email ?? this.email,
+      role: role ?? this.role,
+      canMoveTools: canMoveTools ?? this.canMoveTools,
+      canControlObjects: canControlObjects ?? this.canControlObjects,
+      isSelected: isSelected ?? this.isSelected,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 }

@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -43,11 +44,13 @@ class ObjectsProvider with ChangeNotifier {
   List<ConstructionObject> get favoriteObjects => _objects.where((o) => o.isFavorite).toList();
 
   void toggleSelectionMode() {
+    HapticFeedback.mediumImpact();
     _selectionMode = !_selectionMode;
     if (!_selectionMode) _deselectAllObjects();
     notifyListeners();
   }
   void toggleObjectSelection(String objectId) {
+    HapticFeedback.selectionClick();
     final index = _objects.indexWhere((o) => o.id == objectId);
     if (index != -1) {
       _objects[index] =

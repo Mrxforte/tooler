@@ -359,7 +359,7 @@ class _MainHomeState extends State<MainHome> {
             label: 'Работники',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.star),
+            icon: Icon(Icons.favorite),
             label: 'Избранное',
           ),
           BottomNavigationBarItem(

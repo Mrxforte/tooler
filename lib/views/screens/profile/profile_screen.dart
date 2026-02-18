@@ -357,6 +357,28 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                     ),
                     const SizedBox(height: 12),
                     _buildActionCard(
+                      title: 'Все инструменты',
+                      subtitle: 'Просмотр всех инструментов в системе',
+                      icon: Icons.build_circle,
+                      color: const Color(0xFF2563EB),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => GarageScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
+                      title: 'Все объекты',
+                      subtitle: 'Полный список объектов строительства',
+                      icon: Icons.domain,
+                      color: const Color(0xFF0891B2),
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => ObjectsListScreen()),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildActionCard(
                       title: 'Групповые запросы',
                       subtitle: 'Просмотрите групповые операции',
                       icon: Icons.group_work,

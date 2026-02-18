@@ -1,6 +1,7 @@
 /// WorkerProvider - Provider for worker management with selection and favorites
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../data/models/worker.dart';
 import '../data/repositories/local_database.dart';
 
@@ -17,6 +18,7 @@ class WorkerProvider with ChangeNotifier {
   List<Worker> get favoriteWorkers => _workers.where((w) => w.isFavorite).toList();
 
   void toggleSelectionMode() {
+    HapticFeedback.mediumImpact();
     _selectionMode = !_selectionMode;
     if (!_selectionMode) {
       for (var i = 0; i < _workers.length; i++) {
@@ -27,6 +29,7 @@ class WorkerProvider with ChangeNotifier {
   }
 
   void toggleWorkerSelection(String workerId) {
+    HapticFeedback.selectionClick();
     final index = _workers.indexWhere((w) => w.id == workerId);
     if (index != -1) {
       _workers[index] = _workers[index].copyWith(isSelected: !_workers[index].isSelected);

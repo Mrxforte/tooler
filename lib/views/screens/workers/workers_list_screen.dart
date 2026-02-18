@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, library_private_types_in_public_api
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/worker.dart';
@@ -14,6 +15,7 @@ import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
 import 'add_edit_worker_screen.dart';
 import 'worker_salary_screen.dart';
+import 'worker_details_screen.dart';
 
 class WorkersListScreen extends StatefulWidget {
   const WorkersListScreen({super.key});
@@ -162,6 +164,35 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                     ],
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: workerProvider.toggleSelectionMode,
+                        icon: const Icon(Icons.checklist),
+                        label: Text(workerProvider.selectionMode ? 'Отменить' : 'Выбрать'),
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      if (workerProvider.selectionMode && displayWorkers.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: workerProvider.selectAllWorkers,
+                          icon: const Icon(Icons.select_all),
+                          label: const Text('Все'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: displayWorkers.isEmpty
                       ? _buildEmptyWorkers(auth.isAdmin)
@@ -178,7 +209,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                                   context,
                                   MaterialPageRoute(
                                       builder: (context) =>
-                                          WorkerSalaryScreen(worker: worker))),
+                                          WorkerDetailsScreen(worker: worker))),
                             );
                           },
                         ),
@@ -554,6 +585,7 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
         ),
         child: InkWell(
           onTap: () {
+            HapticFeedback.selectionClick();
             _playBounceAnimation();
             if (widget.selectionMode) {
               workerProvider.toggleWorkerSelection(widget.worker.id);
@@ -563,6 +595,7 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
           },
           onLongPress: () {
             if (!widget.selectionMode) {
+              HapticFeedback.mediumImpact();
               workerProvider.toggleSelectionMode();
               workerProvider.toggleWorkerSelection(widget.worker.id);
               _playBounceAnimation();
@@ -680,6 +713,7 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
                           color: widget.worker.isFavorite ? Colors.red : null,
                         ),
                         onPressed: () {
+                          HapticFeedback.mediumImpact();
                           workerProvider.toggleFavorite(widget.worker.id);
                           _playBounceAnimation();
                         },

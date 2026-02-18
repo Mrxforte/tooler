@@ -57,13 +57,35 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Управление пользователями'),
+        title: usersProvider.selectionMode
+            ? Text('Выбрано: ${usersProvider.selectedUsers.length}')
+            : const Text('Управление пользователями'),
         elevation: 0,
+        leading: usersProvider.selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => usersProvider.toggleSelectionMode(),
+              )
+            : null,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () => usersProvider.loadUsers(),
-          ),
+          if (usersProvider.selectionMode) ...[
+            if (usersProvider.hasSelectedUsers)
+              IconButton(
+                icon: const Icon(Icons.select_all),
+                tooltip: 'Выбрать все',
+                onPressed: () => usersProvider.selectAllUsers(),
+              ),
+          ] else ...[
+            IconButton(
+              icon: const Icon(Icons.checklist),
+              tooltip: 'Выбрать',
+              onPressed: () => usersProvider.toggleSelectionMode(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              onPressed: () => usersProvider.loadUsers(),
+            ),
+          ],
         ],
       ),
       body: Column(
@@ -148,6 +170,28 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
         ],
       ),
+      floatingActionButton: usersProvider.selectionMode && usersProvider.hasSelectedUsers
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FloatingActionButton.extended(
+                  heroTag: 'delete_selected',
+                  onPressed: () => _showBatchDeleteDialog(context, usersProvider),
+                  backgroundColor: Colors.red,
+                  icon: const Icon(Icons.delete),
+                  label: Text('Удалить (${usersProvider.selectedUsers.length})'),
+                ),
+                const SizedBox(height: 12),
+                FloatingActionButton.extended(
+                  heroTag: 'change_role_selected',
+                  onPressed: () => _showBatchRoleChangeDialog(context, usersProvider),
+                  backgroundColor: Colors.blue,
+                  icon: const Icon(Icons.group),
+                  label: const Text('Изменить роль'),
+                ),
+              ],
+            )
+          : null,
     );
   }
 
@@ -190,22 +234,27 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           highlightColor: Colors.transparent,
         ),
         child: ExpansionTile(
-          leading: Container(
-            padding: const EdgeInsets.all(2),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [roleColor.withValues(alpha: 0.8), roleColor],
-              ),
-              shape: BoxShape.circle,
-            ),
-            child: CircleAvatar(
-              backgroundColor: roleColor,
-              child: Text(
-                user.email[0].toUpperCase(),
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ),
+          leading: usersProvider.selectionMode
+              ? Checkbox(
+                  value: user.isSelected,
+                  onChanged: (_) => usersProvider.toggleUserSelection(user.uid),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [roleColor.withValues(alpha: 0.8), roleColor],
+                    ),
+                    shape: BoxShape.circle,
+                  ),
+                  child: CircleAvatar(
+                    backgroundColor: roleColor,
+                    child: Text(
+                      user.email[0].toUpperCase(),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
           title: Text(user.email,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           subtitle: Row(
@@ -253,8 +302,13 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           ),
           trailing: IconButton(
             icon: const Icon(Icons.more_vert),
-            onPressed: () => _showUserActionsMenu(context, user, usersProvider),
+            onPressed: usersProvider.selectionMode
+                ? null
+                : () => _showUserActionsMenu(context, user, usersProvider),
           ),
+          onExpansionChanged: usersProvider.selectionMode
+              ? (_) => usersProvider.toggleUserSelection(user.uid)
+              : null,
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -512,5 +566,110 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       default:
         return 'Пользователь';
     }
+  }
+
+  void _showBatchDeleteDialog(BuildContext context, UsersProvider usersProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить выбранных пользователей?'),
+        content: Text(
+          'Вы уверены, что хотите удалить ${usersProvider.selectedUsers.length} пользователей?\n\n'
+          'Это действие нельзя отменить.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await usersProvider.deleteSelectedUsers();
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Пользователи удалены'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Удалить'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBatchRoleChangeDialog(BuildContext context, UsersProvider usersProvider) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Изменить роль'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Выберите новую роль для ${usersProvider.selectedUsers.length} пользователей:'),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.admin_panel_settings, color: Colors.red),
+              title: const Text('Администратор'),
+              onTap: () async {
+                Navigator.pop(context);
+                await usersProvider.updateSelectedUsersRole('admin');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Роль изменена на "Администратор"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.group, color: Colors.purple),
+              title: const Text('Бригадир'),
+              onTap: () async {
+                Navigator.pop(context);
+                await usersProvider.updateSelectedUsersRole('brigadir');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Роль изменена на "Бригадир"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.person, color: Colors.blue),
+              title: const Text('Пользователь'),
+              onTap: () async {
+                Navigator.pop(context);
+                await usersProvider.updateSelectedUsersRole('user');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Роль изменена на "Пользователь"'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+        ],
+      ),
+    );
   }
 }

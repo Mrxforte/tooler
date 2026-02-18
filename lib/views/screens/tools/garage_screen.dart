@@ -140,6 +140,19 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
+                      if (toolsProvider.selectionMode && garageTools.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: toolsProvider.selectAllTools,
+                          icon: const Icon(Icons.select_all),
+                          label: const Text('Все'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

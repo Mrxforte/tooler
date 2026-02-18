@@ -1,7 +1,7 @@
-// TODO: Extract from main_backup.dart
 // SelectionToolCard widget for displaying tools with selection mode support
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/tool.dart';
 import '../../viewmodels/tools_provider.dart';
@@ -22,9 +22,6 @@ class SelectionToolCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
     
-    // TODO: Extract full implementation from main_backup.dart
-    // This is a placeholder skeleton
-    
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: ListTile(
@@ -32,17 +29,34 @@ class SelectionToolCard extends StatelessWidget {
             ? Checkbox(
                 value: tool.isSelected,
                 onChanged: (_) {
+                  HapticFeedback.selectionClick();
                   toolsProvider.toggleToolSelection(tool.id);
                 },
               )
             : const Icon(Icons.build),
         title: Text(tool.title),
         subtitle: Text(tool.brand),
-        trailing: Icon(
-          tool.isFavorite ? Icons.star : Icons.star_border,
-          color: tool.isFavorite ? Colors.amber : null,
+        trailing: IconButton(
+          icon: Icon(
+            tool.isFavorite ? Icons.favorite : Icons.favorite_border,
+            color: tool.isFavorite ? Colors.red : null,
+          ),
+          onPressed: () {
+            HapticFeedback.mediumImpact();
+            toolsProvider.toggleFavorite(tool.id);
+          },
         ),
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        onLongPress: () {
+          if (!selectionMode) {
+            HapticFeedback.mediumImpact();
+            toolsProvider.toggleSelectionMode();
+            toolsProvider.toggleToolSelection(tool.id);
+          }
+        },
       ),
     );
   }

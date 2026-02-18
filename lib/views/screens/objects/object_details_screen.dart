@@ -76,7 +76,10 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
             builder: (context, op, _) => IconButton(
               icon: Icon(widget.object.isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: widget.object.isFavorite ? Colors.red : null),
-              onPressed: () => op.toggleFavorite(widget.object.id),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                op.toggleFavorite(widget.object.id);
+              },
             ),
           ),
         ],

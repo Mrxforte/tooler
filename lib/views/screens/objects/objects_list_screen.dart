@@ -81,6 +81,35 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                     onChanged: objectsProvider.setSearchQuery,
                   ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  child: Row(
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: objectsProvider.toggleSelectionMode,
+                        icon: const Icon(Icons.checklist),
+                        label: Text(objectsProvider.selectionMode ? 'Отменить' : 'Выбрать'),
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                      if (objectsProvider.selectionMode && displayObjects.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          onPressed: objectsProvider.selectAllObjects,
+                          icon: const Icon(Icons.select_all),
+                          label: const Text('Все'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
                 Expanded(
                   child: displayObjects.isEmpty
                       ? _buildEmptyObjectsScreen(auth.canControlObjects, _showFavoritesOnly)
@@ -90,7 +119,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                             final object = displayObjects[index];
                             return ObjectCard(
                               object: object,
-                              toolsProvider: toolsProvider,
+                              objectsProvider: objectsProvider,
                               selectionMode: objectsProvider.selectionMode,
                               onTap: () => Navigator.push(
                                   context,

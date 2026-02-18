@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -56,12 +57,14 @@ class ToolsProvider with ChangeNotifier {
   }
 
   void toggleSelectionMode() {
+    HapticFeedback.mediumImpact();
     _selectionMode = !_selectionMode;
     if (!_selectionMode) _deselectAllTools();
     notifyListeners();
   }
 
   void toggleToolSelection(String toolId) {
+    HapticFeedback.selectionClick();
     final index = _tools.indexWhere((t) => t.id == toolId);
     if (index != -1) {
       _tools[index] = _tools[index].copyWith(isSelected: !_tools[index].isSelected);

@@ -4,6 +4,7 @@ class SalaryEntry {
   DateTime date;
   double hoursWorked;
   double amount;
+  double bonus;
   String? notes;
 
   SalaryEntry({
@@ -12,6 +13,7 @@ class SalaryEntry {
     required this.date,
     this.hoursWorked = 0,
     this.amount = 0,
+    this.bonus = 0,
     this.notes,
   });
 
@@ -21,6 +23,7 @@ class SalaryEntry {
         date: DateTime.parse(json['date'] as String),
         hoursWorked: (json['hoursWorked'] as num?)?.toDouble() ?? 0,
         amount: (json['amount'] as num?)?.toDouble() ?? 0,
+        bonus: (json['bonus'] as num?)?.toDouble() ?? 0,
         notes: json['notes'] as String?,
       );
 
@@ -30,6 +33,7 @@ class SalaryEntry {
         'date': date.toIso8601String(),
         'hoursWorked': hoursWorked,
         'amount': amount,
+        'bonus': bonus,
         'notes': notes,
       };
 }

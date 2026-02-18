@@ -21,9 +21,11 @@ class WorkerSalaryScreen extends StatefulWidget {
 class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
   final _amountController = TextEditingController();
   final _reasonController = TextEditingController();
+  final _bonusController = TextEditingController();
   DateTime _selectedDate = DateTime.now();
   String _entryType = 'salary'; // salary, advance, penalty
   double _hoursWorked = 0;
+  double _bonus = 0;
   DateTime? _startDate;
   DateTime? _endDate;
 
@@ -348,6 +350,23 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
                       onChanged: (v) => _hoursWorked = double.tryParse(v) ?? 0,
                     ),
                     const SizedBox(height: 16),
+                    TextField(
+                      controller: _bonusController,
+                      decoration: InputDecoration(
+                        labelText: 'Бонус (₽)',
+                        prefixIcon: const Icon(Icons.card_giftcard),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        filled: true,
+                        fillColor: isDarkMode 
+                          ? Colors.grey.shade900 
+                          : Colors.grey.shade50,
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (v) => _bonus = double.tryParse(v) ?? 0,
+                    ),
+                    const SizedBox(height: 16),
                   ],
                   // Reason/Note field
                   TextField(
@@ -430,12 +449,14 @@ class _WorkerSalaryScreenState extends State<WorkerSalaryScreen> {
                                 Provider.of<SalaryProvider>(context, listen: false);
 
                             if (_entryType == 'salary') {
+                              final calculatedAmount = (widget.worker.hourlyRate * _hoursWorked) + _bonus;
                               await salaryProvider.addSalary(SalaryEntry(
                                 id: IdGenerator.generateSalaryId(),
                                 workerId: widget.worker.id,
                                 date: _selectedDate,
                                 hoursWorked: _hoursWorked,
-                                amount: amount,
+                                amount: calculatedAmount,
+                                bonus: _bonus,
                                 notes: _reasonController.text,
                               ));
                             } else if (_entryType == 'advance') {

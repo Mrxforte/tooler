@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -227,7 +228,7 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
                           value: DateFormat('dd.MM.yyyy').format(tool.updatedAt),
                           color: Colors.orange),
                       _buildDetailCard(
-                          icon: Icons.star,
+                          icon: Icons.favorite,
                           title: 'Статус',
                           value: tool.isFavorite ? 'Избранный' : 'Обычный',
                           color: Colors.purple),
