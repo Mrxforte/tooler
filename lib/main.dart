@@ -1294,6 +1294,7 @@ class ToolsProvider with ChangeNotifier {
   String _sortBy = 'date';
   bool _sortAscending = false;
   bool _selectionMode = false;
+  bool _cachedIsAdmin = false;
 
   // Filter properties
   String _filterLocation = 'all';
@@ -1491,6 +1492,10 @@ class ToolsProvider with ChangeNotifier {
     } catch (e) {
       print('Error setting sort: $e');
     }
+  }
+
+  void updateAdminStatus(bool isAdmin) {
+    _cachedIsAdmin = isAdmin;
   }
 
   Future<void> loadTools({bool forceRefresh = false}) async {
@@ -1923,22 +1928,9 @@ class ToolsProvider with ChangeNotifier {
         }
       }
 
-      // Pull changes from Firebase
+      // Pull changes from Firebase based on cached admin status
       try {
-        // Check if user is admin
-        bool isAdmin = false;
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-          isAdmin = userDoc.data()?['isAdmin'] as bool? ?? false;
-        } catch (e) {
-          print('Error checking admin status: $e');
-        }
-
-        // Fetch tools based on admin status
-        final snapshot = isAdmin
+        final snapshot = _cachedIsAdmin
             ? await FirebaseFirestore.instance
                 .collection('tools')
                 .get()
@@ -1969,6 +1961,7 @@ class ObjectsProvider with ChangeNotifier {
   String _sortBy = 'name';
   bool _sortAscending = true;
   bool _selectionMode = false;
+  bool _cachedIsAdmin = false;
 
   List<ConstructionObject> get objects => _getFilteredObjects();
   bool get isLoading => _isLoading;
@@ -2089,6 +2082,10 @@ class ObjectsProvider with ChangeNotifier {
     } catch (e) {
       print('Error setting sort: $e');
     }
+  }
+
+  void updateAdminStatus(bool isAdmin) {
+    _cachedIsAdmin = isAdmin;
   }
 
   Future<void> loadObjects({bool forceRefresh = false}) async {
@@ -2317,22 +2314,9 @@ class ObjectsProvider with ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Pull changes from Firebase
+      // Pull changes from Firebase based on cached admin status
       try {
-        // Check if user is admin
-        bool isAdmin = false;
-        try {
-          final userDoc = await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .get();
-          isAdmin = userDoc.data()?['isAdmin'] as bool? ?? false;
-        } catch (e) {
-          print('Error checking admin status: $e');
-        }
-
-        // Fetch objects based on admin status
-        final snapshot = isAdmin
+        final snapshot = _cachedIsAdmin
             ? await FirebaseFirestore.instance
                 .collection('objects')
                 .get()
@@ -3062,8 +3046,10 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     super.initState();
     // Load tools when screen is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ToolsProvider>(context, listen: false);
-      provider.loadTools();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+      toolsProvider.updateAdminStatus(authProvider.isAdmin);
+      toolsProvider.loadTools();
     });
   }
 
@@ -3460,8 +3446,10 @@ class _ToolsListScreenState extends State<ToolsListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ToolsProvider>(context, listen: false);
-      provider.loadTools();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+      toolsProvider.updateAdminStatus(authProvider.isAdmin);
+      toolsProvider.loadTools();
     });
   }
 
@@ -5228,8 +5216,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<ObjectsProvider>(context, listen: false);
-      provider.loadObjects();
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+      objectsProvider.updateAdminStatus(authProvider.isAdmin);
+      objectsProvider.loadObjects();
     });
   }
 
@@ -5992,7 +5982,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ListTile(
                         leading: const Icon(Icons.key),
                         title: const Text('Секретное слово'),
-                        subtitle: Text('Текущее: ${authProvider.secretWord}'),
+                        subtitle: const Text('••••••••'),
                         trailing: const Icon(Icons.edit),
                         onTap: () => _showChangeSecretWordDialog(context, authProvider),
                       ),
@@ -6241,16 +6231,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
               );
 
               if (success) {
-                Navigator.pop(context);
-                ErrorHandler.showSuccessDialog(
-                  this.context,
-                  'Секретное слово успешно изменено',
-                );
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ErrorHandler.showSuccessDialog(
+                    context,
+                    'Секретное слово успешно изменено',
+                  );
+                }
               } else {
-                ErrorHandler.showErrorDialog(
-                  context,
-                  'Неверное текущее секретное слово',
-                );
+                if (context.mounted) {
+                  ErrorHandler.showErrorDialog(
+                    context,
+                    'Неверное текущее секретное слово',
+                  );
+                }
               }
             },
             child: const Text('Сохранить'),

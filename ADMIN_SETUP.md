@@ -59,10 +59,10 @@ When a user signs up, their document is created in the `users` collection. You c
 ## Admin Features
 
 ### 1. Secret Word Management
-- Default secret word: `admin123`
-- Admins can change this through the Profile screen
+- Admins can set and change a secret word through the Profile screen
 - The secret word is stored locally in SharedPreferences
 - To change it: Profile → Admin Panel → Secret Word
+- **Important**: Set a strong secret word on first use
 
 ### 2. View All Data
 - Admins automatically see all tools and objects from all users
@@ -120,8 +120,8 @@ To test admin functionality:
 
 **Can't change secret word:**
 - Ensure you're entering the current secret word correctly
-- Default is `admin123` unless changed
 - The field is case-sensitive
+- If you forgot the secret word, you may need to clear app data or reinstall
 
 **Not seeing all data:**
 - Ensure there are other users with tools/objects in the system
