@@ -21,6 +21,14 @@ class EnhancedObjectsListScreen extends StatefulWidget {
 class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showFavoritesOnly = false;
+  
+  // Advanced filters
+  String _sortBy = 'name'; // name, date, tools_count
+  DateTime? _createdDateFrom;
+  DateTime? _createdDateTo;
+  int _minToolCount = 0;
+  int _maxToolCount = 100;
+  List<String> _activeFilters = [];
 
   @override
   void initState() {
@@ -44,9 +52,58 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     final auth = Provider.of<AuthProvider>(context);
 
     List<ConstructionObject> displayObjects = objectsProvider.objects;
+    
+    // Apply filters
     if (_showFavoritesOnly) {
-      displayObjects = objectsProvider.favoriteObjects;
+      displayObjects = displayObjects.where((o) => o.isFavorite).toList();
     }
+    
+    // Apply date range filter
+    if (_createdDateFrom != null) {
+      displayObjects = displayObjects
+          .where((o) => o.createdAt.isAfter(_createdDateFrom!))
+          .toList();
+    }
+    if (_createdDateTo != null) {
+      displayObjects = displayObjects
+          .where((o) => o.createdAt.isBefore(_createdDateTo!.add(const Duration(days: 1))))
+          .toList();
+    }
+    
+    // Apply tool count filter
+    if (_minToolCount > 0 || _maxToolCount < 100) {
+      displayObjects = displayObjects
+          .where((o) => o.toolIds.length >= _minToolCount && o.toolIds.length <= _maxToolCount)
+          .toList();
+    }
+    
+    // Apply search filter
+    if (_searchController.text.isNotEmpty) {
+      final q = _searchController.text.toLowerCase();
+      displayObjects = displayObjects.where((o) =>
+          o.name.toLowerCase().contains(q) ||
+          o.description.toLowerCase().contains(q)).toList();
+    }
+    
+    // Apply sorting
+    switch (_sortBy) {
+      case 'date':
+        displayObjects.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'tools_count':
+        displayObjects.sort((a, b) => b.toolIds.length.compareTo(a.toolIds.length));
+        break;
+      case 'name':
+      default:
+        displayObjects.sort((a, b) => a.name.compareTo(b.name));
+    }
+    
+    // Calculate active filters count
+    _activeFilters.clear();
+    if (_showFavoritesOnly) _activeFilters.add('Избранные');
+    if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
+    if (_minToolCount > 0 || _maxToolCount < 100) _activeFilters.add('Инструменты');
+    if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
       appBar: AppBar(
@@ -56,6 +113,35 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
             icon: Icon(_showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
                 color: _showFavoritesOnly ? Colors.red : null),
             onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
+          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune),
+                onPressed: () => _showAdvancedFiltersPanel(context),
+              ),
+              if (_activeFilters.isNotEmpty && !_activeFilters.contains('Поиск'))
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_activeFilters.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           IconButton(
               icon: const Icon(Icons.refresh),
@@ -77,9 +163,20 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                       filled: true,
                       fillColor: Colors.grey.shade50,
                     ),
-                    onChanged: objectsProvider.setSearchQuery,
+                    onChanged: (_) => setState(() {}),
                   ),
                 ),
+                if (_activeFilters.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                    child: ElevatedButton(
+                      onPressed: _clearAllFilters,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade200,
+                      ),
+                      child: const Text('Сбросить фильтры'),
+                    ),
+                  ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
                   child: Row(
@@ -153,6 +250,209 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+  void _clearAllFilters() {
+    setState(() {
+      _showFavoritesOnly = false;
+      _sortBy = 'name';
+      _createdDateFrom = null;
+      _createdDateTo = null;
+      _minToolCount = 0;
+      _maxToolCount = 100;
+      _searchController.clear();
+    });
+  }
+
+  void _showAdvancedFiltersPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Расширенные фильтры',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Sort Option
+                const Text(
+                  'Сортировка',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _sortBy,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'name', child: Text('По названию')),
+                    DropdownMenuItem(value: 'date', child: Text('По дате создания')),
+                    DropdownMenuItem(value: 'tools_count', child: Text('По кол-ву инструментов')),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _sortBy = v ?? 'name');
+                    this.setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Tool Count Range
+                const Text(
+                  'Диапазон кол-ва инструментов',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Column(
+                  children: [
+                    Text('От $_minToolCount до $_maxToolCount'),
+                    RangeSlider(
+                      values: RangeValues(_minToolCount.toDouble(), _maxToolCount.toDouble()),
+                      min: 0,
+                      max: 100,
+                      divisions: 20,
+                      labels: RangeLabels(
+                        _minToolCount.toString(),
+                        _maxToolCount.toString(),
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          _minToolCount = v.start.toInt();
+                          _maxToolCount = v.end.toInt();
+                        });
+                        this.setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Created Date Range
+                const Text(
+                  'Диапазон даты создания',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _createdDateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _createdDateFrom = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _createdDateFrom != null
+                                ? '${_createdDateFrom!.day}.${_createdDateFrom!.month}.${_createdDateFrom!.year}'
+                                : 'От',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _createdDateTo ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _createdDateTo = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _createdDateTo != null
+                                ? '${_createdDateTo!.day}.${_createdDateTo!.month}.${_createdDateTo!.year}'
+                                : 'До',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _clearAllFilters();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Очистить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade200,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        this.setState(() {});
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Применить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade200,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildLoadingScreen() => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -261,7 +561,8 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await objectsProvider.deleteSelectedObjects();
+              await objectsProvider.deleteSelectedObjects(context: context);
+              await Future.delayed(const Duration(milliseconds: 2000));
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),

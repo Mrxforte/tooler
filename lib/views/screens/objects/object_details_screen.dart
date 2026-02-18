@@ -1,9 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -28,6 +25,16 @@ class ObjectDetailsScreen extends StatefulWidget {
 class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  
+  // Tools tab filters
+  final TextEditingController _toolsSearchController = TextEditingController();
+  String _toolsSortBy = 'name';
+  bool _toolsShowFavoritesOnly = false;
+  
+  // Workers tab filters
+  final TextEditingController _workersSearchController = TextEditingController();
+  String _workersSortBy = 'name';
+  bool _workersShowFavoritesOnly = false;
 
   @override
   void initState() {
@@ -41,6 +48,8 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _toolsSearchController.dispose();
+    _workersSearchController.dispose();
     super.dispose();
   }
 
@@ -49,11 +58,58 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final workerProvider = Provider.of<WorkerProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
-    final toolsOnObject =
+    var toolsOnObject =
         toolsProvider.tools.where((tool) => tool.currentLocation == widget.object.id).toList();
-    final workersOnObject = workerProvider.workers
+    var workersOnObject = workerProvider.workers
         .where((worker) => worker.assignedObjectIds.contains(widget.object.id))
         .toList();
+    
+    // Apply tools filters
+    if (_toolsShowFavoritesOnly) {
+      toolsOnObject = toolsOnObject.where((t) => t.isFavorite).toList();
+    }
+    if (_toolsSearchController.text.isNotEmpty) {
+      final q = _toolsSearchController.text.toLowerCase();
+      toolsOnObject = toolsOnObject.where((t) =>
+          t.title.toLowerCase().contains(q) ||
+          t.brand.toLowerCase().contains(q) ||
+          t.description.toLowerCase().contains(q)).toList();
+    }
+    // Apply tools sorting
+    switch (_toolsSortBy) {
+      case 'date':
+        toolsOnObject.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'brand':
+        toolsOnObject.sort((a, b) => a.brand.compareTo(b.brand));
+        break;
+      case 'name':
+      default:
+        toolsOnObject.sort((a, b) => a.title.compareTo(b.title));
+    }
+    
+    // Apply workers filters
+    if (_workersShowFavoritesOnly) {
+      workersOnObject = workersOnObject.where((w) => w.isFavorite).toList();
+    }
+    if (_workersSearchController.text.isNotEmpty) {
+      final q = _workersSearchController.text.toLowerCase();
+      workersOnObject = workersOnObject.where((w) =>
+          w.name.toLowerCase().contains(q) ||
+          w.email.toLowerCase().contains(q)).toList();
+    }
+    // Apply workers sorting
+    switch (_workersSortBy) {
+      case 'date':
+        workersOnObject.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'salary':
+        workersOnObject.sort((a, b) => b.hourlyRate.compareTo(a.hourlyRate));
+        break;
+      case 'name':
+      default:
+        workersOnObject.sort((a, b) => a.name.compareTo(b.name));
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -188,41 +244,141 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
               controller: _tabController,
               children: [
                 // Tools tab
-                toolsOnObject.isEmpty
-                    ? _buildEmptyState(
-                        icon: Icons.build,
-                        title: 'На объекте нет инструментов',
-                        subtitle: 'Переместите инструменты на этот объект',
-                      )
-                    : ListView.builder(
-                        itemCount: toolsOnObject.length,
-                        itemBuilder: (context, index) {
-                          final tool = toolsOnObject[index];
-                          return SelectionToolCard(
-                            tool: tool,
-                            selectionMode: false,
-                            onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        EnhancedToolDetailsScreen(tool: tool))),
-                          );
-                        },
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: TextField(
+                        controller: _toolsSearchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск инструментов...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          FilterChip(
+                            label: const Text('Все'),
+                            selected: !_toolsShowFavoritesOnly,
+                            onSelected: (_) => setState(() => _toolsShowFavoritesOnly = false),
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Избранные'),
+                            selected: _toolsShowFavoritesOnly,
+                            onSelected: (_) => setState(() => _toolsShowFavoritesOnly = !_toolsShowFavoritesOnly),
+                          ),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            hint: const Text('Сортировка'),
+                            value: _toolsSortBy,
+                            items: const [
+                              DropdownMenuItem(value: 'name', child: Text('По названию')),
+                              DropdownMenuItem(value: 'date', child: Text('По дате')),
+                              DropdownMenuItem(value: 'brand', child: Text('По бренду')),
+                            ],
+                            onChanged: (v) => setState(() => _toolsSortBy = v ?? 'name'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: toolsOnObject.isEmpty
+                          ? _buildEmptyState(
+                              icon: Icons.build,
+                              title: 'На объекте нет инструментов',
+                              subtitle: 'Переместите инструменты на этот объект',
+                            )
+                          : ListView.builder(
+                              itemCount: toolsOnObject.length,
+                              itemBuilder: (context, index) {
+                                final tool = toolsOnObject[index];
+                                return SelectionToolCard(
+                                  tool: tool,
+                                  selectionMode: false,
+                                  onTap: () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                          builder: (context) =>
+                                              EnhancedToolDetailsScreen(tool: tool))),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
                 // Workers tab
-                workersOnObject.isEmpty
-                    ? _buildEmptyState(
-                        icon: Icons.people,
-                        title: 'На объекте нет работников',
-                        subtitle: 'Назначьте работников на этот объект',
-                      )
-                    : ListView.builder(
-                        itemCount: workersOnObject.length,
-                        itemBuilder: (context, index) {
-                          final worker = workersOnObject[index];
-                          return _buildWorkerCard(context, worker, workerProvider);
-                        },
+                Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: TextField(
+                        controller: _workersSearchController,
+                        decoration: InputDecoration(
+                          hintText: 'Поиск работников...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        onChanged: (_) => setState(() {}),
                       ),
+                    ),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Row(
+                        children: [
+                          FilterChip(
+                            label: const Text('Все'),
+                            selected: !_workersShowFavoritesOnly,
+                            onSelected: (_) => setState(() => _workersShowFavoritesOnly = false),
+                          ),
+                          const SizedBox(width: 8),
+                          FilterChip(
+                            label: const Text('Избранные'),
+                            selected: _workersShowFavoritesOnly,
+                            onSelected: (_) => setState(() => _workersShowFavoritesOnly = !_workersShowFavoritesOnly),
+                          ),
+                          const SizedBox(width: 8),
+                          DropdownButton<String>(
+                            hint: const Text('Сортировка'),
+                            value: _workersSortBy,
+                            items: const [
+                              DropdownMenuItem(value: 'name', child: Text('По имени')),
+                              DropdownMenuItem(value: 'date', child: Text('По дате')),
+                              DropdownMenuItem(value: 'salary', child: Text('По ставке')),
+                            ],
+                            onChanged: (v) => setState(() => _workersSortBy = v ?? 'name'),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: workersOnObject.isEmpty
+                          ? _buildEmptyState(
+                              icon: Icons.people,
+                              title: 'На объекте нет работников',
+                              subtitle: 'Назначьте работников на этот объект',
+                            )
+                          : ListView.builder(
+                              itemCount: workersOnObject.length,
+                              itemBuilder: (context, index) {
+                                final worker = workersOnObject[index];
+                                return _buildWorkerCard(context, worker, workerProvider);
+                              },
+                            ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -338,14 +494,22 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen>
             ),
           ],
         ),
-        trailing: IconButton(
-          icon: Icon(
-            worker.isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: worker.isFavorite ? Colors.red : null,
-          ),
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            workerProvider.toggleFavorite(worker.id);
+        trailing: Consumer<WorkerProvider>(
+          builder: (context, wp, _) {
+            final currentWorker = wp.workers.firstWhere(
+              (w) => w.id == worker.id,
+              orElse: () => worker,
+            );
+            return IconButton(
+              icon: Icon(
+                currentWorker.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: currentWorker.isFavorite ? Colors.red : null,
+              ),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                wp.toggleFavorite(worker.id);
+              },
+            );
           },
         ),
       ),

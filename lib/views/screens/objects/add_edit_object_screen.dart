@@ -62,7 +62,10 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
     }
   }
   Future<void> _saveObject() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+      ErrorHandler.showErrorDialog(context, 'Пожалуйста, заполните все обязательные поля');
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
@@ -121,7 +124,8 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
                         onPressed: () async {
                           Navigator.pop(context);
                           await Provider.of<ObjectsProvider>(context, listen: false)
-                              .deleteObject(widget.object!.id);
+                              .deleteObject(widget.object!.id, context: context);
+                          await Future.delayed(const Duration(milliseconds: 2000));
                           Navigator.pop(context);
                         },
                         child: const Text('Удалить', style: TextStyle(color: Colors.red)),

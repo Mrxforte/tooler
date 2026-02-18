@@ -28,7 +28,9 @@ import '../admin/admin_settings_screen.dart';
 import '../workers/workers_list_screen.dart';
 import '../workers/brigadier_screen.dart';
 import '../tools/garage_screen.dart';
+import '../tools/tool_details_screen.dart';
 import '../objects/objects_list_screen.dart';
+import '../../widgets/selection_tool_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -176,21 +178,35 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                         builder: (context) =>
                             Scaffold(
                               appBar: AppBar(title: const Text('Все инструменты')),
-                              body: SingleChildScrollView(
-                                child: Column(
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.all(16),
-                                      child: Text(
-                                        'Всего инструментов: ${toolsProvider.totalTools}',
-                                        style: const TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
+                              body: Consumer<ToolsProvider>(
+                                builder: (context, tp, _) => tp.tools.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.build, size: 80, color: Colors.grey.shade300),
+                                            const SizedBox(height: 16),
+                                            const Text('Нет инструментов',
+                                                style: TextStyle(fontSize: 18, color: Colors.grey)),
+                                          ],
                                         ),
+                                      )
+                                    : ListView.builder(
+                                        itemCount: tp.tools.length,
+                                        itemBuilder: (context, index) {
+                                          final tool = tp.tools[index];
+                                          return SelectionToolCard(
+                                            tool: tool,
+                                            selectionMode: false,
+                                            onTap: () => Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (context) => EnhancedToolDetailsScreen(tool: tool),
+                                              ),
+                                            ),
+                                          );
+                                        },
                                       ),
-                                    ),
-                                  ],
-                                ),
                               ),
                             ),
                       ),

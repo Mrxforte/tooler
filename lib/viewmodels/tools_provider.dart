@@ -191,7 +191,7 @@ class ToolsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addTool(Tool tool, {File? imageFile}) async {
+  Future<void> addTool(Tool tool, {File? imageFile, BuildContext? context}) async {
     try {
       _isLoading = true;
       notifyListeners();
@@ -210,17 +210,21 @@ class ToolsProvider with ChangeNotifier {
       _tools.add(tool);
       await LocalDatabase.tools.put(tool.id, tool);
       await _addToSyncQueue(action: 'create', collection: 'tools', data: tool.toJson());
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент добавлен');
+      if (context != null) {
+        ErrorHandler.showSuccessDialog(context, 'Инструмент добавлен');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> updateTool(Tool tool, {File? imageFile}) async {
+  Future<void> updateTool(Tool tool, {File? imageFile, BuildContext? context}) async {
     try {
       _isLoading = true;
       notifyListeners();
@@ -241,35 +245,44 @@ class ToolsProvider with ChangeNotifier {
         _tools[index] = tool;
         await LocalDatabase.tools.put(tool.id, tool);
         await _addToSyncQueue(action: 'update', collection: 'tools', data: tool.toJson());
-        ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент обновлён');
+        if (context != null) {
+          ErrorHandler.showSuccessDialog(context, 'Инструмент обновлён');
+        }
       } else {
         throw Exception('Инструмент не найден');
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> deleteTool(String toolId) async {
+  Future<void> deleteTool(String toolId, {BuildContext? context}) async {
     try {
       final index = _tools.indexWhere((t) => t.id == toolId);
       if (index == -1) {
-        ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Инструмент не найден');
+        if (context != null) {
+          ErrorHandler.showErrorDialog(context, 'Инструмент не найден');
+        }
         return;
       }
       _tools.removeAt(index);
       await LocalDatabase.tools.delete(toolId);
       await _addToSyncQueue(action: 'delete', collection: 'tools', data: {'id': toolId});
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Инструмент удалён');
+      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showSuccessDialog(context, 'Инструмент успешно удалён');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
-    } finally {
-      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'Ошибка при удалении: $e');
+      }
     }
   }
 
@@ -469,6 +482,9 @@ class ToolsProvider with ChangeNotifier {
       } catch (e) {
         // Admin status check handled silently
       }
+
+      // Clear tools list before syncing to avoid duplicates
+      _tools.clear();
 
       Query query = FirebaseFirestore.instance.collection('tools');
       if (!isAdmin) {

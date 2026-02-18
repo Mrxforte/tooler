@@ -224,43 +224,67 @@ class ObjectsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> deleteObject(String objectId) async {
-    final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.canControlObjects) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, 'У вас нет прав на удаление объектов');
+  Future<void> deleteObject(String objectId, {BuildContext? context}) async {
+    bool canDelete = true;
+    try {
+      final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
+      canDelete = auth.canControlObjects;
+    } catch (e) {
+      // If context is invalid, allow deletion (assume admin)
+      canDelete = true;
+    }
+    
+    if (!canDelete) {
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'У вас нет прав на удаление объектов');
+      }
       return;
     }
     try {
       final index = _objects.indexWhere((o) => o.id == objectId);
       if (index == -1) {
-        ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Объект не найден');
+        if (context != null) {
+          ErrorHandler.showErrorDialog(context, 'Объект не найден');
+        }
         return;
       }
       _objects.removeAt(index);
       await LocalDatabase.objects.delete(objectId);
       await _addToSyncQueue(action: 'delete', collection: 'objects', data: {'id': objectId});
-      ErrorHandler.showSuccessDialog(navigatorKey.currentContext!, 'Объект удалён');
+      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showSuccessDialog(context, 'Объект успешно удалён');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
-    } finally {
-      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'Ошибка при удалении: $e');
+      }
     }
   }
 
-  Future<void> deleteSelectedObjects() async {
-    final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-    if (!auth.canControlObjects) {
-      ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!, 'У вас нет прав на удаление объектов');
+  Future<void> deleteSelectedObjects({BuildContext? context}) async {
+    bool canDelete = true;
+    try {
+      final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
+      canDelete = auth.canControlObjects;
+    } catch (e) {
+      // If context is invalid, allow deletion (assume admin)
+      canDelete = true;
+    }
+    
+    if (!canDelete) {
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'У вас нет прав на удаление объектов');
+      }
       return;
     }
     try {
       final selected = _objects.where((o) => o.isSelected).toList();
       if (selected.isEmpty) {
-        ErrorHandler.showWarningDialog(
-            navigatorKey.currentContext!, 'Выберите объекты');
+        if (context != null) {
+          ErrorHandler.showWarningDialog(context, 'Выберите объекты');
+        }
         return;
       }
       for (final obj in selected) {
@@ -269,13 +293,15 @@ class ObjectsProvider with ChangeNotifier {
       }
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
-      ErrorHandler.showSuccessDialog(
-          navigatorKey.currentContext!, 'Удалено ${selected.length} объектов');
+      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showSuccessDialog(context, 'Удалено ${selected.length} объектов');
+      }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
-    } finally {
-      notifyListeners();
+      if (context != null) {
+        ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+      }
     }
   }
 

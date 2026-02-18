@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../data/models/app_user.dart';
 import '../../../viewmodels/users_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 
@@ -15,12 +16,19 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String _filterRole = 'all';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
+  
+  // Advanced filters
+  String _sortBy = 'email'; // email, date, role
+  DateTime? _createdDateFrom;
+  DateTime? _createdDateTo;
+  String _permissionsFilter = 'all'; // all, can_move, can_control, both
+  List<String> _activeFilters = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<UsersProvider>(context, listen: false).loadUsers();
+      Provider.of<UsersProvider>(context, listen: false).loadUsers(forceRefresh: true);
     });
   }
 
@@ -44,16 +52,68 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     }
 
     // Apply filters
-    var filteredUsers = usersProvider.users;
+    var filteredUsers = List<AppUser>.from(usersProvider.users);
+    
+    // Role filter
     if (_filterRole != 'all') {
       filteredUsers =
           filteredUsers.where((u) => u.role == _filterRole).toList();
     }
+    
+    // Permissions filter
+    if (_permissionsFilter != 'all') {
+      filteredUsers = filteredUsers.where((u) {
+        switch (_permissionsFilter) {
+          case 'can_move':
+            return u.canMoveTools;
+          case 'can_control':
+            return u.canControlObjects;
+          case 'both':
+            return u.canMoveTools && u.canControlObjects;
+          default:
+            return true;
+        }
+      }).toList();
+    }
+    
+    // Date range filter
+    if (_createdDateFrom != null) {
+      filteredUsers = filteredUsers
+          .where((u) => u.createdAt.isAfter(_createdDateFrom!))
+          .toList();
+    }
+    if (_createdDateTo != null) {
+      filteredUsers = filteredUsers
+          .where((u) => u.createdAt.isBefore(_createdDateTo!.add(const Duration(days: 1))))
+          .toList();
+    }
+    
+    // Search filter
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       filteredUsers =
           filteredUsers.where((u) => u.email.toLowerCase().contains(q)).toList();
     }
+    
+    // Apply sorting
+    switch (_sortBy) {
+      case 'date':
+        filteredUsers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'role':
+        filteredUsers.sort((a, b) => a.role.compareTo(b.role));
+        break;
+      case 'email':
+      default:
+        filteredUsers.sort((a, b) => a.email.compareTo(b.email));
+    }
+    
+    // Calculate active filters count
+    _activeFilters.clear();
+    if (_filterRole != 'all') _activeFilters.add('Роль');
+    if (_permissionsFilter != 'all') _activeFilters.add('Доступ');
+    if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
+    if (_searchQuery.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
       appBar: AppBar(
@@ -76,6 +136,36 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 onPressed: () => usersProvider.selectAllUsers(),
               ),
           ] else ...[
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.tune),
+                  tooltip: 'Фильтры',
+                  onPressed: () => _showAdvancedFiltersPanel(context),
+                ),
+                if (_activeFilters.isNotEmpty && !_activeFilters.contains('Поиск'))
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${_activeFilters.length}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             IconButton(
               icon: const Icon(Icons.checklist),
               tooltip: 'Выбрать',
@@ -83,7 +173,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
             IconButton(
               icon: const Icon(Icons.refresh),
-              onPressed: () => usersProvider.loadUsers(),
+              onPressed: () => usersProvider.loadUsers(forceRefresh: true),
             ),
           ],
         ],
@@ -148,6 +238,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         selected: _filterRole == 'brigadir',
                         onSelected: (_) => setState(() => _filterRole = 'brigadir'),
                       ),
+                      if (_activeFilters.isNotEmpty) ...[
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _clearAllFilters,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade200,
+                          ),
+                          child: const Text('Сбросить'),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -192,6 +292,204 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ],
             )
           : null,
+    );
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _filterRole = 'all';
+      _sortBy = 'email';
+      _createdDateFrom = null;
+      _createdDateTo = null;
+      _permissionsFilter = 'all';
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
+
+  void _showAdvancedFiltersPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Расширенные фильтры',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Sort Option
+                const Text(
+                  'Сортировка',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _sortBy,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'email', child: Text('По email')),
+                    DropdownMenuItem(value: 'date', child: Text('По дате регистрации')),
+                    DropdownMenuItem(value: 'role', child: Text('По роли')),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _sortBy = v ?? 'email');
+                    this.setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Permissions Filter
+                const Text(
+                  'Фильтр по доступам',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _permissionsFilter,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Все')),
+                    DropdownMenuItem(value: 'can_move', child: Text('Могут перемещать')),
+                    DropdownMenuItem(value: 'can_control', child: Text('Могут управлять объектами')),
+                    DropdownMenuItem(value: 'both', child: Text('Оба доступа')),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _permissionsFilter = v ?? 'all');
+                    this.setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Date Range
+                const Text(
+                  'Диапазон даты регистрации',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _createdDateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _createdDateFrom = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _createdDateFrom != null
+                                ? '${_createdDateFrom!.day}.${_createdDateFrom!.month}.${_createdDateFrom!.year}'
+                                : 'От',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _createdDateTo ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _createdDateTo = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _createdDateTo != null
+                                ? '${_createdDateTo!.day}.${_createdDateTo!.month}.${_createdDateTo!.year}'
+                                : 'До',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _clearAllFilters();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Очистить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade200,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        this.setState(() {});
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Применить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade200,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

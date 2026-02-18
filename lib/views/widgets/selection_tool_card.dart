@@ -36,14 +36,18 @@ class SelectionToolCard extends StatelessWidget {
             : const Icon(Icons.build),
         title: Text(tool.title),
         subtitle: Text(tool.brand),
-        trailing: IconButton(
-          icon: Icon(
-            tool.isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: tool.isFavorite ? Colors.red : null,
-          ),
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            toolsProvider.toggleFavorite(tool.id);
+        trailing: Consumer<ToolsProvider>(
+          builder: (context, tp, _) {
+            return IconButton(
+              icon: Icon(
+                tool.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: tool.isFavorite ? Colors.red : null,
+              ),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                tp.toggleFavorite(tool.id);
+              },
+            );
           },
         ),
         onTap: () {

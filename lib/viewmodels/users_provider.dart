@@ -44,20 +44,35 @@ class UsersProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> loadUsers() async {
+  Future<void> loadUsers({bool forceRefresh = false}) async {
     _isLoading = true;
     notifyListeners();
     try {
+      // Force clear cache on refresh
+      if (forceRefresh) {
+        _users.clear();
+      }
+      
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .get();
+          .get(GetOptions(source: forceRefresh ? Source.server : Source.serverAndCache));
+      
       _users.clear();
       for (final doc in snapshot.docs) {
-        _users.add(AppUser.fromFirestore(doc));
+        try {
+          final user = AppUser.fromFirestore(doc);
+          _users.add(user);
+        } catch (e) {
+          // Error parsing user document
+        }
       }
+      
       _users.sort((a, b) => a.email.compareTo(b.email));
     } catch (e) {
-      // Silent error handling
+      // Error loading users, retry with server source if needed
+      if (!forceRefresh) {
+        await loadUsers(forceRefresh: true);
+      }
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -296,7 +296,6 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
   static Future<Uint8List> _generateWorkerReportPdf(Worker worker, List<SalaryEntry> salaries,
       List<Advance> advances, List<Penalty> penalties, DateTime startDate, DateTime endDate) async {
     final pdf = pw.Document();
-    final dateFormat = DateFormat('dd.MM.yyyy');
     final primaryColor = PdfColors.teal700;
     final font = await _loadFont();
 
@@ -392,7 +391,6 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
 
   static Future<Uint8List> _generateInventoryReportPdf(List<Tool> tools, List<ConstructionObject> objects) async {
     final pdf = pw.Document();
-    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.green700;
     final font = await _loadFont();
 

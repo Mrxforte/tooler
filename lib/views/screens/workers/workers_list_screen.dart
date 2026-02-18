@@ -29,6 +29,14 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   String _filterRole = 'all';
   String? _filterObject;
   bool _showFavoritesOnly = false;
+  
+  // Advanced filters
+  String _sortBy = 'name'; // name, date, salary
+  double _minHourlyRate = 0;
+  double _maxHourlyRate = 1000;
+  DateTime? _hireDateFrom;
+  DateTime? _hireDateTo;
+  List<String> _activeFilters = [];
 
   @override
   void initState() {
@@ -62,7 +70,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
     }
 
     // For brigadier, show only workers on his object
-    List<Worker> displayWorkers = workerProvider.workers;
+    List<Worker> displayWorkers = List<Worker>.from(workerProvider.workers);
     if (auth.isBrigadir) {
       // Assuming brigadier's assigned object is stored somewhere; we need to fetch.
       // For now, we'll just show all (you need to implement logic to get brigadier's object).
@@ -81,6 +89,25 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
     if (_showFavoritesOnly) {
       displayWorkers = displayWorkers.where((w) => w.isFavorite).toList();
     }
+    
+    // Advanced filters
+    if (_minHourlyRate > 0 || _maxHourlyRate < 1000) {
+      displayWorkers = displayWorkers
+          .where((w) => w.hourlyRate >= _minHourlyRate && w.hourlyRate <= _maxHourlyRate)
+          .toList();
+    }
+    if (_hireDateFrom != null) {
+      displayWorkers = displayWorkers
+          .where((w) => w.createdAt.isAfter(_hireDateFrom!))
+          .toList();
+    }
+    if (_hireDateTo != null) {
+      displayWorkers = displayWorkers
+          .where((w) => w.createdAt.isBefore(_hireDateTo!.add(const Duration(days: 1))))
+          .toList();
+    }
+    
+    // Apply search
     if (_searchController.text.isNotEmpty) {
       final q = _searchController.text.toLowerCase();
       displayWorkers = displayWorkers.where((w) =>
@@ -88,6 +115,27 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
           w.email.toLowerCase().contains(q) ||
           (w.nickname?.toLowerCase().contains(q) ?? false)).toList();
     }
+    
+    // Apply sorting
+    switch (_sortBy) {
+      case 'date':
+        displayWorkers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'salary':
+        displayWorkers.sort((a, b) => b.hourlyRate.compareTo(a.hourlyRate));
+        break;
+      case 'name':
+      default:
+        displayWorkers.sort((a, b) => a.name.compareTo(b.name));
+    }
+    
+    // Calculate active filters count
+    _activeFilters.clear();
+    if (_filterRole != 'all') _activeFilters.add('Роль');
+    if (_filterObject != null) _activeFilters.add('Объект');
+    if (_showFavoritesOnly) _activeFilters.add('Избранные');
+    if (_minHourlyRate > 0 || _maxHourlyRate < 1000) _activeFilters.add('Ставка');
+    if (_hireDateFrom != null || _hireDateTo != null) _activeFilters.add('Дата');
 
     return Scaffold(
       appBar: AppBar(
@@ -97,6 +145,35 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
             icon: Icon(_showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
                 color: _showFavoritesOnly ? Colors.red : null),
             onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
+          ),
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.tune),
+                onPressed: () => _showAdvancedFiltersPanel(context),
+              ),
+              if (_activeFilters.isNotEmpty)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '${_activeFilters.length}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
           if (auth.isAdmin)
             IconButton(
@@ -151,16 +228,25 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                         onSelected: (_) => setState(() => _filterRole = 'brigadir'),
                       ),
                       const SizedBox(width: 8),
-                      DropdownButton<String>(
+                      DropdownButton<String?>(
                         hint: const Text('Объект'),
                         value: _filterObject,
                         items: [
-                          const DropdownMenuItem(value: null, child: Text('Все объекты')),
+                          const DropdownMenuItem<String?>(value: null, child: Text('Все объекты')),
                           ...objectsProvider.objects.map((obj) =>
-                              DropdownMenuItem(value: obj.id, child: Text(obj.name))),
+                              DropdownMenuItem<String?>(value: obj.id, child: Text(obj.name))),
                         ],
                         onChanged: (v) => setState(() => _filterObject = v),
                       ),
+                      const SizedBox(width: 8),
+                      if (_activeFilters.isNotEmpty)
+                        ElevatedButton(
+                          onPressed: _clearAllFilters,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade200,
+                          ),
+                          child: const Text('Сбросить'),
+                        ),
                     ],
                   ),
                 ),
@@ -233,6 +319,211 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                 )
               : null),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _filterRole = 'all';
+      _filterObject = null;
+      _showFavoritesOnly = false;
+      _sortBy = 'name';
+      _minHourlyRate = 0;
+      _maxHourlyRate = 1000;
+      _hireDateFrom = null;
+      _hireDateTo = null;
+      _searchController.clear();
+    });
+  }
+
+  void _showAdvancedFiltersPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Расширенные фильтры',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Sort Option
+                const Text(
+                  'Сортировка',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _sortBy,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'name', child: Text('По имени')),
+                    DropdownMenuItem(value: 'date', child: Text('По дате найма')),
+                    DropdownMenuItem(value: 'salary', child: Text('По ставке')),
+                  ],
+                  onChanged: (v) {
+                    setState(() => _sortBy = v ?? 'name');
+                    this.setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+
+                // Hourly Rate Range
+                const Text(
+                  'Диапазон почасовой ставки',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Column(
+                  children: [
+                    Text('От ${_minHourlyRate.toStringAsFixed(2)} до ${_maxHourlyRate.toStringAsFixed(2)}'),
+                    RangeSlider(
+                      values: RangeValues(_minHourlyRate, _maxHourlyRate),
+                      min: 0,
+                      max: 1000,
+                      divisions: 100,
+                      labels: RangeLabels(
+                        _minHourlyRate.toStringAsFixed(0),
+                        _maxHourlyRate.toStringAsFixed(0),
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          _minHourlyRate = v.start;
+                          _maxHourlyRate = v.end;
+                        });
+                        this.setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Hire Date Range
+                const Text(
+                  'Диапазон даты найма',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _hireDateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _hireDateFrom = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _hireDateFrom != null
+                                ? '${_hireDateFrom!.day}.${_hireDateFrom!.month}.${_hireDateFrom!.year}'
+                                : 'От',
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: context,
+                            initialDate: _hireDateTo ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setState(() => _hireDateTo = date);
+                            this.setState(() {});
+                          }
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            _hireDateTo != null
+                                ? '${_hireDateTo!.day}.${_hireDateTo!.month}.${_hireDateTo!.year}'
+                                : 'До',
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _clearAllFilters();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Очистить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade200,
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        this.setState(() {});
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.check),
+                      label: const Text('Применить'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green.shade200,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -334,6 +625,8 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
     final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
     final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
     final selectedObjectIds = <String>[];
+    bool isProcessing = false;
+    
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -354,7 +647,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                       value: selected,
                       title: Text(obj.name),
                       dense: true,
-                      onChanged: (value) {
+                      onChanged: isProcessing ? null : (value) {
                         if (value == null) return;
                         setState(() {
                           if (value) {
@@ -372,16 +665,33 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: isProcessing ? null : () => Navigator.pop(context),
               child: const Text('Отмена'),
             ),
             TextButton(
-              onPressed: () async {
-                await workerProvider
-                    .moveSelectedWorkers(List<String>.from(selectedObjectIds));
-                Navigator.pop(context);
-              },
-              child: const Text('Переместить'),
+              onPressed: isProcessing
+                  ? null
+                  : () async {
+                      setState(() => isProcessing = true);
+                      try {
+                        await workerProvider.moveSelectedWorkers(
+                            List<String>.from(selectedObjectIds));
+                        if (context.mounted) Navigator.pop(context);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
+                        }
+                      } finally {
+                        if (context.mounted) setState(() => isProcessing = false);
+                      }
+                    },
+              child: isProcessing
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Переместить'),
             ),
           ],
         ),
@@ -707,15 +1017,23 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      IconButton(
-                        icon: Icon(
-                          widget.worker.isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: widget.worker.isFavorite ? Colors.red : null,
-                        ),
-                        onPressed: () {
-                          HapticFeedback.mediumImpact();
-                          workerProvider.toggleFavorite(widget.worker.id);
-                          _playBounceAnimation();
+                      Consumer<WorkerProvider>(
+                        builder: (context, wp, _) {
+                          final currentWorker = wp.workers.firstWhere(
+                            (w) => w.id == widget.worker.id,
+                            orElse: () => widget.worker,
+                          );
+                          return IconButton(
+                            icon: Icon(
+                              currentWorker.isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: currentWorker.isFavorite ? Colors.red : null,
+                            ),
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              wp.toggleFavorite(widget.worker.id);
+                              _playBounceAnimation();
+                            },
+                          );
                         },
                       ),
                       if (auth.isAdmin)

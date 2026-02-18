@@ -385,7 +385,8 @@ class EnhancedToolDetailsScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               await Provider.of<ToolsProvider>(context, listen: false)
-                  .deleteTool(tool.id);
+                  .deleteTool(tool.id, context: context);
+              await Future.delayed(const Duration(milliseconds: 2000));
               Navigator.pop(context);
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),

@@ -7,6 +7,7 @@ import '../../../data/models/worker.dart';
 import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/error_handler.dart';
 
 class AddEditWorkerScreen extends StatefulWidget {
   final Worker? worker;
@@ -157,7 +158,10 @@ class _AddEditWorkerScreenState extends State<AddEditWorkerScreen> {
   }
 
   Future<void> _saveWorker() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+      ErrorHandler.showErrorDialog(context, 'Пожалуйста, заполните все обязательные поля');
+      return;
+    }
 
     final worker = Worker(
       id: widget.worker?.id ?? IdGenerator.generateWorkerId(),

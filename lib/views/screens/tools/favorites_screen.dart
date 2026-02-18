@@ -93,6 +93,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
               : ListView.builder(
                   itemCount: favoriteTools.length,
                   itemBuilder: (context, index) {
+                    if (index >= favoriteTools.length) return SizedBox.shrink();
                     final tool = favoriteTools[index];
                     return SelectionToolCard(
                       tool: tool,
@@ -112,6 +113,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> with SingleTickerProv
               : ListView.builder(
                   itemCount: favoriteObjects.length,
                   itemBuilder: (context, index) {
+                    if (index >= favoriteObjects.length) return SizedBox.shrink();
                     final object = favoriteObjects[index];
                     return ObjectCard(
                       object: object,

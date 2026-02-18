@@ -17,6 +17,8 @@ class MoveToolsScreen extends StatefulWidget {
 class _MoveToolsScreenState extends State<MoveToolsScreen> {
   String? _selectedLocationId;
   String? _selectedLocationName;
+  bool _isProcessing = false;
+  
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
@@ -98,20 +100,33 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
               border: Border(top: BorderSide(color: Colors.grey.shade200)),
             ),
             child: ElevatedButton(
-              onPressed: () async {
-                if (_selectedLocationId == null || _selectedLocationName == null) {
-                  ErrorHandler.showWarningDialog(context, 'Выберите место назначения');
-                  return;
-                }
-                await toolsProvider.moveSelectedTools(
-                    _selectedLocationId!, _selectedLocationName!);
-                Navigator.pop(context);
-              },
+              onPressed: _isProcessing || _selectedLocationId == null || _selectedLocationName == null
+                  ? null
+                  : () async {
+                      setState(() => _isProcessing = true);
+                      try {
+                        await toolsProvider.moveSelectedTools(
+                            _selectedLocationId!, _selectedLocationName!);
+                        if (mounted) Navigator.pop(context);
+                      } catch (e) {
+                        if (mounted) {
+                          ErrorHandler.showErrorDialog(context, 'Ошибка перемещения: $e');
+                        }
+                      } finally {
+                        if (mounted) setState(() => _isProcessing = false);
+                      }
+                    },
               style: ElevatedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 50),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: Text('Переместить ${widget.selectedTools.length} инструментов'),
+              child: _isProcessing
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : Text('Переместить ${widget.selectedTools.length} инструментов'),
             ),
           ),
         ],

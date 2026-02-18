@@ -65,7 +65,9 @@ class WorkerProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     await LocalDatabase.init();
-    _workers = LocalDatabase.workers.values.toList()..sort((a, b) => a.name.compareTo(b.name));
+    final workersList = List<Worker>.from(LocalDatabase.workers.values);
+    workersList.sort((a, b) => a.name.compareTo(b.name));
+    _workers = workersList;
     _isLoading = false;
     notifyListeners();
   }

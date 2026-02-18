@@ -2,7 +2,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '
+import 'package:provider/provider.dart';
+import '../../data/models/construction_object.dart';
+import '../../viewmodels/objects_provider.dart';
+
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;
   final VoidCallback onTap;
@@ -33,14 +36,18 @@ class ObjectCard extends StatelessWidget {
             : const Icon(Icons.location_city),
         title: Text(object.name),
         subtitle: Text(object.description),
-        trailing: IconButton(
-          icon: Icon(
-            object.isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: object.isFavorite ? Colors.red : null,
-          ),
-          onPressed: () {
-            HapticFeedback.mediumImpact();
-            objectsProvider.toggleFavorite(object.id);
+        trailing: Consumer<ObjectsProvider>(
+          builder: (context, op, _) {
+            return IconButton(
+              icon: Icon(
+                object.isFavorite ? Icons.favorite : Icons.favorite_border,
+                color: object.isFavorite ? Colors.red : null,
+              ),
+              onPressed: () {
+                HapticFeedback.mediumImpact();
+                op.toggleFavorite(object.id);
+              },
+            );
           },
         ),
         onTap: () {

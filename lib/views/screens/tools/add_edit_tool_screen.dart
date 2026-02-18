@@ -69,7 +69,10 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
     }
   }
   Future<void> _saveTool() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
+      ErrorHandler.showErrorDialog(context, 'Пожалуйста, заполните все обязательные поля');
+      return;
+    }
     setState(() => _isLoading = true);
     try {
       final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
@@ -90,9 +93,9 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
         userId: authProvider.user?.uid ?? 'local',
       );
       if (widget.tool == null) {
-        await toolsProvider.addTool(tool, imageFile: _imageFile);
+        await toolsProvider.addTool(tool, imageFile: _imageFile, context: context);
       } else {
-        await toolsProvider.updateTool(tool, imageFile: _imageFile);
+        await toolsProvider.updateTool(tool, imageFile: _imageFile, context: context);
       }
       Navigator.pop(context);
     } catch (e) {
@@ -131,7 +134,8 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                         onPressed: () async {
                           Navigator.pop(context);
                           await Provider.of<ToolsProvider>(context, listen: false)
-                              .deleteTool(widget.tool!.id);
+                              .deleteTool(widget.tool!.id, context: context);
+                          await Future.delayed(const Duration(milliseconds: 2000));
                           Navigator.pop(context);
                         },
                         child: const Text('Удалить', style: TextStyle(color: Colors.red)),
