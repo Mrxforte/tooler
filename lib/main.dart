@@ -5809,10 +5809,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Менеджер инструментов',
-                      style: TextStyle(color: Colors.white70),
+                    Text(
+                      authProvider.isAdmin ? 'Администратор' : 'Менеджер инструментов',
+                      style: TextStyle(
+                        color: authProvider.isAdmin ? Colors.amber : Colors.white70,
+                        fontWeight: authProvider.isAdmin ? FontWeight.bold : FontWeight.normal,
+                      ),
                     ),
+                    if (authProvider.isAdmin)
+                      Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.amber,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'ADMIN',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -5943,6 +5963,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
+
+            // Admin Section - Only visible to admins
+            if (authProvider.isAdmin)
+              Card(
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.admin_panel_settings, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Администрирование',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      ListTile(
+                        leading: const Icon(Icons.key),
+                        title: const Text('Секретное слово'),
+                        subtitle: Text('Текущее: ${authProvider.secretWord}'),
+                        trailing: const Icon(Icons.edit),
+                        onTap: () => _showChangeSecretWordDialog(context, authProvider),
+                      ),
+                      const Divider(),
+                      ListTile(
+                        leading: const Icon(Icons.info_outline),
+                        title: const Text('Права администратора'),
+                        subtitle: const Text('Вы можете видеть и управлять всеми инструментами и объектами'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             // Actions
             Padding(
@@ -6107,6 +6170,94 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'Ошибка при создании резервной копии: $e',
       );
     }
+  }
+
+  void _showChangeSecretWordDialog(BuildContext context, AuthProvider authProvider) {
+    final currentWordController = TextEditingController();
+    final newWordController = TextEditingController();
+    final confirmWordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Изменить секретное слово'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: currentWordController,
+              decoration: const InputDecoration(
+                labelText: 'Текущее секретное слово',
+                prefixIcon: Icon(Icons.key),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: newWordController,
+              decoration: const InputDecoration(
+                labelText: 'Новое секретное слово',
+                prefixIcon: Icon(Icons.lock),
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: confirmWordController,
+              decoration: const InputDecoration(
+                labelText: 'Подтвердите новое слово',
+                prefixIcon: Icon(Icons.lock_outline),
+              ),
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (newWordController.text.isEmpty) {
+                ErrorHandler.showErrorDialog(
+                  context,
+                  'Новое секретное слово не может быть пустым',
+                );
+                return;
+              }
+
+              if (newWordController.text != confirmWordController.text) {
+                ErrorHandler.showErrorDialog(
+                  context,
+                  'Новые секретные слова не совпадают',
+                );
+                return;
+              }
+
+              final success = await authProvider.changeSecretWord(
+                currentWordController.text,
+                newWordController.text,
+              );
+
+              if (success) {
+                Navigator.pop(context);
+                ErrorHandler.showSuccessDialog(
+                  this.context,
+                  'Секретное слово успешно изменено',
+                );
+              } else {
+                ErrorHandler.showErrorDialog(
+                  context,
+                  'Неверное текущее секретное слово',
+                );
+              }
+            },
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
   }
 }
 
