@@ -9,6 +9,7 @@ import '../../../core/utils/error_handler.dart';
 import '../../../viewmodels/auth_provider.dart' as app_auth;
 import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
+import '../../../viewmodels/worker_provider.dart';
 import '../../widgets/selection_tool_card.dart';
 import 'add_edit_tool_screen.dart';
 import 'tool_details_screen.dart';
@@ -64,9 +65,9 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
     // Admin sees all tools, non-admin sees only garage tools
-    var garageTools = authProvider.isAdmin 
+    var garageTools = (authProvider.isAdmin 
         ? toolsProvider.tools
-        : toolsProvider.garageTools;
+        : toolsProvider.garageTools) ?? [];
     
     // Get unique brands for filter
     final allBrands = toolsProvider.tools
@@ -75,7 +76,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         .toList()
       ..sort();
 
-    // Apply filters
+    // Apply filters with null safety
     if (_filterBrand != null && _filterBrand != 'all') {
       garageTools = garageTools.where((t) => t.brand == _filterBrand).toList();
     }
@@ -154,29 +155,39 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                       const SizedBox(height: 20),
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _buildStatCard(
-                              context,
-                              '  Всего  ',
-                              '${toolsProvider.totalTools}',
-                              Icons.build,
-                            ),
-                            const SizedBox(width: 12),
-                            _buildStatCard(
-                              context,
-                              'В гараже',
-                              '${garageTools.length}',
-                              Icons.garage,
-                            ),
-                            const SizedBox(width: 12),
-                            _buildStatCard(
-                              context,
-                              'Избранные',
-                              '${toolsProvider.favoriteTools.length}',
-                              Icons.favorite,
-                            ),
-                          ],
+                        child: Consumer<WorkerProvider>(
+                          builder: (context, workerProvider, _) => Row(
+                            children: [
+                              _buildStatCard(
+                                context,
+                                '  Всего  ',
+                                '${toolsProvider.totalTools}',
+                                Icons.build,
+                              ),
+                              const SizedBox(width: 12),
+                              _buildStatCard(
+                                context,
+                                'В гараже',
+                                '${garageTools.length}',
+                                Icons.garage,
+                              ),
+                              const SizedBox(width: 12),
+                              _buildStatCard(
+                                context,
+                                'Избранные',
+                                '${toolsProvider.favoriteTools.length}',
+                                Icons.favorite,
+                              ),
+                              const SizedBox(width: 12),
+                              _buildStatCard(
+                                context,
+                                'Работники',
+                                '${workerProvider.workers.length}',
+                                Icons.person_outline,
+                                onTap: () => Navigator.pushNamed(context, '/workers'),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -533,40 +544,55 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     BuildContext context,
     String title,
     String value,
-    IconData icon,
-  ) =>
-      Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, size: 22, color: Colors.white),
-              const SizedBox(height: 6),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : Colors.white;
+    final iconColor = isDark ? Colors.white70 : Colors.white;
+    
+    final cardWidget = Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 22, color: iconColor),
+            const SizedBox(height: 6),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: textColor,
               ),
-              const SizedBox(height: 2),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Colors.white70,
-                  fontWeight: FontWeight.w500,
-                ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 11,
+                color: textColor.withOpacity(0.7),
+                fontWeight: FontWeight.w500,
               ),
-            ],
-          ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+    );
+    
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: cardWidget,
       );
+    }
+    return cardWidget;
+  }
 
   Widget _buildEmptyGarage(bool isAdmin) => Center(
         child: Column(
@@ -624,6 +650,14 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                   toolsProvider.toggleFavoriteForSelected();
                 },
               ),
+              ListTile(
+                leading: const Icon(Icons.content_copy, color: Colors.purple),
+                title: const Text('Дублировать выбранные'),
+                onTap: () async {
+                  Navigator.pop(context);
+                  await toolsProvider.duplicateSelectedTools();
+                },
+              ),
               if (auth.canMoveTools) ...[
                 ListTile(
                   leading: const Icon(Icons.move_to_inbox, color: Colors.blue),
@@ -679,23 +713,38 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
 
   void _showMultiDeleteDialog(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
+    final count = toolsProvider.selectedTools.length;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Подтверждение удаления'),
-        content:
-            Text('Удалить выбранные ${toolsProvider.selectedTools.length} инструментов?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Вы уверены, что хотите удалить $count инструментов из гаража?'),
+            const SizedBox(height: 8),
+            const Text(
+              'Это действие нельзя отменить.',
+              style: TextStyle(color: Colors.red, fontSize: 12),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Отмена'),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () async {
               Navigator.pop(context);
               await toolsProvider.deleteSelectedTools();
             },
-            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Удалить'),
           ),
         ],
       ),
