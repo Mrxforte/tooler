@@ -7,7 +7,6 @@ import '../../../data/models/worker.dart';
 import '../../../data/models/salary.dart';
 import '../../../data/models/attendance.dart';
 import '../../../data/models/bonus_model.dart';
-import '../../../data/models/vaxta.dart';
 import '../../../data/services/report_service.dart';
 import '../../../viewmodels/salary_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
@@ -1163,6 +1162,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         dayFraction: dayFraction,
         hoursWorked: 0,
         extraHours: 0,
+        present: true,
       );
       
       await salaryProvider.addAttendance(attendance);
@@ -1206,6 +1206,7 @@ class _WorkerDetailsScreenState extends State<WorkerDetailsScreen> {
         dayFraction: 0,
         hoursWorked: hours * 10, // Store as day units (10 hours = 1 day)
         extraHours: hours,
+        present: true,
       );
       
       await salaryProvider.addAttendance(attendance);

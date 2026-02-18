@@ -73,12 +73,13 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     final toolsProvider = Provider.of<ToolsProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
     // Admin sees all tools, non-admin sees only garage tools
-    var garageTools = authProvider.isAdmin 
+    final sourceTools = authProvider.isAdmin
         ? toolsProvider.tools
         : toolsProvider.garageTools;
+    var garageTools = List<Tool>.from(sourceTools ?? const <Tool>[]);
     
     // Get unique brands for filter
-    final allBrands = toolsProvider.tools
+    final allBrands = (toolsProvider.tools ?? const <Tool>[])
         .map((t) => t.brand)
         .toSet()
         .toList()
@@ -160,107 +161,109 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                       const SizedBox(height: 8),
                       Text('${garageTools.length} инструментов доступно',
                           style: const TextStyle(fontSize: 16, color: Colors.white70)),
-                      const SizedBox(height: 20),
-                      Consumer2<WorkerProvider, UsersProvider>(
-                        builder: (context, workerProvider, usersProvider, _) => Row(
-                          children: [
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                '  Всего  ',
-                                '${toolsProvider.totalTools}',
-                                Icons.build,
-                                onTap: () {
-                                  // Clear all filters to show all tools
-                                  setState(() {
-                                    _filterBrand = null;
-                                    _showFavoritesOnly = false;
-                                    _createdDateFrom = null;
-                                    _createdDateTo = null;
-                                    _searchController.clear();
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'В гараже',
-                                '${garageTools.length}',
-                                Icons.garage,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'Пользователи',
-                                '${usersProvider.users.length}',
-                                Icons.people,
-                                onTap: () {
-                                  if (authProvider.isAdmin) {
-                                    // Navigate to users screen for admin
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => const AdminUsersScreen(),
-                                      ),
-                                    );
-                                  } else {
-                                    // Show info dialog for non-admin
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Зарегистрированные пользователи'),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              'Всего пользователей: ${usersProvider.users.length}',
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'Управление пользователями доступно только администраторам.',
-                                              style: TextStyle(color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                            child: const Text('Закрыть'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: _buildStatCard(
-                                context,
-                                'Работники',
-                                '${workerProvider.workers.length}',
-                                Icons.person_outline,
-                                onTap: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => const WorkersListScreen(),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
+const SizedBox(height: 20),
+SingleChildScrollView(
+  scrollDirection: Axis.horizontal,
+  child: Consumer2<WorkerProvider, UsersProvider>(
+    builder: (context, workerProvider, usersProvider, _) => Row(
+      children: [
+        _buildStatCard(
+          context,
+          '  Всего  ',
+          '${toolsProvider.totalTools}',
+          Icons.build,
+          onTap: () {
+            // Clear all filters to show all tools
+            setState(() {
+              _filterBrand = null;
+              _showFavoritesOnly = false;
+              _createdDateFrom = null;
+              _createdDateTo = null;
+              _searchController.clear();
+            });
+          },
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          context,
+          'В гараже',
+          '${garageTools.length}',
+          Icons.garage,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          context,
+          'Избранные',
+          '${toolsProvider.favoriteTools.length}',
+          Icons.favorite,
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          context,
+          'Пользователи',
+          '${usersProvider.users.length}',
+          Icons.people,
+          onTap: () {
+            if (authProvider.isAdmin) {
+              // Navigate to users screen for admin
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdminUsersScreen(),
+                ),
+              );
+            } else {
+              // Show info dialog for non-admin
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Зарегистрированные пользователи'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Всего пользователей: ${usersProvider.users.length}',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Управление пользователями доступно только администраторам.',
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Закрыть'),
+                    ),
+                  ],
+                ),
+              );
+            }
+          },
+        ),
+        const SizedBox(width: 12),
+        _buildStatCard(
+          context,
+          'Работники',
+          '${workerProvider.workers.length}',
+          Icons.person_outline,
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const WorkersListScreen(),
+            ),
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                     ],
                   ),
                 ),
@@ -626,31 +629,41 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     final textColor = isDark ? Colors.white : Colors.white;
     final iconColor = isDark ? Colors.white70 : Colors.white;
     
-    final cardWidget = Container(
-        height: 120,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.15),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+final cardWidget = Container(
+    height: 120,
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: Colors.white.withOpacity(0.15),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: Colors.white.withOpacity(0.3)),
+    ),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(icon, size: 22, color: iconColor),
+        const SizedBox(height: 6),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: textColor,
+          ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 22, color: iconColor),
-            const SizedBox(height: 6),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-              ),
-            ),
-          ],
+        const SizedBox(height: 2),
+        Text(
+          title,
+          style: TextStyle(
+            fontSize: 11,
+            color: textColor.withOpacity(0.7),
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
         ),
-    );
+      ],
+    ),
+);
     
     if (onTap != null) {
       return GestureDetector(
