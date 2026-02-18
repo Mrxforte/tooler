@@ -144,27 +144,6 @@ void main() {
       expect(originalTool.isFavorite, false); // Original unchanged
     });
 
-    test('Tool duplicate creates copy with new ID', () {
-      final originalTool = Tool(
-        id: 'original-2',
-        title: 'Original Tool',
-        description: 'Test description',
-        brand: 'Test Brand',
-        uniqueId: 'TEST-002',
-        currentLocation: 'garage',
-        currentLocationName: 'Гараж',
-        userId: 'user-2',
-      );
-
-      final duplicatedTool = originalTool.duplicate(1);
-
-      expect(duplicatedTool.id, isNot(originalTool.id));
-      expect(duplicatedTool.title, contains('Копия'));
-      expect(duplicatedTool.description, originalTool.description);
-      expect(duplicatedTool.brand, originalTool.brand);
-      expect(duplicatedTool.uniqueId, contains('_copy_'));
-    });
-
     test('Tool displayImage returns correct image path', () {
       // Test with imageUrl
       final toolWithUrl = Tool(

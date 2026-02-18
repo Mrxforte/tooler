@@ -93,13 +93,6 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
                         );
                       }
                       break;
-                    case 'duplicate':
-                      if (tool.currentLocation == 'garage' && auth.isAdmin) {
-                        Provider.of<ToolsProvider>(context, listen: false)
-                            .duplicateTool(tool);
-                        Navigator.pop(context);
-                      }
-                      break;
                     case 'delete':
                       if (auth.isAdmin) {
                         _showDeleteConfirmation(context);
@@ -112,10 +105,6 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
                   if (auth.isAdmin) {
                     items.add(const PopupMenuItem(
                         value: 'edit', child: Text('Редактировать')));
-                  }
-                  if (tool.currentLocation == 'garage' && auth.isAdmin) {
-                    items.add(const PopupMenuItem(
-                        value: 'duplicate', child: Text('Дублировать')));
                   }
                   if (auth.isAdmin) {
                     items.add(const PopupMenuItem(
@@ -142,17 +131,23 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
                         ),
                       ),
                       Consumer<ToolsProvider>(
-                        builder: (context, tp, _) => IconButton(
-                          icon: Icon(
-                            tool.isFavorite ? Icons.favorite : Icons.favorite_border,
-                            color: tool.isFavorite ? Colors.red : null,
-                            size: 30,
-                          ),
-                          onPressed: () {
-                            HapticFeedback.mediumImpact();
-                            tp.toggleFavorite(tool.id);
-                          },
-                        ),
+                        builder: (context, tp, _) {
+                          final updatedTool = tp.tools.firstWhere(
+                            (t) => t.id == tool.id,
+                            orElse: () => tool,
+                          );
+                          return IconButton(
+                            icon: Icon(
+                              updatedTool.isFavorite ? Icons.favorite : Icons.favorite_border,
+                              color: updatedTool.isFavorite ? Colors.red : null,
+                              size: 30,
+                            ),
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              tp.toggleFavorite(tool.id);
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),

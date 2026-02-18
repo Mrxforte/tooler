@@ -93,16 +93,27 @@ class AdminSettingsProvider with ChangeNotifier {
     notifyListeners();
     
     try {
+      // Update in Firestore
       await _firestore
           .collection(_settingsCollection)
           .doc(_adminConfigDoc)
-          .set({
+          .update({
         'secretWord': newSecret,
         'updatedAt': FieldValue.serverTimestamp(),
+      }).catchError((_) {
+        // If document doesn't exist, create it
+        return _firestore
+            .collection(_settingsCollection)
+            .doc(_adminConfigDoc)
+            .set({
+          'secretWord': newSecret,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
       });
       
       // Update cache
       _cachedSecretWord = newSecret;
+      _error = null;
       
       _isLoading = false;
       notifyListeners();

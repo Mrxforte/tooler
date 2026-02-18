@@ -115,21 +115,6 @@ class Tool {
     );
   }
 
-  Tool duplicate(int copyNumber) => Tool(
-        id: '${DateTime.now().millisecondsSinceEpoch}',
-        title: '$title (Копия ${copyNumber > 1 ? copyNumber : ''})'.trim(),
-        description: description,
-        brand: brand,
-        uniqueId: '${uniqueId}_copy_$copyNumber',
-        imageUrl: imageUrl,
-        localImagePath: localImagePath,
-        currentLocation: currentLocation,
-        currentLocationName: currentLocationName,
-        locationHistory: List.from(locationHistory),
-        isFavorite: isFavorite,
-        userId: userId,
-      );
-
   String? get displayImage =>
       imageUrl?.isNotEmpty == true ? imageUrl : localImagePath?.isNotEmpty == true ? localImagePath : null;
 }

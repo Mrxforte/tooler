@@ -23,7 +23,7 @@ class Vaxta {
         id: json['id'] as String,
         workerId: json['workerId'] as String,
         workDays: json['workDays'] != null
-            ? (json['workDays'] as List).map((e) => Attendance.fromJson(e as Map<String, dynamic>)).toList()
+            ? (json['workDays'] as List).map((e) => Attendance.fromJson(Map<String, dynamic>.from(e as Map))).toList()
             : [],
         totalPaid: (json['totalPaid'] as num?)?.toDouble() ?? 0.0,
         paymentDate: DateTime.parse(json['paymentDate'] as String),

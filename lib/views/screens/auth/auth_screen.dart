@@ -1,11 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../data/services/image_service.dart';
 import '../../../core/utils/error_handler.dart';
+import 'password_recovery_screen.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -44,39 +44,10 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _showForgotPasswordDialog() async {
-    final TextEditingController emailController = TextEditingController();
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Сброс пароля'),
-        content: TextField(
-          controller: emailController,
-          decoration: const InputDecoration(
-              labelText: 'Email', hintText: 'Введите ваш email'),
-          keyboardType: TextInputType.emailAddress,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (emailController.text.isEmpty) return;
-              try {
-                await FirebaseAuth.instance
-                    .sendPasswordResetEmail(email: emailController.text.trim());
-                if (!context.mounted) return;
-                ErrorHandler.showSuccessDialog(context, 'Письмо для сброса пароля отправлено');
-                Navigator.pop(context);
-              } catch (e) {
-                if (!context.mounted) return;
-                ErrorHandler.showErrorDialog(context, 'Ошибка: $e');
-              }
-            },
-            child: const Text('Отправить'),
-          ),
-        ],
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PasswordRecoveryScreen(),
       ),
     );
   }

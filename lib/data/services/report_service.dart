@@ -107,7 +107,8 @@ class ReportService {
       if (reportType == ReportType.pdf) {
         final pdfBytes = await _generateToolReportPdf(tool);
         final tempDir = await getTemporaryDirectory();
-        final pdfFile = File('${tempDir.path}/tool_report_${tool.id}.pdf');
+        final fileName = 'Инструмент_${tool.title.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
+        final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
         await SharePlus.instance.share(ShareParams(
           files: [XFile(pdfFile.path)],
@@ -130,7 +131,8 @@ class ReportService {
       if (reportType == ReportType.pdf) {
         final pdfBytes = await _generateObjectReportPdf(object, toolsOnObject);
         final tempDir = await getTemporaryDirectory();
-        final pdfFile = File('${tempDir.path}/object_report_${object.id}.pdf');
+        final fileName = 'Объект_${object.name.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
+        final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
         await SharePlus.instance.share(ShareParams(
           files: [XFile(pdfFile.path)],
@@ -173,7 +175,8 @@ class ReportService {
           objects: objects ?? [],
         );
         final tempDir = await getTemporaryDirectory();
-        final pdfFile = File('${tempDir.path}/worker_report_${worker.id}.pdf');
+        final fileName = 'Работник_${worker.name.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
+        final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
         await SharePlus.instance.share(ShareParams(
           files: [XFile(pdfFile.path)],
@@ -902,7 +905,8 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
       if (reportType == ReportType.pdf) {
         final pdfBytes = await _generateInventoryReportPdf(tools, objects);
         final tempDir = await getTemporaryDirectory();
-        final pdfFile = File('${tempDir.path}/inventory_report_${DateTime.now().millisecondsSinceEpoch}.pdf');
+        final fileName = 'Инвентаризация_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
+        final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
         await SharePlus.instance.share(ShareParams(
           files: [XFile(pdfFile.path)],

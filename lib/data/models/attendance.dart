@@ -71,7 +71,7 @@ class DailyWorkReport {
         objectId: json['objectId'] as String,
         brigadierId: json['brigadierId'] as String,
         date: DateTime.parse(json['date'] as String),
-        attendanceIds: List<String>.from(json['attendanceIds']),
+        attendanceIds: (json['attendanceIds'] as List).map((e) => e.toString()).toList(),
         status: json['status'] as String? ?? 'pending',
         submittedAt: DateTime.parse(json['submittedAt'] as String),
       );

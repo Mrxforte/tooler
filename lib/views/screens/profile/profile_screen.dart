@@ -330,7 +330,7 @@ class _ProfileScreenState extends State<ProfileScreen> with WidgetsBindingObserv
                           onChanged: (v) {
                             if (v != null) _changeTheme(v);
                           },
-                          items: const [
+                          items: [
                             DropdownMenuItem(value: 'light', child: Text('Светлая')),
                             DropdownMenuItem(value: 'dark', child: Text('Темная')),
                             DropdownMenuItem(value: 'system', child: Text('Системная')),

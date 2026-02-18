@@ -7,6 +7,7 @@ import '../../../data/models/construction_object.dart';
 import '../../../data/services/report_service.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/tools_provider.dart';
+import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../views/widgets/object_card.dart';
 import 'object_details_screen.dart';
@@ -23,11 +24,13 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   bool _showFavoritesOnly = false;
   
   // Advanced filters
-  String _sortBy = 'name'; // name, date, tools_count
+  String _sortBy = 'name'; // name, date, tools_count, workers_count
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
   int _minToolCount = 0;
   int _maxToolCount = 100;
+  int _minWorkerCount = 0;
+  int _maxWorkerCount = 50;
   final List<String> _activeFilters = [];
 
   @override
@@ -49,9 +52,17 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   @override
   Widget build(BuildContext context) {
     final objectsProvider = Provider.of<ObjectsProvider>(context);
+    final workerProvider = Provider.of<WorkerProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
 
     List<ConstructionObject> displayObjects = objectsProvider.objects;
+    
+    // Helper function to count workers assigned to an object
+    int countWorkersForObject(String objectId) {
+      return workerProvider.workers
+          .where((w) => w.assignedObjectIds.contains(objectId))
+          .length;
+    }
     
     // Apply filters
     if (_showFavoritesOnly) {
@@ -77,6 +88,16 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           .toList();
     }
     
+    // Apply worker count filter
+    if (_minWorkerCount > 0 || _maxWorkerCount < 50) {
+      displayObjects = displayObjects
+          .where((o) {
+            final workerCount = countWorkersForObject(o.id);
+            return workerCount >= _minWorkerCount && workerCount <= _maxWorkerCount;
+          })
+          .toList();
+    }
+    
     // Apply search filter
     if (_searchController.text.isNotEmpty) {
       final q = _searchController.text.toLowerCase();
@@ -93,6 +114,11 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       case 'tools_count':
         displayObjects.sort((a, b) => b.toolIds.length.compareTo(a.toolIds.length));
         break;
+      case 'workers_count':
+        displayObjects.sort((a, b) => 
+          countWorkersForObject(b.id).compareTo(countWorkersForObject(a.id))
+        );
+        break;
       case 'name':
       default:
         displayObjects.sort((a, b) => a.name.compareTo(b.name));
@@ -103,6 +129,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     if (_showFavoritesOnly) _activeFilters.add('Избранные');
     if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
     if (_minToolCount > 0 || _maxToolCount < 100) _activeFilters.add('Инструменты');
+    if (_minWorkerCount > 0 || _maxWorkerCount < 50) _activeFilters.add('Работники');
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
@@ -258,6 +285,8 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       _createdDateTo = null;
       _minToolCount = 0;
       _maxToolCount = 100;
+      _minWorkerCount = 0;
+      _maxWorkerCount = 50;
       _searchController.clear();
     });
   }
@@ -310,6 +339,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                     DropdownMenuItem(value: 'name', child: Text('По названию')),
                     DropdownMenuItem(value: 'date', child: Text('По дате создания')),
                     DropdownMenuItem(value: 'tools_count', child: Text('По кол-ву инструментов')),
+                    DropdownMenuItem(value: 'workers_count', child: Text('По кол-ву работников')),
                   ],
                   onChanged: (v) {
                     setState(() => _sortBy = v ?? 'name');
@@ -340,6 +370,36 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                         setState(() {
                           _minToolCount = v.start.toInt();
                           _maxToolCount = v.end.toInt();
+                        });
+                        this.setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
+                // Worker Count Range
+                const Text(
+                  'Диапазон кол-ва работников',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Column(
+                  children: [
+                    Text('От $_minWorkerCount до $_maxWorkerCount'),
+                    RangeSlider(
+                      values: RangeValues(_minWorkerCount.toDouble(), _maxWorkerCount.toDouble()),
+                      min: 0,
+                      max: 50,
+                      divisions: 10,
+                      labels: RangeLabels(
+                        _minWorkerCount.toString(),
+                        _maxWorkerCount.toString(),
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          _minWorkerCount = v.start.toInt();
+                          _maxWorkerCount = v.end.toInt();
                         });
                         this.setState(() {});
                       },

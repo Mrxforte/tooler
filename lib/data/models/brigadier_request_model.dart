@@ -54,7 +54,7 @@ class BrigadierRequest {
             ? DateTime.parse(json['resolvedAt'] as String)
             : null,
         resolvedBy: json['resolvedBy'] as String?,
-        data: json['data'] as Map<String, dynamic>,
+        data: Map<String, dynamic>.from(json['data'] as Map),
         reason: json['reason'] as String?,
         rejectionReason: json['rejectionReason'] as String?,
       );

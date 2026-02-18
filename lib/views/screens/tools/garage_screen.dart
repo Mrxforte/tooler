@@ -13,10 +13,10 @@ import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/users_provider.dart';
 import '../../widgets/selection_tool_card.dart';
+import '../../widgets/custom_filter_chip.dart';
 import 'add_edit_tool_screen.dart';
 import 'tool_details_screen.dart';
 import 'move_tools_screen.dart';
-import '../workers/workers_list_screen.dart';
 import '../admin/users_screen.dart';
 
 // Export safe alias for main.dart
@@ -39,12 +39,15 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   final TextEditingController _searchController = TextEditingController();
   
   // Advanced filters
-  String _sortBy = 'name'; // name, date, brand
+  String _sortBy = 'name'; // name, date, brand, workers_count
   String? _filterBrand;
   bool _showFavoritesOnly = false;
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
+  int _minWorkerCount = 0;
+  int _maxWorkerCount = 50;
   final List<String> _activeFilters = [];
+  bool _loadingTimeout = false;
 
   @override
   void initState() {
@@ -52,7 +55,11 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     // Hide Android status bar for fullscreen
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<ToolsProvider>(context, listen: false).loadTools();
+      Provider.of<ToolsProvider>(context, listen: false).loadTools().catchError((_) {});
+      // Timeout after 3 seconds to prevent infinite loading
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _loadingTimeout = true);
+      });
     });
   }
 
@@ -71,19 +78,27 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
+    final workerProvider = Provider.of<WorkerProvider>(context);
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
     // Admin sees all tools, non-admin sees only garage tools
     final sourceTools = authProvider.isAdmin
         ? toolsProvider.tools
         : toolsProvider.garageTools;
-    var garageTools = List<Tool>.from(sourceTools ?? const <Tool>[]);
+    var garageTools = List<Tool>.from(sourceTools);
     
     // Get unique brands for filter
-    final allBrands = (toolsProvider.tools ?? const <Tool>[])
+    final allBrands = (toolsProvider.tools)
         .map((t) => t.brand)
         .toSet()
         .toList()
       ..sort();
+    
+    // Helper function to count workers assigned to a tool's location
+    int countWorkersAtLocation(String locationId) {
+      return workerProvider.workers
+          .where((w) => w.assignedObjectIds.contains(locationId))
+          .length;
+    }
 
     // Apply filters with null safety
     if (_filterBrand != null && _filterBrand != 'all') {
@@ -100,6 +115,16 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     if (_createdDateTo != null) {
       garageTools = garageTools
           .where((t) => t.createdAt.isBefore(_createdDateTo!.add(const Duration(days: 1))))
+          .toList();
+    }
+    
+    // Apply worker count filter
+    if (_minWorkerCount > 0 || _maxWorkerCount < 50) {
+      garageTools = garageTools
+          .where((t) {
+            final workerCount = countWorkersAtLocation(t.currentLocation);
+            return workerCount >= _minWorkerCount && workerCount <= _maxWorkerCount;
+          })
           .toList();
     }
     
@@ -121,6 +146,11 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
       case 'brand':
         garageTools.sort((a, b) => a.brand.compareTo(b.brand));
         break;
+      case 'workers_count':
+        garageTools.sort((a, b) => 
+          countWorkersAtLocation(b.currentLocation).compareTo(countWorkersAtLocation(a.currentLocation))
+        );
+        break;
       case 'name':
       default:
         garageTools.sort((a, b) => a.title.compareTo(b.title));
@@ -131,10 +161,11 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     if (_filterBrand != null && _filterBrand != 'all') _activeFilters.add('Бренд');
     if (_showFavoritesOnly) _activeFilters.add('Избранные');
     if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
+    if (_minWorkerCount > 0 || _maxWorkerCount < 50) _activeFilters.add('Работники');
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
-      body: toolsProvider.isLoading && garageTools.isEmpty
+      body: (toolsProvider.isLoading && garageTools.isEmpty && !_loadingTimeout)
           ? _buildLoadingScreen()
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -158,112 +189,100 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
                             color: Colors.white)),
-                      const SizedBox(height: 8),
                       Text('${garageTools.length} инструментов доступно',
                           style: const TextStyle(fontSize: 16, color: Colors.white70)),
-const SizedBox(height: 20),
-SingleChildScrollView(
-  scrollDirection: Axis.horizontal,
-  child: Consumer2<WorkerProvider, UsersProvider>(
-    builder: (context, workerProvider, usersProvider, _) => Row(
-      children: [
-        _buildStatCard(
-          context,
-          '  Всего  ',
-          '${toolsProvider.totalTools}',
-          Icons.build,
-          onTap: () {
-            // Clear all filters to show all tools
-            setState(() {
-              _filterBrand = null;
-              _showFavoritesOnly = false;
-              _createdDateFrom = null;
-              _createdDateTo = null;
-              _searchController.clear();
-            });
-          },
-        ),
-        const SizedBox(width: 12),
-        _buildStatCard(
-          context,
-          'В гараже',
-          '${garageTools.length}',
-          Icons.garage,
-        ),
-        const SizedBox(width: 12),
-        _buildStatCard(
-          context,
-          'Избранные',
-          '${toolsProvider.favoriteTools.length}',
-          Icons.favorite,
-        ),
-        const SizedBox(width: 12),
-        _buildStatCard(
-          context,
-          'Пользователи',
-          '${usersProvider.users.length}',
-          Icons.people,
-          onTap: () {
-            if (authProvider.isAdmin) {
-              // Navigate to users screen for admin
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AdminUsersScreen(),
-                ),
-              );
-            } else {
-              // Show info dialog for non-admin
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Зарегистрированные пользователи'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Всего пользователей: ${usersProvider.users.length}',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(height: 20),
+                      Consumer3<ToolsProvider, WorkerProvider, UsersProvider>(
+                        builder: (context, toolsProvider, workerProvider, usersProvider, _) =>
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              child: Row(
+                                children: [
+                                  _buildStatCard(
+                                    context,
+                                    '  Всего  ',
+                                    '${toolsProvider.totalTools}',
+                                    Icons.build,
+                                    onTap: () {
+                                      // Clear all filters to show all tools
+                                      setState(() {
+                                        _filterBrand = null;
+                                        _showFavoritesOnly = false;
+                                        _createdDateFrom = null;
+                                        _createdDateTo = null;
+                                        _searchController.clear();
+                                      });
+                                    },
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _buildStatCard(
+                                    context,
+                                    'В гараже',
+                                    '${garageTools.length}',
+                                    Icons.garage,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _buildStatCard(
+                                    context,
+                                    'Избранные',
+                                    '${toolsProvider.favoriteTools.length}',
+                                    Icons.favorite,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  _buildStatCard(
+                                    context,
+                                    'Пользователи',
+                                    '${usersProvider.users.length}',
+                                    Icons.people,
+                                    onTap: () {
+                                      if (authProvider.isAdmin) {
+                                        // Navigate to users screen for admin
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const AdminUsersScreen(),
+                                          ),
+                                        );
+                                      } else {
+                                        // Show info dialog for non-admin
+                                        showDialog(
+                                          context: context,
+                                          builder: (context) => AlertDialog(
+                                            title: const Text('Зарегистрированные пользователи'),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  'Всего пользователей: ${usersProvider.users.length}',
+                                                  style: const TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 12),
+                                                const Text(
+                                                  'Управление пользователями доступно только администраторам.',
+                                                  style: TextStyle(color: Colors.grey),
+                                                ),
+                                              ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(context),
+                                                child: const Text('Закрыть'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Управление пользователями доступно только администраторам.',
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Закрыть'),
-                    ),
-                  ],
-                ),
-              );
-            }
-          },
-        ),
-        const SizedBox(width: 12),
-        _buildStatCard(
-          context,
-          'Работники',
-          '${workerProvider.workers.length}',
-          Icons.person_outline,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const WorkersListScreen(),
-            ),
-          ),
-        ),
-      ],
-    ),
-  ),
-),
                     ],
                   ),
                 ),
@@ -286,18 +305,19 @@ SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
-                      FilterChip(
-                        label: const Text('Все'),
+                      CustomFilterChip(
+                        label: 'Все',
                         selected: _showFavoritesOnly == false,
                         onSelected: (_) => setState(() => _showFavoritesOnly = false),
                       ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Избранные'),
+                      const SizedBox(width: 16),
+                      CustomFilterChip(
+                        label: 'Избранные',
+                        icon: Icons.favorite,
                         selected: _showFavoritesOnly,
                         onSelected: (_) => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
                       DropdownButton<String?>(
                         hint: const Text('Бренд'),
                         value: _filterBrand,
@@ -308,7 +328,7 @@ SingleChildScrollView(
                         ],
                         onChanged: (v) => setState(() => _filterBrand = v),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 12),
                       Stack(
                         alignment: Alignment.center,
                         children: [
@@ -439,6 +459,8 @@ SingleChildScrollView(
       _sortBy = 'name';
       _createdDateFrom = null;
       _createdDateTo = null;
+      _minWorkerCount = 0;
+      _maxWorkerCount = 50;
       _searchController.clear();
     });
   }
@@ -491,6 +513,7 @@ SingleChildScrollView(
                     DropdownMenuItem(value: 'name', child: Text('По названию')),
                     DropdownMenuItem(value: 'date', child: Text('По дате добавления')),
                     DropdownMenuItem(value: 'brand', child: Text('По бренду')),
+                    DropdownMenuItem(value: 'workers_count', child: Text('По кол-ву работников')),
                   ],
                   onChanged: (v) {
                     setState(() => _sortBy = v ?? 'name');
@@ -568,6 +591,36 @@ SingleChildScrollView(
                 ),
                 const SizedBox(height: 20),
 
+                // Worker Count Range
+                const Text(
+                  'Диапазон кол-ва работников',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                Column(
+                  children: [
+                    Text('От $_minWorkerCount до $_maxWorkerCount'),
+                    RangeSlider(
+                      values: RangeValues(_minWorkerCount.toDouble(), _maxWorkerCount.toDouble()),
+                      min: 0,
+                      max: 50,
+                      divisions: 10,
+                      labels: RangeLabels(
+                        _minWorkerCount.toString(),
+                        _maxWorkerCount.toString(),
+                      ),
+                      onChanged: (v) {
+                        setState(() {
+                          _minWorkerCount = v.start.toInt();
+                          _maxWorkerCount = v.end.toInt();
+                        });
+                        this.setState(() {});
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+
                 // Action Buttons
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -630,12 +683,13 @@ SingleChildScrollView(
     final iconColor = isDark ? Colors.white70 : Colors.white;
     
 final cardWidget = Container(
-    height: 120,
+    height: 100,
+    width: 110,
     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.15),
+      color: Colors.white.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.white.withOpacity(0.3)),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
     ),
     child: Column(
       mainAxisSize: MainAxisSize.min,
@@ -656,7 +710,7 @@ final cardWidget = Container(
           title,
           style: TextStyle(
             fontSize: 11,
-            color: textColor.withOpacity(0.7),
+            color: textColor.withValues(alpha: 0.7),
             fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.center,
@@ -728,14 +782,6 @@ final cardWidget = Container(
                 onTap: () {
                   Navigator.pop(context);
                   toolsProvider.toggleFavoriteForSelected();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.content_copy, color: Colors.purple),
-                title: const Text('Дублировать выбранные'),
-                onTap: () async {
-                  Navigator.pop(context);
-                  await toolsProvider.duplicateSelectedTools();
                 },
               ),
               if (auth.canMoveTools) ...[

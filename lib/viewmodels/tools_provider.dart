@@ -312,46 +312,6 @@ class ToolsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> duplicateTool(Tool original) async {
-    try {
-      final copyCount = _tools
-              .where((t) => t.title.startsWith(original.title) && t.title.contains('Копия'))
-              .length +
-          1;
-      final newTool = original.copyWith(
-        id: IdGenerator.generateToolId(),
-        title: '${original.title} - Копия $copyCount',
-        isSelected: false,
-        isFavorite: false,
-      );
-      await addTool(newTool);
-    } catch (e, s) {
-      ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
-    }
-  }
-
-  Future<void> duplicateSelectedTools() async {
-    try {
-      final selected = _tools.where((t) => t.isSelected).toList();
-      if (selected.isEmpty) {
-        ErrorHandler.showWarningDialog(navigatorKey.currentContext!, 'Выберите инструменты');
-        return;
-      }
-      for (final tool in selected) {
-        await duplicateTool(tool);
-      }
-      _selectionMode = false;
-      ErrorHandler.showSuccessDialog(
-          navigatorKey.currentContext!, 'Продублировано ${selected.length} инструментов');
-    } catch (e, s) {
-      ErrorHandler.handleError(e, s);
-      ErrorHandler.showErrorDialog(navigatorKey.currentContext!, 'Ошибка: $e');
-    } finally {
-      notifyListeners();
-    }
-  }
-
   Future<void> toggleFavorite(String toolId) async {
     final index = _tools.indexWhere((t) => t.id == toolId);
     if (index == -1) return;

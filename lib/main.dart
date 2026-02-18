@@ -306,6 +306,17 @@ class MainHome extends StatefulWidget {
 class _MainHomeState extends State<MainHome> {
   int _navIndex = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    // Load workers, tools, objects on app startup
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<WorkerProvider>(context, listen: false).loadWorkers();
+      Provider.of<ToolsProvider>(context, listen: false).loadTools();
+      Provider.of<ObjectsProvider>(context, listen: false).loadObjects();
+    });
+  }
+
   Widget _buildScreen(int index) {
     switch (index) {
       case 0:
@@ -354,7 +365,7 @@ class _MainHomeState extends State<MainHome> {
             label: 'Гараж',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.location_on),
+            icon: Icon(Icons.location_city),
             label: 'Объекты',
           ),
           BottomNavigationBarItem(

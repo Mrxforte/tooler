@@ -6,13 +6,13 @@ import 'package:provider/provider.dart';
 
 import '../../../data/models/worker.dart';
 import '../../../data/models/salary.dart';
-import '../../../data/models/construction_object.dart';
 import '../../../viewmodels/worker_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../viewmodels/salary_provider.dart';
 import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../widgets/custom_filter_chip.dart';
 import 'add_edit_worker_screen.dart';
 import 'worker_salary_screen.dart';
 import 'worker_details_screen.dart';
@@ -37,12 +37,18 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
   DateTime? _hireDateFrom;
   DateTime? _hireDateTo;
   final List<String> _activeFilters = [];
+  bool _loadingTimeout = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<WorkerProvider>(context, listen: false).loadWorkers();
+      Provider.of<WorkerProvider>(context, listen: false).loadWorkers().catchError((_) {});
+      Provider.of<ObjectsProvider>(context, listen: false).loadObjects().catchError((_) {});
+      // Timeout after 3 seconds to prevent infinite loading
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) setState(() => _loadingTimeout = true);
+      });
     });
   }
 
@@ -187,7 +193,7 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
           ),
         ],
       ),
-      body: workerProvider.isLoading
+      body: (workerProvider.isLoading && !_loadingTimeout)
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
@@ -210,35 +216,38 @@ class _WorkersListScreenState extends State<WorkersListScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   child: Row(
                     children: [
-                      FilterChip(
-                        label: const Text('Все'),
+                      CustomFilterChip(
+                        label: 'Все',
                         selected: _filterRole == 'all',
                         onSelected: (_) => setState(() => _filterRole = 'all'),
                       ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Рабочий'),
+                      const SizedBox(width: 16),
+                      CustomFilterChip(
+                        label: 'Рабочий',
                         selected: _filterRole == 'worker',
+                        icon: Icons.work,
                         onSelected: (_) => setState(() => _filterRole = 'worker'),
                       ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Бригадир'),
+                      const SizedBox(width: 16),
+                      CustomFilterChip(
+                        label: 'Бригадир',
                         selected: _filterRole == 'brigadir',
+                        icon: Icons.admin_panel_settings,
                         onSelected: (_) => setState(() => _filterRole = 'brigadir'),
                       ),
-                      const SizedBox(width: 8),
-                      DropdownButton<String?>(
-                        hint: const Text('Объект'),
-                        value: _filterObject,
-                        items: [
-                          const DropdownMenuItem<String?>(value: null, child: Text('Все объекты')),
-                          ...objectsProvider.objects.map((obj) =>
-                              DropdownMenuItem<String?>(value: obj.id, child: Text(obj.name))),
-                        ],
-                        onChanged: (v) => setState(() => _filterObject = v),
-                      ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 16),
+                      if (objectsProvider.objects.isNotEmpty)
+                        DropdownButton<String?>(
+                          hint: const Text('Объект'),
+                          value: _filterObject,
+                          items: [
+                            const DropdownMenuItem<String?>(value: null, child: Text('Все объекты')),
+                            ...objectsProvider.objects.map((obj) =>
+                                DropdownMenuItem<String?>(value: obj.id, child: Text(obj.name))),
+                          ],
+                          onChanged: (v) => setState(() => _filterObject = v),
+                        ),
+                      const SizedBox(width: 12),
                       if (_activeFilters.isNotEmpty)
                         ElevatedButton(
                           onPressed: _clearAllFilters,
@@ -1012,6 +1021,16 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
                           ],
                         ),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.objectNames.join(', '),
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -1094,16 +1113,6 @@ class _WorkerCardState extends State<WorkerCard> with SingleTickerProviderStateM
                         ),
                     ],
                   ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.objectNames.join(', '),
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey[600],
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
               ],
             ),
           ),

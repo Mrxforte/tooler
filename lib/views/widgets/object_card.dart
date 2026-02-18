@@ -1,5 +1,6 @@
 // ObjectCard widget for displaying construction objects
 
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -47,7 +48,31 @@ class ObjectCard extends StatelessWidget {
                   objectsProvider.toggleObjectSelection(object.id);
                 },
               )
-            : const Icon(Icons.location_city),
+            : object.displayImage != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 56,
+                      height: 56,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: object.displayImage!.startsWith('http')
+                          ? Image.network(
+                              object.displayImage!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.location_city, size: 32),
+                            )
+                          : Image.file(
+                              File(object.displayImage!),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const Icon(Icons.location_city, size: 32),
+                            ),
+                    ),
+                  )
+                : const Icon(Icons.location_city, size: 32),
         title: Text(object.name),
         subtitle: Text(object.description),
         trailing: Consumer<ObjectsProvider>(

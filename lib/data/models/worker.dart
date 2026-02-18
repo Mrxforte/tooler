@@ -6,7 +6,7 @@ class Worker {
   String? phone;
   List<String> assignedObjectIds;
   String role;
-  double hourlyRate;
+  double hourlyRate; // Required field for salary calculation
   double dailyRate;
   double totalBonus; // Total bonuses earned
   double monthlyBonus; // Monthly bonus allowance
@@ -23,7 +23,7 @@ class Worker {
     this.phone,
     List<String>? assignedObjectIds,
     this.role = 'worker',
-    this.hourlyRate = 0.0,
+    required this.hourlyRate, // Now required
     this.dailyRate = 0.0,
     this.totalBonus = 0.0,
     this.monthlyBonus = 0.0,
@@ -41,11 +41,11 @@ class Worker {
         name: json['name'] as String,
         nickname: json['nickname'] as String?,
         phone: json['phone'] as String?,
-      assignedObjectIds: json['assignedObjectIds'] != null
-        ? List<String>.from(json['assignedObjectIds'] as List)
-        : json['assignedObjectId'] != null
-          ? [json['assignedObjectId'] as String]
-          : <String>[],
+        assignedObjectIds: json['assignedObjectIds'] != null
+            ? List<String>.from(json['assignedObjectIds'] as List)
+            : json['assignedObjectId'] != null
+              ? [json['assignedObjectId'] as String]
+              : <String>[],
         role: json['role'] as String? ?? 'worker',
         hourlyRate: (json['hourlyRate'] as num?)?.toDouble() ?? 0.0,
         dailyRate: (json['dailyRate'] as num?)?.toDouble() ?? 0.0,
@@ -56,7 +56,9 @@ class Worker {
             : DateTime.now(),
         isFavorite: json['isFavorite'] as bool? ?? false,
         isSelected: json['isSelected'] as bool? ?? false,
-        vaxtas: json['vaxtas'] != null ? List<Map<String, dynamic>>.from(json['vaxtas'] as List) : [],
+        vaxtas: json['vaxtas'] != null 
+            ? (json['vaxtas'] as List).map((e) => Map<String, dynamic>.from(e as Map)).toList()
+            : [],
       );
 
   Map<String, dynamic> toJson() => {

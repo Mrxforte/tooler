@@ -84,7 +84,7 @@ class BatchMoveRequest {
   factory BatchMoveRequest.fromJson(Map<String, dynamic> json) =>
       BatchMoveRequest(
         id: json['id'] as String,
-        toolIds: List<String>.from(json['toolIds']),
+        toolIds: (json['toolIds'] as List).map((e) => e.toString()).toList(),
         fromLocationId: json['fromLocationId'] as String,
         fromLocationName: json['fromLocationName'] as String,
         toLocationId: json['toLocationId'] as String,

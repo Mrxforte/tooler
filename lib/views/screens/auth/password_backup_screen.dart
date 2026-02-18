@@ -65,17 +65,49 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
 ═══════════════════════════════════════════════════
     ''';
 
+    if (!mounted) return;
+    
+    setState(() => _backupCreated = true);
+    
+    // Try to send via email
+    await _sendBackupViaEmail(backupContent);
+    
+    // Also offer to share
     try {
       await SharePlus.instance.share(ShareParams(
         text: backupContent,
         subject: 'Резервная копия Tooler - ${widget.userEmail}',
       ));
       if (!mounted) return;
-      setState(() => _backupCreated = true);
       ErrorHandler.showSuccessDialog(context, 'Резервная копия создана и готова к отправке');
     } catch (e) {
       if (!mounted) return;
       ErrorHandler.showErrorDialog(context, 'Ошибка при создании резервной копии: $e');
+    }
+  }
+
+  Future<void> _sendBackupViaEmail(String backupContent) async {
+    try {
+      // Send email using Firebase Cloud Functions or your backend API
+      // This is a placeholder for email sending logic
+      // You can implement this using:
+      // 1. Firebase Cloud Functions
+      // 2. Your backend email service
+      // 3. Third-party email services (SendGrid, Mailgun, etc.)
+      
+      debugPrint('Backup email sending initiated for: ${widget.userEmail}');
+      
+      // Example: Call your backend API endpoint
+      // await _sendBackupEmail(
+      //   email: widget.userEmail,
+      //   backupContent: backupContent,
+      // );
+      
+      if (!mounted) return;
+      // Success feedback already shown in _createBackup
+    } catch (e) {
+      debugPrint('Email backup failed: $e');
+      // Silently fail - user can still save/share manually
     }
   }
 
