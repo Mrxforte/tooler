@@ -179,113 +179,114 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                         bottomLeft: Radius.circular(30),
                         bottomRight: Radius.circular(30)),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 20),
-                      Text(
-                        authProvider.isAdmin ? 'Все инструменты' : 'Мой Гараж',
-                        style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white)),
-                      Text('${garageTools.length} инструментов доступно',
-                          style: const TextStyle(fontSize: 16, color: Colors.white70)),
-                      const SizedBox(height: 20),
-                      Consumer3<ToolsProvider, WorkerProvider, UsersProvider>(
-                        builder: (context, toolsProvider, workerProvider, usersProvider, _) =>
-                            SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                              child: Row(
-                                children: [
-                                  _buildStatCard(
-                                    context,
-                                    '  Всего  ',
-                                    '${toolsProvider.totalTools}',
-                                    Icons.build,
-                                    onTap: () {
-                                      // Clear all filters to show all tools
-                                      setState(() {
-                                        _filterBrand = null;
-                                        _showFavoritesOnly = false;
-                                        _createdDateFrom = null;
-                                        _createdDateTo = null;
-                                        _searchController.clear();
-                                      });
-                                    },
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildStatCard(
-                                    context,
-                                    'В гараже',
-                                    '${garageTools.length}',
-                                    Icons.garage,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildStatCard(
-                                    context,
-                                    'Избранные',
-                                    '${toolsProvider.favoriteTools.length}',
-                                    Icons.favorite,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  _buildStatCard(
-                                    context,
-                                    'Пользователи',
-                                    '${usersProvider.users.length}',
-                                    Icons.people,
-                                    onTap: () {
-                                      if (authProvider.isAdmin) {
-                                        // Navigate to users screen for admin
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) => const AdminUsersScreen(),
-                                          ),
-                                        );
-                                      } else {
-                                        // Show info dialog for non-admin
-                                        showDialog(
-                                          context: context,
-                                          builder: (context) => AlertDialog(
-                                            title: const Text('Зарегистрированные пользователи'),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: [
-                                                Text(
-                                                  'Всего пользователей: ${usersProvider.users.length}',
-                                                  style: const TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 12),
-                                                const Text(
-                                                  'Управление пользователями доступно только администраторам.',
-                                                  style: TextStyle(color: Colors.grey),
-                                                ),
-                                              ],
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(context),
-                                                child: const Text('Закрыть'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                      ),
-                    ],
-                  ),
+                //   child: Column(
+                //     crossAxisAlignment: CrossAxisAlignment.start,
+                //     children: [
+                //       const SizedBox(height: 20),
+                //       Text(
+                //         authProvider.isAdmin ? 'Все инструменты' : 'Мой Гараж',
+                //         style: const TextStyle(
+                //             fontSize: 32,
+                //             fontWeight: FontWeight.bold,
+                //             color: Colors.white)),
+                //       Text('${garageTools.length} инструментов доступно',
+                //           style: const TextStyle(fontSize: 16, color: Colors.white70)),
+                //       const SizedBox(height: 20),
+                //       Consumer3<ToolsProvider, WorkerProvider, UsersProvider>(
+                //         builder: (context, toolsProvider, workerProvider, usersProvider, _) =>
+                //             SingleChildScrollView(
+                //               scrollDirection: Axis.horizontal,
+                //               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                //               child: Row(
+                //                 children: [
+                //                   _buildStatCard(
+                //                     context,
+                //                     '  Всего  ',
+                //                     '${toolsProvider.totalTools}',
+                //                     Icons.build,
+                //                     onTap: () {
+                //                       // Clear all filters to show all tools
+                //                       setState(() {
+                //                         _filterBrand = null;
+                //                         _showFavoritesOnly = false;
+                //                         _createdDateFrom = null;
+                //                         _createdDateTo = null;
+                //                         _searchController.clear();
+                //                       });
+                //                     },
+                //                   ),
+                //                   const SizedBox(width: 12),
+                //                   _buildStatCard(
+                //                     context,
+                //                     'В гараже',
+                //                     '${garageTools.length}',
+                //                     Icons.garage,
+                //                   ),
+                //                   const SizedBox(width: 12),
+                //                   _buildStatCard(
+                //                     context,
+                //                     'Избранные',
+                //                     '${toolsProvider.favoriteTools.length}',
+                //                     Icons.favorite,
+                //                   ),
+                //                   const SizedBox(width: 12),
+                //                   _buildStatCard(
+                //                     context,
+                //                     'Пользователи',
+                //                     '${usersProvider.users.length}',
+                //                     Icons.people,
+                //                     onTap: () {
+                //                       if (authProvider.isAdmin) {
+                //                         // Navigate to users screen for admin
+                //                         Navigator.push(
+                //                           context,
+                //                           MaterialPageRoute(
+                //                             builder: (context) => const AdminUsersScreen(),
+                //                           ),
+                //                         );
+                //                       } else {
+                //                         // Show info dialog for non-admin
+                //                         showDialog(
+                //                           context: context,
+                //                           builder: (context) => AlertDialog(
+                //                             title: const Text('Зарегистрированные пользователи'),
+                //                             content: Column(
+                //                               mainAxisSize: MainAxisSize.min,
+                //                               crossAxisAlignment: CrossAxisAlignment.start,
+                //                               children: [
+                //                                 Text(
+                //                                   'Всего пользователей: ${usersProvider.users.length}',
+                //                                   style: const TextStyle(
+                //                                     fontSize: 16,
+                //                                     fontWeight: FontWeight.bold,
+                //                                   ),
+                //                                 ),
+                //                                 const SizedBox(height: 12),
+                //                                 const Text(
+                //                                   'Управление пользователями доступно только администраторам.',
+                //                                   style: TextStyle(color: Colors.grey),
+                //                                 ),
+                //                               ],
+                //                             ),
+                //                             actions: [
+                //                               TextButton(
+                //                                 onPressed: () => Navigator.pop(context),
+                //                                 child: const Text('Закрыть'),
+                //                               ),
+                //                             ],
+                //                           ),
+                //                         );
+                //                       }
+                //                     },
+                //                   ),
+                //                 ],
+                //               ),
+                //             ),
+                //       ),
+                //     ],
+                //   ),
                 ),
+                
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: TextField(
