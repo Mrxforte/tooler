@@ -82,6 +82,8 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       if (success) {
+        // Auth succeeded - AuthProvider notified listeners
+        // Show success message
         if (mounted) {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).clearSnackBars();
@@ -92,8 +94,12 @@ class _AuthScreenState extends State<AuthScreen> {
               duration: const Duration(milliseconds: 1500),
             ),
           );
-          // Clear auth screens and return to home (handled by Consumer in main.dart)
-          Navigator.popUntil(context, (route) => route.isFirst);
+          // Pop back to root so Consumer rebuilds with updated auth state and shows MainHome
+          Future.delayed(const Duration(milliseconds: 800), () {
+            if (mounted) {
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
+            }
+          });
         }
       } else {
         if (mounted) {
