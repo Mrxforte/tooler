@@ -540,6 +540,7 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
     ),
   );
   void _showDeleteConfirmation(BuildContext context) {
+    final outerContext = context;
     final auth = Provider.of<AuthProvider>(context, listen: false);
     if (!auth.isAdmin) {
       ErrorHandler.showErrorDialog(
@@ -550,23 +551,26 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
     }
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Подтверждение удаления'),
         content: Text('Удалить "${widget.tool.title}"?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Отмена'),
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(dialogContext);
               await Provider.of<ToolsProvider>(
-                context,
+                outerContext,
                 listen: false,
-              ).deleteTool(widget.tool.id, context: context);
+              ).deleteTool(widget.tool.id, context: outerContext);
+              if (!outerContext.mounted) return;
               await Future.delayed(const Duration(milliseconds: 2000));
-              Navigator.pop(context);
+              if (outerContext.mounted) {
+                Navigator.pop(outerContext);
+              }
             },
             child: const Text('Удалить', style: TextStyle(color: Colors.red)),
           ),
@@ -648,28 +652,38 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
                               ),
                               const Divider(),
                               ...objectsProvider.objects.map(
-                                (obj) => ListTile(
-                                  leading: const Icon(
-                                    Icons.location_city,
-                                    color: Colors.orange,
-                                  ),
-                                  title: Text(obj.name),
-                                  subtitle: Text(
-                                    'Инструментов: ${obj.toolIds.length}',
-                                  ),
-                                  trailing: selectedId == obj.id
-                                      ? const Icon(
-                                          Icons.check,
-                                          color: Colors.green,
-                                        )
-                                      : null,
-                                  onTap: () {
-                                    setState(() {
-                                      selectedId = obj.id;
-                                      selectedName = obj.name;
-                                    });
-                                  },
-                                ),
+                                (obj) {
+                                  // Calculate updated count after move
+                                  final isToolCurrentlyHere = tool.currentLocation == obj.id;
+                                  final updatedCount = isToolCurrentlyHere
+                                      ? obj.toolIds.length - 1  // Removing tool from this object
+                                      : obj.toolIds.length + 1; // Adding tool to this object
+                                  
+                                  return ListTile(
+                                    leading: const Icon(
+                                      Icons.location_city,
+                                      color: Colors.orange,
+                                    ),
+                                    title: Text(obj.name),
+                                    subtitle: Text(
+                                      selectedId == obj.id && selectedId != tool.currentLocation
+                                          ? 'Инструментов: ${obj.toolIds.length} → ${updatedCount.clamp(0, updatedCount)}'
+                                          : 'Инструментов: ${obj.toolIds.length}',
+                                    ),
+                                    trailing: selectedId == obj.id
+                                        ? const Icon(
+                                            Icons.check,
+                                            color: Colors.green,
+                                          )
+                                        : null,
+                                    onTap: () {
+                                      setState(() {
+                                        selectedId = obj.id;
+                                        selectedName = obj.name;
+                                      });
+                                    },
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -689,7 +703,8 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
                                 child: ElevatedButton(
                                   onPressed: () async {
                                     if (selectedId != null &&
-                                        selectedName != null) {
+                                        selectedName != null &&
+                                        selectedId != tool.currentLocation) {
                                       if (auth.canMoveTools) {
                                         await toolsProvider.moveTool(
                                           tool.id,

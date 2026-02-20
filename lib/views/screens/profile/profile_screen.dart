@@ -291,9 +291,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                 ),
               ),
+              // Summary Table Section
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Сводка инструментов и объектов',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              _buildSummaryTable(context, toolsProvider, objectsProvider),
               // Settings Section
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Text(
@@ -700,6 +714,162 @@ class _ProfileScreenState extends State<ProfileScreen>
     ),
   );
 
+  Widget _buildSummaryTable(
+    BuildContext context,
+    ToolsProvider toolsProvider,
+    ObjectsProvider objectsProvider,
+  ) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Column(
+            children: [
+              // Tools Table
+              DataTable(
+                headingRowColor: MaterialStatePropertyAll(
+                  Theme.of(context).colorScheme.primary.withValues(alpha: 0.2),
+                ),
+                headingRowHeight: 48,
+                dataRowHeight: 56,
+                columns: const [
+                  DataColumn(label: Expanded(child: Text('Инструмент', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(child: Text('Локация', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  DataColumn(label: Expanded(child: Text('Избр.', style: TextStyle(fontWeight: FontWeight.bold)))),
+                ],
+                rows: toolsProvider.tools.take(5).map((tool) {
+                  return DataRow(
+                    color: MaterialStatePropertyAll(
+                      toolsProvider.tools.indexOf(tool) % 2 == 0
+                          ? Colors.grey.withValues(alpha: 0.05)
+                          : null,
+                    ),
+                    cells: [
+                      DataCell(
+                        SizedBox(
+                          width: 150,
+                          child: Text(
+                            tool.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        SizedBox(
+                          width: 120,
+                          child: Text(
+                            tool.currentLocationName.isNotEmpty
+                                ? tool.currentLocationName
+                                : 'Нет',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.blue[600],
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ),
+                      DataCell(
+                        Icon(
+                          tool.isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: tool.isFavorite ? Colors.red : Colors.grey,
+                          size: 18,
+                        ),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+              if (toolsProvider.tools.length > 5) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '... и ещё ${toolsProvider.tools.length - 5} инструментов',
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              // Objects Table
+              if (objectsProvider.objects.isNotEmpty) ...[
+                DataTable(
+                  headingRowColor: MaterialStatePropertyAll(
+                    Colors.orange.withValues(alpha: 0.2),
+                  ),
+                  headingRowHeight: 48,
+                  dataRowHeight: 56,
+                  columns: const [
+                    DataColumn(label: Expanded(child: Text('Объект', style: TextStyle(fontWeight: FontWeight.bold)))),
+                    DataColumn(label: Expanded(child: Text('Инструментов', style: TextStyle(fontWeight: FontWeight.bold)))),
+                    DataColumn(label: Expanded(child: Text('Избр.', style: TextStyle(fontWeight: FontWeight.bold)))),
+                  ],
+                  rows: objectsProvider.objects.take(5).map((obj) {
+                    return DataRow(
+                      color: MaterialStatePropertyAll(
+                        objectsProvider.objects.indexOf(obj) % 2 == 0
+                            ? Colors.grey.withValues(alpha: 0.05)
+                            : null,
+                      ),
+                      cells: [
+                        DataCell(
+                          SizedBox(
+                            width: 150,
+                            child: Text(
+                              obj.name,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          SizedBox(
+                            width: 120,
+                            child: Text(
+                              '${obj.toolIds.length}',
+                              style: TextStyle(
+                                color: Colors.orange[600],
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Icon(
+                            obj.isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: obj.isFavorite ? Colors.red : Colors.grey,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+                if (objectsProvider.objects.length > 5) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      '... и ещё ${objectsProvider.objects.length - 5} объектов',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickProfileImage(AuthProvider auth) async {
     final file = await ImageService.pickImage();
     if (file != null) {
@@ -862,7 +1032,15 @@ class _FavoritesScreen extends StatelessWidget {
                         subtitle: object.description.isNotEmpty
                             ? Text(object.description)
                             : null,
-                        trailing: const Icon(Icons.favorite, color: Colors.red),
+                        trailing: IconButton(
+                          icon: Icon(
+                            object.isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: object.isFavorite ? Colors.red : Colors.grey,
+                          ),
+                          onPressed: () {
+                            objectsProvider.toggleFavorite(object.id);
+                          },
+                        ),
                         onTap: () {
                           Navigator.push(
                             context,

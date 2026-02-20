@@ -127,7 +127,6 @@ class _FavoritesScreenState extends State<FavoritesScreen>
                               ),
                             ),
                       subtitleOverride: tool.currentLocationName,
-                      trailingOverride: const Icon(Icons.picture_as_pdf, color: Colors.orange),
                     );
                   },
                 ),

@@ -231,6 +231,11 @@ class AuthProvider with ChangeNotifier {
     } on FirebaseAuthException catch (e) {
       _isLoading = false;
       notifyListeners();
+      // Re-throw email-already-in-use so auth_screen can handle with custom dialog
+      if (e.code == 'email-already-in-use') {
+        rethrow;
+      }
+      // For other errors, show error dialog
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
           navigatorKey.currentContext!,

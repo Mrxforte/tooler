@@ -598,12 +598,28 @@ class ToolsProvider with ChangeNotifier {
         return;
       }
 
-      final selectedCount = selected.length;
-      final selectedIds = selected.map((t) => t.id).toList();
+      // Filter out tools that are already at the target location
+      final movableTools = selected.where((t) => t.currentLocation != newLocationId).toList();
+      
+      if (movableTools.isEmpty) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) {
+          ErrorHandler.showInfoDialog(
+            ctx,
+            'Выбранные инструменты уже находятся в "$newLocationName"',
+          );
+        }
+        _selectionMode = false;
+        notifyListeners();
+        return;
+      }
+
+      final selectedCount = movableTools.length;
+      final selectedIds = movableTools.map((t) => t.id).toList();
 
       // Map to store old locations for each tool
       final Map<String, String> oldLocations = {};
-      for (final tool in selected) {
+      for (final tool in movableTools) {
         oldLocations[tool.id] = tool.currentLocation;
       }
 
@@ -611,7 +627,7 @@ class ToolsProvider with ChangeNotifier {
       final batch = FirebaseFirestore.instance.batch();
       final toolCollection = FirebaseFirestore.instance.collection('tools');
 
-      for (final tool in selected) {
+      for (final tool in movableTools) {
         final newHistory = LocationHistory(
           date: DateTime.now(),
           locationId: newLocationId,
@@ -741,12 +757,28 @@ class ToolsProvider with ChangeNotifier {
         return;
       }
 
-      final selectedCount = selected.length;
-      final selectedIds = selected.map((t) => t.id).toList();
+      // Filter out tools that are already at the target location
+      final movableTools = selected.where((t) => t.currentLocation != newLocationId).toList();
+      
+      if (movableTools.isEmpty) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null && ctx.mounted) {
+          ErrorHandler.showInfoDialog(
+            ctx,
+            'Выбранные инструменты уже находятся в "$newLocationName"',
+          );
+        }
+        _selectionMode = false;
+        notifyListeners();
+        return;
+      }
+
+      final selectedCount = movableTools.length;
+      final selectedIds = movableTools.map((t) => t.id).toList();
 
       // Map to store old locations for each tool
       final Map<String, String> oldLocations = {};
-      for (final tool in selected) {
+      for (final tool in movableTools) {
         oldLocations[tool.id] = tool.currentLocation;
       }
 
@@ -754,7 +786,7 @@ class ToolsProvider with ChangeNotifier {
       final batch = FirebaseFirestore.instance.batch();
       final toolCollection = FirebaseFirestore.instance.collection('tools');
 
-      for (final tool in selected) {
+      for (final tool in movableTools) {
         final newHistory = LocationHistory(
           date: DateTime.now(),
           locationId: newLocationId,

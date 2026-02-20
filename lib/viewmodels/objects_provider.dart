@@ -8,6 +8,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/models/construction_object.dart';
+import '../data/models/tool.dart';
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
 import 'auth_provider.dart' as app_auth;
@@ -263,8 +264,11 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> deleteObject(String objectId, {BuildContext? context}) async {
     bool canDelete = true;
     try {
-      final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-      canDelete = auth.canControlObjects;
+      final ctx = context ?? navigatorKey.currentContext;
+      if (ctx != null) {
+        final auth = Provider.of<app_auth.AuthProvider>(ctx, listen: false);
+        canDelete = auth.canControlObjects;
+      }
     } catch (e) {
       // If context is invalid, allow deletion (assume admin)
       canDelete = true;
@@ -285,10 +289,35 @@ class ObjectsProvider with ChangeNotifier {
         return;
       }
 
-      final toolsProvider = Provider.of<app_tools.ToolsProvider>(navigatorKey.currentContext!, listen: false);
-      final toolsToMove = toolsProvider.tools.where((t) => t.currentLocation == objectId).toList();
-      for (final tool in toolsToMove) {
-        await toolsProvider.moveTool(tool.id, 'garage', 'Гараж');
+      final ctx = context ?? navigatorKey.currentContext;
+      final toolsProvider = ctx != null ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false) : null;
+      final toolsToMove = toolsProvider?.tools.where((t) => t.currentLocation == objectId).toList() ?? [];
+      
+      // Batch update tools to garage location
+      if (toolsToMove.isNotEmpty && toolsProvider != null) {
+        final batch = FirebaseFirestore.instance.batch();
+        final toolCollection = FirebaseFirestore.instance.collection('tools');
+        
+        for (final tool in toolsToMove) {
+          final newHistory = LocationHistory(
+            date: DateTime.now(),
+            locationId: 'garage',
+            locationName: 'Гараж',
+          );
+          final updatedHistory = [...tool.locationHistory, newHistory];
+          
+          final updatedTool = tool.copyWith(
+            currentLocation: 'garage',
+            currentLocationName: 'Гараж',
+            updatedAt: DateTime.now(),
+            locationHistory: updatedHistory,
+          );
+          
+          batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
+        }
+        
+        await batch.commit();
+        toolsProvider.notifyListeners();
       }
 
       _objects.removeAt(index);
@@ -315,8 +344,11 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> deleteSelectedObjects({BuildContext? context}) async {
     bool canDelete = true;
     try {
-      final auth = Provider.of<app_auth.AuthProvider>(navigatorKey.currentContext!, listen: false);
-      canDelete = auth.canControlObjects;
+      final ctx = context ?? navigatorKey.currentContext;
+      if (ctx != null) {
+        final auth = Provider.of<app_auth.AuthProvider>(ctx, listen: false);
+        canDelete = auth.canControlObjects;
+      }
     } catch (e) {
       // If context is invalid, allow deletion (assume admin)
       canDelete = true;
@@ -336,6 +368,45 @@ class ObjectsProvider with ChangeNotifier {
         }
         return;
       }
+
+      final ctx = context ?? navigatorKey.currentContext;
+      final toolsProvider = ctx != null ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false) : null;
+      
+      // Batch update tools from all selected objects to garage location
+      final batch = FirebaseFirestore.instance.batch();
+      final toolCollection = FirebaseFirestore.instance.collection('tools');
+      
+      if (toolsProvider != null) {
+        for (final obj in selected) {
+          final toolsToMove = toolsProvider.tools.where((t) => t.currentLocation == obj.id).toList();
+          
+          for (final tool in toolsToMove) {
+            final newHistory = LocationHistory(
+              date: DateTime.now(),
+              locationId: 'garage',
+              locationName: 'Гараж',
+            );
+            final updatedHistory = [...tool.locationHistory, newHistory];
+            
+            final updatedTool = tool.copyWith(
+              currentLocation: 'garage',
+              currentLocationName: 'Гараж',
+              updatedAt: DateTime.now(),
+              locationHistory: updatedHistory,
+            );
+            
+            batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
+          }
+        }
+        
+        // Commit batch tool updates
+        if (selected.any((obj) => toolsProvider.tools.any((t) => t.currentLocation == obj.id))) {
+          await batch.commit();
+          toolsProvider.notifyListeners();
+        }
+      }
+      
+      // Delete objects from Firebase
       for (final obj in selected) {
         try {
           await FirebaseFirestore.instance.collection('objects').doc(obj.id).delete();
@@ -343,6 +414,7 @@ class ObjectsProvider with ChangeNotifier {
           // Firebase deletion error for individual object
         }
       }
+      
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
       notifyListeners();

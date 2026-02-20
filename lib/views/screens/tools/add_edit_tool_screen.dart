@@ -124,25 +124,28 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
             IconButton(
               icon: const Icon(Icons.delete),
               onPressed: () {
+                final outerContext = context;
                 showDialog(
                   context: context,
-                  builder: (context) => AlertDialog(
+                  builder: (dialogContext) => AlertDialog(
                     title: const Text('Подтверждение удаления'),
                     content: Text('Удалить "${widget.tool!.title}"?'),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(dialogContext),
                         child: const Text('Отмена'),
                       ),
                       TextButton(
                         onPressed: () async {
-                          Navigator.pop(context); // Close dialog
-                          final navigator = Navigator.of(context);
-                          await Provider.of<ToolsProvider>(context, listen: false)
-                              .deleteTool(widget.tool!.id, context: context);
+                          Navigator.pop(dialogContext); // Close dialog
+                          await Provider.of<ToolsProvider>(
+                            outerContext,
+                            listen: false,
+                          ).deleteTool(widget.tool!.id, context: outerContext);
+                          if (!outerContext.mounted) return;
                           await Future.delayed(const Duration(milliseconds: 500));
-                          if (context.mounted) {
-                            navigator.pop(); // Close screen
+                          if (outerContext.mounted) {
+                            Navigator.pop(outerContext); // Close screen
                           }
                         },
                         child: const Text('Удалить', style: TextStyle(color: Colors.red)),
