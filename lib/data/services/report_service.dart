@@ -14,6 +14,9 @@ import '../models/tool.dart';
 import '../models/construction_object.dart';
 // import '../models/salary.dart'; // Commented out - model doesn't exist
 import '../../core/utils/error_handler.dart';
+import '../../viewmodels/auth_provider.dart';
+import '../../viewmodels/tools_provider.dart';
+import '../../viewmodels/objects_provider.dart';
 
 enum ReportType { pdf, text, screenshot }
 
@@ -1051,5 +1054,347 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
 📅 Отчет создан: ${DateFormat('dd.MM.yyyy HH:mm').format(DateTime.now())}
 © Tooler App
     ''';
+  }
+
+  /// Generate and share a professional profile report
+  static Future<void> generateProfileReport(
+    AuthProvider authProvider,
+    ToolsProvider toolsProvider,
+    ObjectsProvider objectsProvider,
+    BuildContext context,
+  ) async {
+    try {
+      final pdfBytes = await _generateProfileReportPdf(
+        authProvider,
+        toolsProvider,
+        objectsProvider,
+      );
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'Отчет_профиля_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
+      final pdfFile = File('${tempDir.path}/$fileName');
+      await pdfFile.writeAsBytes(pdfBytes);
+      await SharePlus.instance.share(ShareParams(
+        files: [XFile(pdfFile.path)],
+        text: '📋 ОТЧЕТ ПРОФИЛЯ Tooler',
+      ));
+      if (!context.mounted) return;
+      ErrorHandler.showSuccessDialog(context, 'Отчет профиля успешно создан и загружен');
+    } catch (e) {
+      if (!context.mounted) return;
+      ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
+    }
+  }
+
+  static Future<Uint8List> _generateProfileReportPdf(
+    AuthProvider authProvider,
+    ToolsProvider toolsProvider,
+    ObjectsProvider objectsProvider,
+  ) async {
+    final pdf = pw.Document();
+    final primaryColor = PdfColors.cyan700;
+    final accentColor = PdfColors.cyan600;
+    final font = await _loadFont();
+    final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
+    final currentDate = DateTime.now();
+
+    final garageTools = toolsProvider.tools.where((t) => t.currentLocation == 'garage').length;
+    final onSiteTools = toolsProvider.tools.where((t) => t.currentLocation != 'garage').length;
+    final favoriteTools = toolsProvider.tools.where((t) => t.isFavorite).length;
+    final favoriteObjects = objectsProvider.objects.where((o) => o.isFavorite).length;
+
+    pdf.addPage(pw.Page(
+      pageFormat: PdfPageFormat.a4,
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            // Header with gradient effect
+            pw.Container(
+              padding: const pw.EdgeInsets.all(20),
+              decoration: pw.BoxDecoration(
+                color: primaryColor,
+                borderRadius: pw.BorderRadius.circular(10),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('ОТЧЕТ ПРОФИЛЯ',
+                              style: pw.TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: pw.FontWeight.bold,
+                                  color: PdfColors.white,
+                                  font: font)),
+                          pw.SizedBox(height: 5),
+                          pw.Text('Tooler Application',
+                              style: pw.TextStyle(
+                                  fontSize: 12,
+                                  color: PdfColors.grey500,
+                                  font: font)),
+                        ],
+                      ),
+                      pw.Text('📋',
+                          style: const pw.TextStyle(fontSize: 50)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // User Information Section
+            pw.Text('👤 ИНФОРМАЦИЯ ПОЛЬЗОВАТЕЛЯ',
+                style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                    color: accentColor,
+                    font: font)),
+            pw.SizedBox(height: 10),
+            pw.Container(
+              padding: const pw.EdgeInsets.all(12),
+              decoration: pw.BoxDecoration(
+                border: pw.Border.all(color: PdfColors.grey300),
+                borderRadius: pw.BorderRadius.circular(6),
+              ),
+              child: pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Email:',
+                          style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                              font: font)),
+                      pw.Text(authProvider.user?.email ?? 'Не указан',
+                          style: pw.TextStyle(fontSize: 11, font: font)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Роль:',
+                          style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                              font: font)),
+                      pw.Text(authProvider.role ?? 'Пользователь',
+                          style: pw.TextStyle(fontSize: 11, font: font)),
+                    ],
+                  ),
+                  pw.SizedBox(height: 8),
+                  pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text('Дата отчета:',
+                          style: pw.TextStyle(
+                              fontWeight: pw.FontWeight.bold,
+                              fontSize: 11,
+                              font: font)),
+                      pw.Text(dateFormat.format(currentDate),
+                          style: pw.TextStyle(fontSize: 11, font: font)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            pw.SizedBox(height: 20),
+
+            // Statistics Section
+            pw.Text('📊 СТАТИСТИКА',
+                style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                    color: accentColor,
+                    font: font)),
+            pw.SizedBox(height: 10),
+            
+            // Stats Grid
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.cyan50,
+                      border: pw.Border.all(color: PdfColors.cyan200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('🛠️',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('${toolsProvider.tools.length}',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('Инструментов',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.green50,
+                      border: pw.Border.all(color: PdfColors.green200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('🏠',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('$garageTools',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('В гараже',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.orange50,
+                      border: pw.Border.all(color: PdfColors.orange200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('⭐',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('${favoriteTools + favoriteObjects}',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('Избранное',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 15),
+
+            // Additional Stats
+            pw.Row(
+              children: [
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.purple50,
+                      border: pw.Border.all(color: PdfColors.purple200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('🏗️',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('$onSiteTools',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('На объектах',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.amber50,
+                      border: pw.Border.all(color: PdfColors.amber200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('🏢',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('${objectsProvider.objects.length}',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('Объектов',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+                pw.SizedBox(width: 8),
+                pw.Expanded(
+                  child: pw.Container(
+                    padding: const pw.EdgeInsets.all(10),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColors.red50,
+                      border: pw.Border.all(color: PdfColors.red200),
+                      borderRadius: pw.BorderRadius.circular(6),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        pw.Text('❤️',
+                            style: const pw.TextStyle(fontSize: 30)),
+                        pw.SizedBox(height: 5),
+                        pw.Text('$favoriteObjects',
+                            style: pw.TextStyle(
+                                fontSize: 20,
+                                fontWeight: pw.FontWeight.bold,
+                                font: font)),
+                        pw.Text('Объектов',
+                            style: pw.TextStyle(fontSize: 9, font: font)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            pw.SizedBox(height: 20),
+
+            // Footer
+            pw.Divider(color: PdfColors.grey300),
+            pw.SizedBox(height: 10),
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('© Tooler App ${DateTime.now().year}',
+                    style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, font: font)),
+                pw.Text('Конфиденциальный отчет',
+                    style: pw.TextStyle(fontSize: 9, color: PdfColors.grey600, font: font)),
+              ],
+            ),
+          ],
+        );
+      },
+    ));
+
+    return await pdf.save();
   }
 }

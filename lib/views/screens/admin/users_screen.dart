@@ -128,6 +128,36 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               )
             : null,
         actions: [
+          if (!usersProvider.selectionMode)
+            IconButton(
+              icon: const Icon(Icons.sync),
+              tooltip: 'Синхронизировать пользователей из Auth',
+              onPressed: () async {
+                try {
+                  final result = await usersProvider.syncAuthUsers();
+                  if (mounted) {
+                    final stats = result['stats'] as Map<String, dynamic>;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Синхронизирован: ${stats['created']} новых, ${stats['skipped']} уже существовали',
+                        ),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Ошибка синхронизации: $e'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
           if (usersProvider.selectionMode) ...[
             IconButton(
               icon: Icon(usersProvider.allSelected
@@ -809,13 +839,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   style: TextStyle(color: Colors.red)),
               onTap: () {
                 Navigator.pop(context);
-                _showConfirmDialog(
-                  context,
-                  'Удалить пользователя?',
-                  'Это действие нельзя отменить',
-                  () => usersProvider.deleteUser(user.uid),
-                  isDangerous: true,
-                );
+                _showDeleteOptionsDialog(context, usersProvider, user.uid);
               },
             ),
           ],
@@ -885,7 +909,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         title: const Text('Удалить выбранных пользователей?'),
         content: Text(
           'Вы уверены, что хотите удалить ${usersProvider.selectedUsers.length} пользователей?\n\n'
-          'Это действие нельзя отменить.',
+          'Выберите из какой системы удалить данные.',
         ),
         actions: [
           TextButton(
@@ -895,18 +919,187 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           TextButton(
             onPressed: () async {
               Navigator.pop(context);
-              await usersProvider.deleteSelectedUsers();
-              if (context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Пользователи удалены'),
-                    backgroundColor: Colors.green,
-                  ),
+              try {
+                await usersProvider.deleteSelectedUsers(
+                  deleteFromFirestore: true,
+                  deleteFromAuth: false,
                 );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Удалены из Firestore'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Только из БД'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await usersProvider.deleteSelectedUsers(
+                  deleteFromFirestore: false,
+                  deleteFromAuth: true,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Удалены из Auth'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            child: const Text('Только из Auth'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await usersProvider.deleteSelectedUsers(
+                  deleteFromFirestore: true,
+                  deleteFromAuth: true,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Полностью удалены из системы'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
               }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Удалить'),
+            child: const Text('Полностью из системы'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteOptionsDialog(
+    BuildContext context,
+    UsersProvider usersProvider,
+    String uid,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Удалить пользователя?'),
+        content: const Text('Выберите из какой системы удалить данные:'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await usersProvider.deleteUser(
+                  uid,
+                  deleteFromFirestore: true,
+                  deleteFromAuth: false,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Удален из Firestore'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.orange),
+            child: const Text('Только из БД'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await usersProvider.deleteUser(
+                  uid,
+                  deleteFromFirestore: false,
+                  deleteFromAuth: true,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Удален из Auth'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.blue),
+            child: const Text('Только из Auth'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await usersProvider.deleteUser(
+                  uid,
+                  deleteFromFirestore: true,
+                  deleteFromAuth: true,
+                );
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Полностью удален из системы'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Ошибка: $e')),
+                  );
+                }
+              }
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Полностью из системы'),
           ),
         ],
       ),

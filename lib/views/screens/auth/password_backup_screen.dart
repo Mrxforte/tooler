@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/utils/error_handler.dart';
 
 class PasswordBackupScreen extends StatefulWidget {
@@ -88,23 +90,41 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
 
   Future<void> _sendBackupViaEmail(String backupContent) async {
     try {
-      // Send email using Firebase Cloud Functions or your backend API
-      // This is a placeholder for email sending logic
-      // You can implement this using:
-      // 1. Firebase Cloud Functions
-      // 2. Your backend email service
-      // 3. Third-party email services (SendGrid, Mailgun, etc.)
+      // Call Firebase Cloud Function to send password backup email
+      final user = FirebaseAuth.instance.currentUser;
       
-      debugPrint('Backup email sending initiated for: ${widget.userEmail}');
+      if (user == null) {
+        debugPrint('No authenticated user found');
+        return;
+      }
+
+      final functions = FirebaseFunctions.instance;
       
-      // Example: Call your backend API endpoint
-      // await _sendBackupEmail(
-      //   email: widget.userEmail,
-      //   backupContent: backupContent,
-      // );
+      debugPrint('Calling sendPasswordBackupEmail Cloud Function...');
       
-      if (!mounted) return;
-      // Success feedback already shown in _createBackup
+      final result = await functions
+          .httpsCallable('sendPasswordBackupEmail')
+          .call({
+        'email': widget.userEmail,
+        'userName': user.displayName ?? '',
+        'createdAt': DateTime.now().toIso8601String(),
+      });
+
+      if (result.data['success'] == true) {
+        debugPrint(
+          'Password backup email sent successfully. Message ID: ${result.data['messageId']}',
+        );
+        if (!mounted) return;
+        ErrorHandler.showSuccessDialog(
+          context,
+          'Ссылка восстановления отправлена на ${widget.userEmail}',
+        );
+      } else {
+        debugPrint('Failed to send password backup email');
+      }
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('Cloud Function error: ${e.code} - ${e.message}');
+      // Silently fail - user can still save/share manually
     } catch (e) {
       debugPrint('Email backup failed: $e');
       // Silently fail - user can still save/share manually

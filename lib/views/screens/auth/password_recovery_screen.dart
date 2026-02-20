@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../../../core/utils/error_handler.dart';
 
 class PasswordRecoveryScreen extends StatefulWidget {
@@ -78,17 +79,29 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
 
   Future<void> _sendBackupEmailNotification(String email) async {
     try {
-      // Email sending is handled by Firebase sendPasswordResetEmail
-      // To implement custom email notifications, configure Firebase Cloud Functions
-      // or set up a backend service like:
-      // - SendGrid
-      // - Mailgun
-      // - Firebase Cloud Functions with nodemailer
+      // Call Firebase Cloud Function to send password recovery email
+      final functions = FirebaseFunctions.instance;
       
-      debugPrint('Password reset email sent to: $email');
+      debugPrint('Calling sendPasswordRecoveryEmail Cloud Function...');
       
-      if (!mounted) return;
-      // Success feedback already shown in _sendPasswordResetEmail
+      final result = await functions
+          .httpsCallable('sendPasswordRecoveryEmail')
+          .call({
+        'email': email,
+        'userName': '', // Optional: can be fetched from user profile
+      });
+
+      if (result.data['success'] == true) {
+        debugPrint(
+          'Password recovery email sent successfully. Message ID: ${result.data['messageId']}',
+        );
+      } else {
+        debugPrint('Failed to send password recovery email');
+      }
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('Cloud Function error: ${e.code} - ${e.message}');
+      // Silently fail - main Firebase password reset email was already sent
+      // User can still proceed without the backup notification
     } catch (e) {
       debugPrint('Backup email notification error: $e');
       // Silently fail - main email was already sent via Firebase
