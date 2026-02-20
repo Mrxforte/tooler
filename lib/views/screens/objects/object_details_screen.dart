@@ -134,6 +134,11 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen> {
                   ),
                 ),
               ),
+            if (auth.canControlObjects)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.white),
+                onPressed: () => _showDeleteObjectConfirmation(context),
+              ),
             Consumer<ObjectsProvider>(
               builder: (context, op, _) {
                 final updatedObject = op.objects.firstWhere(
@@ -1374,6 +1379,47 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen> {
         });
       }
     }
+  }
+
+  void _showDeleteObjectConfirmation(BuildContext context) {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    if (!auth.canControlObjects) {
+      ErrorHandler.showErrorDialog(
+        context,
+        'Только администратор может удалять объекты',
+      );
+      return;
+    }
+
+    final outerContext = context;
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Подтверждение удаления'),
+        content: Text('Удалить "${widget.object.name}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              await Provider.of<ObjectsProvider>(
+                outerContext,
+                listen: false,
+              ).deleteObject(widget.object.id, context: outerContext);
+              if (!outerContext.mounted) return;
+              await Future.delayed(const Duration(milliseconds: 500));
+              if (outerContext.mounted) {
+                Navigator.pop(outerContext);
+              }
+            },
+            child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmDeleteSelectedTools(

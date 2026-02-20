@@ -38,6 +38,20 @@ class ReportService {
     return '•';
   }
 
+  /// Filter out consecutive duplicate location history entries
+  /// Only shows unique locations in sequence (no "moved to existing location")
+  static List<LocationHistory> _filterDuplicateLocations(List<LocationHistory> history) {
+    if (history.isEmpty) return history;
+    
+    final filtered = <LocationHistory>[history.first];
+    for (int i = 1; i < history.length; i++) {
+      if (history[i].locationId != history[i - 1].locationId) {
+        filtered.add(history[i]);
+      }
+    }
+    return filtered;
+  }
+
   static Future<Uint8List> _generateToolReportPdf(Tool tool) async {
     final pdf = pw.Document();
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
@@ -152,8 +166,8 @@ class ReportService {
                       ),
                     ],
                   ),
-                  // Data Rows
-                  ...tool.locationHistory.reversed.take(15).toList().asMap().entries.map((entry) {
+                  // Data Rows - Filter out consecutive duplicate locations
+                  ..._filterDuplicateLocations(tool.locationHistory).reversed.take(15).toList().asMap().entries.map((entry) {
                     final idx = entry.key;
                     final loc = entry.value;
                     return pw.TableRow(
@@ -252,13 +266,14 @@ class ReportService {
     if (tool.locationHistory.isNotEmpty) {
       sb.writeln('📜 ИСТОРИЯ ПЕРЕМЕЩЕНИЙ:');
       sb.writeln('─────────────────────');
-      final recentHistory = tool.locationHistory.reversed.take(10).toList();
+      final filteredHistory = _filterDuplicateLocations(tool.locationHistory);
+      final recentHistory = filteredHistory.reversed.take(10).toList();
       for (var i = 0; i < recentHistory.length; i++) {
         final loc = recentHistory[i];
         sb.writeln('${i + 1}. ${loc.locationName} - ${DateFormat('dd.MM.yyyy HH:mm').format(loc.date)}');
       }
-      if (tool.locationHistory.length > 10) {
-        sb.writeln('   ... и еще ${tool.locationHistory.length - 10} перемещений');
+      if (filteredHistory.length > 10) {
+        sb.writeln('   ... и еще ${filteredHistory.length - 10} перемещений');
       }
       sb.writeln();
     }

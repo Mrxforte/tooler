@@ -53,6 +53,25 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  Future<bool> _checkAccountExists(String email) async {
+    try {
+      // Try to sign in with a dummy password to check if account exists
+      // This will fail but we can determine if account exists from the error
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: 'dummy_password_check',
+      );
+      return true;
+    } on FirebaseAuthException catch (e) {
+      // user-not-found = account doesn't exist
+      // wrong-password = account exists but wrong password
+      return e.code != 'user-not-found';
+    } catch (e) {
+      // If we can't check, assume account doesn't exist
+      return false;
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -60,6 +79,29 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_isLogin && _passwordController.text != _confirmPasswordController.text) {
       ErrorHandler.showErrorDialog(context, 'Пароли не совпадают');
       return;
+    }
+    
+    if (!mounted) return;
+    
+    // For registration, check if account already exists
+    if (!_isLogin) {
+      setState(() => _isLoading = true);
+      try {
+        final accountExists = await _checkAccountExists(_emailController.text.trim());
+        if (!mounted) return;
+        
+        if (accountExists) {
+          setState(() => _isLoading = false);
+          _showAccountExistsDialog(_emailController.text.trim());
+          return;
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ErrorHandler.showErrorDialog(context, 'Ошибка проверки аккаунта: ${e.toString()}');
+        }
+        return;
+      }
     }
     
     if (!mounted) return;
@@ -110,202 +152,366 @@ class _AuthScreenState extends State<AuthScreen> {
     }
   }
 
+  void _showAccountExistsDialog(String email) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: Colors.orange.shade50,
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange.shade700, size: 28),
+            const SizedBox(width: 12),
+            const Text('Аккаунт существует'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            Text(
+              'Аккаунт с email "$email" уже зарегистрирован в системе.',
+              style: const TextStyle(fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.orange.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Что дальше?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange.shade700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    '• Если это ваш аккаунт, перейдите в режим "Вход"',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '• Если забыли пароль, нажмите "Забыли пароль?"',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '• Если это не ваш аккаунт, используйте другой email',
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Отмена'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _isLogin = true);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade700,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Перейти в Вход'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 40),
-              Center(
-                child: Column(
-                  children: [
-                    if (!_isLogin && _profileImage != null)
-                      Stack(
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.95),
+              Theme.of(context).colorScheme.primary.withValues(alpha: 0.7),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 20),
+                  // Header
+                  Center(
+                    child: Column(
+                      children: [
+                        if (!_isLogin && _profileImage != null)
+                          Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 60,
+                                backgroundImage: FileImage(_profileImage!),
+                              ),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: CircleAvatar(
+                                  radius: 20,
+                                  backgroundColor: Colors.white,
+                                  child: IconButton(
+                                    icon: Icon(
+                                      Icons.camera_alt,
+                                      size: 15,
+                                      color: Theme.of(context).colorScheme.primary,
+                                    ),
+                                    onPressed: _pickProfileImage,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        else if (!_isLogin)
+                          GestureDetector(
+                            onTap: _pickProfileImage,
+                            child: Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(Icons.camera_alt, size: 30, color: Colors.white),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Фото',
+                                    style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.9)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        else
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.build, size: 60, color: Colors.white),
+                          ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Tooler',
+                          style: TextStyle(
+                            fontSize: 36,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          _isLogin ? 'Вход в аккаунт' : 'Создать аккаунт',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.white.withValues(alpha: 0.9),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
+                  // Form Card
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Form(
+                      key: _formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          CircleAvatar(radius: 60, backgroundImage: FileImage(_profileImage!)),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              child: IconButton(
-                                icon: Icon(Icons.camera_alt, size: 15, color: Colors.white),
-                                onPressed: _pickProfileImage,
-                                padding: EdgeInsets.zero,
+                          TextFormField(
+                            controller: _emailController,
+                            decoration: InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: const Icon(Icons.email_outlined),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            keyboardType: TextInputType.emailAddress,
+                            validator: (v) =>
+                                v?.isEmpty == true ? 'Введите email' : v!.contains('@') ? null : 'Введите корректный email',
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _passwordController,
+                            decoration: InputDecoration(
+                              labelText: 'Пароль',
+                              prefixIcon: const Icon(Icons.lock_outlined),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                                  color: Colors.grey.shade600,
+                                ),
+                                onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                              ),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              filled: true,
+                              fillColor: Colors.grey.shade50,
+                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            ),
+                            obscureText: _obscurePassword,
+                            validator: (v) =>
+                                v?.isEmpty == true ? 'Введите пароль' : v!.length >= 6 ? null : 'Минимум 6 символов',
+                          ),
+                          if (!_isLogin) ...[
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _confirmPasswordController,
+                              decoration: InputDecoration(
+                                labelText: 'Подтвердите пароль',
+                                prefixIcon: const Icon(Icons.lock_outlined),
+                                suffixIcon: IconButton(
+                                  icon: Icon(
+                                    _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                  onPressed: () => setState(() => _obscureConfirmPassword = !_obscureConfirmPassword),
+                                ),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              ),
+                              obscureText: _obscureConfirmPassword,
+                              validator: (v) => v != _passwordController.text ? 'Пароли не совпадают' : null,
+                            ),
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _adminPhraseController,
+                              decoration: InputDecoration(
+                                labelText: 'Код администратора (если есть)',
+                                prefixIcon: const Icon(Icons.admin_panel_settings_outlined),
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                                filled: true,
+                                fillColor: Colors.grey.shade50,
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                              ),
+                            ),
+                          ],
+                          if (_isLogin) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Checkbox(
+                                  value: authProvider.rememberMe,
+                                  onChanged: (v) => authProvider.setRememberMe(v!),
+                                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                const Text('Запомнить меня', style: TextStyle(fontSize: 13)),
+                              ],
+                            ),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: TextButton(
+                                onPressed: _showForgotPasswordDialog,
+                                child: const Text('Забыли пароль?'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Submit Button
+                  SizedBox(
+                    height: 48,
+                    child: _isLoading
+                        ? const Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            ),
+                          )
+                        : ElevatedButton(
+                            onPressed: _submit,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: Theme.of(context).colorScheme.primary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                            child: Text(
+                              _isLogin ? 'Войти' : 'Зарегистрироваться',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-                        ],
-                      )
-                    else if (!_isLogin)
-                      GestureDetector(
-                        onTap: _pickProfileImage,
-                        child: CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.camera_alt, size: 30,
-                                  color: Theme.of(context).colorScheme.primary),
-                              const SizedBox(height: 8),
-                              Text('Фото',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Theme.of(context).colorScheme.primary)),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        width: 100,
-                        height: 100,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(context).colorScheme.primary,
-                              Theme.of(context).colorScheme.secondary,
-                            ],
-                          ),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.build, size: 60, color: Colors.white),
-                      ),
-                    const SizedBox(height: 10),
-                    Text('Tooler',
-                        style: TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary)),
-                    const SizedBox(height: 5),
-                    const Text('Управление строительными инструментами',
-                        style: TextStyle(fontSize: 14, color: Colors.grey)),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
-              Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: const Icon(Icons.email),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (v) =>
-                          v?.isEmpty == true ? 'Введите email' : v!.contains('@') ? null : 'Введите корректный email',
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Пароль',
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                      obscureText: _obscurePassword,
-                      validator: (v) =>
-                          v?.isEmpty == true ? 'Введите пароль' : v!.length >= 6 ? null : 'Минимум 6 символов',
-                    ),
-                    if (!_isLogin) ...[
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _confirmPasswordController,
-                        decoration: InputDecoration(
-                          labelText: 'Подтвердите пароль',
-                          prefixIcon: const Icon(Icons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(_obscureConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                            onPressed: () => setState(
-                                () => _obscureConfirmPassword = !_obscureConfirmPassword),
-                          ),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                        obscureText: _obscureConfirmPassword,
-                        validator: (v) => v != _passwordController.text ? 'Пароли не совпадают' : null,
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _adminPhraseController,
-                        decoration: InputDecoration(
-                          labelText: 'Код администратора (если есть)',
-                          prefixIcon: const Icon(Icons.admin_panel_settings),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                          filled: true,
-                          fillColor: Colors.grey.shade50,
-                        ),
-                      ),
-                    ],
-                    if (_isLogin) ...[
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: authProvider.rememberMe,
-                            onChanged: (v) => authProvider.setRememberMe(v!),
-                          ),
-                          const Text('Запомнить меня'),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: _showForgotPasswordDialog,
-                          child: const Text('Забыли пароль?'),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 24),
-              if (_isLoading)
-                const Center(child: CircularProgressIndicator())
-              else
-                ElevatedButton(
-                  onPressed: _submit,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: Text(_isLogin ? 'Войти' : 'Зарегистрироваться',
-                      style: const TextStyle(fontSize: 16)),
-                ),
-              const SizedBox(height: 16),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    _isLogin = !_isLogin;
-                    _profileImage = null;
-                    _adminPhraseController.clear();
-                  });
-                },
-                child: Text(_isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти'),
+                  const SizedBox(height: 16),
+                  // Toggle Login/Register
+                  Center(
+                    child: TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _isLogin = !_isLogin;
+                          _profileImage = null;
+                          _adminPhraseController.clear();
+                        });
+                      },
+                      child: Text(
+                        _isLogin ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
-              const SizedBox(height: 20),
-            ],
+            ),
           ),
         ),
       ),
