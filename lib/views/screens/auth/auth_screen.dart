@@ -53,6 +53,25 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
+  Future<bool> _checkAccountExists(String email) async {
+    try {
+      // Try to sign in with a dummy password to check if account exists
+      // This will fail but we can determine if account exists from the error
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: 'dummy_password_check',
+      );
+      return true;
+    } on FirebaseAuthException catch (e) {
+      // user-not-found = account doesn't exist
+      // wrong-password = account exists but wrong password
+      return e.code != 'user-not-found';
+    } catch (e) {
+      // If we can't check, assume account doesn't exist
+      return false;
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     
@@ -60,6 +79,29 @@ class _AuthScreenState extends State<AuthScreen> {
     if (!_isLogin && _passwordController.text != _confirmPasswordController.text) {
       ErrorHandler.showErrorDialog(context, 'Пароли не совпадают');
       return;
+    }
+    
+    if (!mounted) return;
+    
+    // For registration, check if account already exists
+    if (!_isLogin) {
+      setState(() => _isLoading = true);
+      try {
+        final accountExists = await _checkAccountExists(_emailController.text.trim());
+        if (!mounted) return;
+        
+        if (accountExists) {
+          setState(() => _isLoading = false);
+          _showAccountExistsDialog(_emailController.text.trim());
+          return;
+        }
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ErrorHandler.showErrorDialog(context, 'Ошибка проверки аккаунта: ${e.toString()}');
+        }
+        return;
+      }
     }
     
     if (!mounted) return;
