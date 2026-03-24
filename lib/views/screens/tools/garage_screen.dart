@@ -254,7 +254,8 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               await Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => const AddEditToolScreen(),
+                                  builder: (context) =>
+                                      const AddEditToolScreen(),
                                 ),
                               );
                               if (!mounted) return;
@@ -583,6 +584,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     ),
   );
 
+  // ignore: unused_element
   Future<void> _showMoveMultipleToolsDialog(
     BuildContext context,
     ToolsProvider toolsProvider,
@@ -710,10 +712,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   ) {
     final screenContext = context;
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-    final objectsProvider = Provider.of<ObjectsProvider>(
-      context,
-      listen: false,
-    );
     final selectedTools = List<Tool>.from(selectedGarageTools);
 
     if (selectedTools.isEmpty) {
@@ -938,10 +936,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         progressDialogShown = false;
       }
       if (context.mounted) {
-        ErrorHandler.showErrorDialog(
-          context,
-          'Ошибка при создании отчета: $e',
-        );
+        ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
       }
     }
   }
