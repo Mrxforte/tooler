@@ -25,13 +25,10 @@ class BrigadierRequestProvider with ChangeNotifier {
           .get();
       _requests.clear();
       for (final doc in snapshot.docs) {
-        _requests.add(BrigadierRequest.fromJson({
-          'id': doc.id,
-          ...doc.data(),
-        }));
+        _requests.add(BrigadierRequest.fromJson({'id': doc.id, ...doc.data()}));
       }
     } catch (e) {
-      // Silent error handling
+      // Keep UI stable if request loading fails.
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -46,16 +43,17 @@ class BrigadierRequestProvider with ChangeNotifier {
     String? reason,
   }) async {
     try {
-      final docRef =
-          await FirebaseFirestore.instance.collection('brigadier_requests').add({
-        'brigadierId': brigadierId,
-        'objectId': objectId,
-        'type': type.toString().split('.').last,
-        'status': RequestStatus.pending.toString().split('.').last,
-        'createdAt': DateTime.now().toIso8601String(),
-        'data': data,
-        'reason': reason,
-      });
+      final docRef = await FirebaseFirestore.instance
+          .collection('brigadier_requests')
+          .add({
+            'brigadierId': brigadierId,
+            'objectId': objectId,
+            'type': type.toString().split('.').last,
+            'status': RequestStatus.pending.toString().split('.').last,
+            'createdAt': DateTime.now().toIso8601String(),
+            'data': data,
+            'reason': reason,
+          });
 
       _requests.insert(
         0,
@@ -85,10 +83,10 @@ class BrigadierRequestProvider with ChangeNotifier {
           .collection('brigadier_requests')
           .doc(requestId)
           .update({
-        'status': RequestStatus.approved.toString().split('.').last,
-        'resolvedAt': DateTime.now().toIso8601String(),
-        'resolvedBy': adminId,
-      });
+            'status': RequestStatus.approved.toString().split('.').last,
+            'resolvedAt': DateTime.now().toIso8601String(),
+            'resolvedBy': adminId,
+          });
 
       final index = _requests.indexWhere((r) => r.id == requestId);
       if (index != -1) {
@@ -122,11 +120,11 @@ class BrigadierRequestProvider with ChangeNotifier {
           .collection('brigadier_requests')
           .doc(requestId)
           .update({
-        'status': RequestStatus.rejected.toString().split('.').last,
-        'resolvedAt': DateTime.now().toIso8601String(),
-        'resolvedBy': adminId,
-        'rejectionReason': rejectionReason,
-      });
+            'status': RequestStatus.rejected.toString().split('.').last,
+            'resolvedAt': DateTime.now().toIso8601String(),
+            'resolvedBy': adminId,
+            'rejectionReason': rejectionReason,
+          });
 
       final index = _requests.indexWhere((r) => r.id == requestId);
       if (index != -1) {

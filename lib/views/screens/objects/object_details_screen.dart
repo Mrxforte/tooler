@@ -1368,7 +1368,7 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen> {
 
         Future.delayed(const Duration(milliseconds: 300), () {
           if (context.mounted) {
-            // fix it
+            // Show a clear error message if report generation fails.
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Ошибка при создании отчета: $e'),

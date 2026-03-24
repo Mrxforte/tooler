@@ -32,7 +32,8 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
       return;
     }
 
-    final backupContent = '''
+    final backupContent =
+        '''
 ═══════════════════════════════════════════════════
              РЕЗЕРВНАЯ КОПИЯ TOOLER
 ═══════════════════════════════════════════════════
@@ -68,47 +69,55 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
     ''';
 
     if (!mounted) return;
-    
+
     setState(() => _backupCreated = true);
-    
+
     // Try to send via email
     await _sendBackupViaEmail(backupContent);
-    
+
     // Also offer to share
     try {
-      await SharePlus.instance.share(ShareParams(
-        text: backupContent,
-        subject: 'Резервная копия Tooler - ${widget.userEmail}',
-      ));
+      await SharePlus.instance.share(
+        ShareParams(
+          text: backupContent,
+          subject: 'Резервная копия Tooler - ${widget.userEmail}',
+        ),
+      );
       if (!mounted) return;
-      ErrorHandler.showSuccessDialog(context, 'Резервная копия создана и готова к отправке');
+      ErrorHandler.showSuccessDialog(
+        context,
+        'Резервная копия создана и готова к отправке',
+      );
     } catch (e) {
       if (!mounted) return;
-      ErrorHandler.showErrorDialog(context, 'Ошибка при создании резервной копии: $e');
+      ErrorHandler.showErrorDialog(
+        context,
+        'Ошибка при создании резервной копии: $e',
+      );
     }
   }
 
   Future<void> _sendBackupViaEmail(String backupContent) async {
     try {
-      // Call Firebase Cloud Function to send password backup email
+      // Trigger Cloud Function that sends the backup email.
       final user = FirebaseAuth.instance.currentUser;
-      
+
       if (user == null) {
         debugPrint('No authenticated user found');
         return;
       }
 
       final functions = FirebaseFunctions.instance;
-      
+
       debugPrint('Calling sendPasswordBackupEmail Cloud Function...');
-      
+
       final result = await functions
           .httpsCallable('sendPasswordBackupEmail')
           .call({
-        'email': widget.userEmail,
-        'userName': user.displayName ?? '',
-        'createdAt': DateTime.now().toIso8601String(),
-      });
+            'email': widget.userEmail,
+            'userName': user.displayName ?? '',
+            'createdAt': DateTime.now().toIso8601String(),
+          });
 
       if (result.data['success'] == true) {
         debugPrint(
@@ -124,10 +133,10 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
       }
     } on FirebaseFunctionsException catch (e) {
       debugPrint('Cloud Function error: ${e.code} - ${e.message}');
-      // Silently fail - user can still save/share manually
+      // Non-critical: user can still save or share backup manually.
     } catch (e) {
       debugPrint('Email backup failed: $e');
-      // Silently fail - user can still save/share manually
+      // Non-critical: user can still save or share backup manually.
     }
   }
 
@@ -139,10 +148,7 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Резервная копия'),
-        elevation: 0,
-      ),
+      appBar: AppBar(title: const Text('Резервная копия'), elevation: 0),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -181,10 +187,7 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.backup,
-                color: Theme.of(context).colorScheme.primary,
-              ),
+              Icon(Icons.backup, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 12),
               const Text(
                 'Создать резервную копию',
@@ -196,7 +199,11 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
           Text(
             'Сохраните ваши учетные данные в защищенном месте. '
             'Эта копия поможет вам восстановить доступ в случае, если вы забудете пароль.',
-            style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.5),
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey[700],
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -312,7 +319,9 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
             ),
             const SizedBox(height: 12),
             _buildSecurityTip('🔒 Никому не показывайте этот файл'),
-            _buildSecurityTip('💾 Храните в защищенном облаке (Google Drive, OneDrive)'),
+            _buildSecurityTip(
+              '💾 Храните в защищенном облаке (Google Drive, OneDrive)',
+            ),
             _buildSecurityTip('🚫 Не отправляйте по незащищенным каналам'),
             _buildSecurityTip('📁 Удалите файл после восстановления доступа'),
             _buildSecurityTip('🔄 Обновляйте копию при смене пароля'),
@@ -411,7 +420,10 @@ class _PasswordBackupScreenState extends State<PasswordBackupScreen> {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(

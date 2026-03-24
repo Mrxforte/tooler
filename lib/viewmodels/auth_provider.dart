@@ -12,14 +12,10 @@ import 'admin_settings_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// AuthProvider - Handles authentication, user permissions, role management
-/// 
-/// FULL IMPLEMENTATION:
-/// - Firebase Auth integration
-/// - Role-based permissions (admin, brigadir, user)
-/// - Permission checks (canMoveTools, canControlObjects)
-/// - Profile image management
-/// - Remember me functionality
+/// Handles auth, role checks, and profile-related user state.
+///
+/// Includes Firebase Auth integration, role/permission checks,
+/// profile image support, and remember-me behavior.
 
 class AuthProvider with ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -64,7 +60,7 @@ class AuthProvider with ChangeNotifier {
     try {
       _isLoading = true;
       notifyListeners();
-      
+
       // Check if there's a currently signed-in user
       final savedUser = _auth.currentUser;
       if (savedUser != null) {
@@ -82,7 +78,10 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> _fetchUserData(String uid) async {
     try {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
       if (doc.exists) {
         final data = doc.data()!;
         _role = data['role'] ?? 'user';
@@ -111,15 +110,15 @@ class AuthProvider with ChangeNotifier {
   Future<bool> signInWithEmail(String email, String password) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email, 
-        password: password
+        email: email,
+        password: password,
       );
-      
+
       _user = userCredential.user;
-      
+
       if (_user != null) {
         await _fetchUserData(_user!.uid);
         if (_rememberMe) {
@@ -134,7 +133,7 @@ class AuthProvider with ChangeNotifier {
         if (navigatorKey.currentContext != null) {
           ErrorHandler.showErrorDialog(
             navigatorKey.currentContext!,
-            'Не удалось выполнить вход. Попробуйте еще раз.'
+            'Не удалось выполнить вход. Попробуйте еще раз.',
           );
         }
         return false;
@@ -145,7 +144,7 @@ class AuthProvider with ChangeNotifier {
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
           navigatorKey.currentContext!,
-          ErrorHandler.getFirebaseErrorMessage(e)
+          ErrorHandler.getFirebaseErrorMessage(e),
         );
       }
       return false;
@@ -155,26 +154,32 @@ class AuthProvider with ChangeNotifier {
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
           navigatorKey.currentContext!,
-          'Произошла неизвестная ошибка: ${e.toString()}'
+          'Произошла неизвестная ошибка: ${e.toString()}',
         );
       }
       return false;
     }
   }
 
-  Future<bool> signUpWithEmail(String email, String password,
-      {File? profileImage, String? adminPhrase}) async {
+  Future<bool> signUpWithEmail(
+    String email,
+    String password, {
+    File? profileImage,
+    String? adminPhrase,
+  }) async {
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       UserCredential userCredential;
       try {
         userCredential = await _auth.createUserWithEmailAndPassword(
-            email: email, password: password);
+          email: email,
+          password: password,
+        );
       } catch (e) {
         // Handle network errors with reCAPTCHA in development
-        if (e.toString().contains('network') || 
+        if (e.toString().contains('network') ||
             e.toString().contains('timeout') ||
             e.toString().contains('No address associated with hostname')) {
           debugPrint('Network error during sign-up: $e');
@@ -182,38 +187,46 @@ class AuthProvider with ChangeNotifier {
           // Retry with small delay for network recovery
           await Future.delayed(const Duration(seconds: 1));
           userCredential = await _auth.createUserWithEmailAndPassword(
-              email: email, password: password);
+            email: email,
+            password: password,
+          );
         } else {
           rethrow;
         }
       }
-      
+
       _user = userCredential.user;
-      
+
       if (profileImage != null && _user != null) {
-        final imageUrl = await ImageService.uploadImage(profileImage, _user!.uid);
+        final imageUrl = await ImageService.uploadImage(
+          profileImage,
+          _user!.uid,
+        );
         if (imageUrl != null) _profileImage = profileImage;
       }
-      
+
       if (_user != null) {
         // Fetch current admin secret from Firestore
         final currentSecret = await _adminSettings.getSecretWord();
         final role = (adminPhrase == currentSecret) ? 'admin' : 'user';
-        await FirebaseFirestore.instance.collection('users').doc(_user!.uid).set({
-          'email': email,
-          'role': role,
-          'canMoveTools': false,
-          'canControlObjects': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(_user!.uid)
+            .set({
+              'email': email,
+              'role': role,
+              'canMoveTools': false,
+              'canControlObjects': false,
+              'createdAt': FieldValue.serverTimestamp(),
+            });
         _role = role;
         _canMoveTools = false;
         _canControlObjects = false;
-        
+
         if (_rememberMe) {
           await _prefs.setString('saved_email', email);
         }
-        
+
         _isLoading = false;
         notifyListeners();
         return true;
@@ -223,7 +236,7 @@ class AuthProvider with ChangeNotifier {
         if (navigatorKey.currentContext != null) {
           ErrorHandler.showErrorDialog(
             navigatorKey.currentContext!,
-            'Не удалось создать аккаунт. Попробуйте еще раз.'
+            'Не удалось создать аккаунт. Попробуйте еще раз.',
           );
         }
         return false;
@@ -239,7 +252,7 @@ class AuthProvider with ChangeNotifier {
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
           navigatorKey.currentContext!,
-          ErrorHandler.getFirebaseErrorMessage(e)
+          ErrorHandler.getFirebaseErrorMessage(e),
         );
       }
       return false;
@@ -249,7 +262,7 @@ class AuthProvider with ChangeNotifier {
       if (navigatorKey.currentContext != null) {
         ErrorHandler.showErrorDialog(
           navigatorKey.currentContext!,
-          'Произошла неизвестная ошибка: ${e.toString()}'
+          'Произошла неизвестная ошибка: ${e.toString()}',
         );
       }
       return false;
@@ -277,7 +290,8 @@ class AuthProvider with ChangeNotifier {
     _profileImage = image;
     if (_user != null) {
       final imageUrl = await ImageService.uploadImage(image, _user!.uid);
-      if (imageUrl != null) await _prefs.setString('profile_image_url', imageUrl);
+      if (imageUrl != null)
+        await _prefs.setString('profile_image_url', imageUrl);
     }
     notifyListeners();
   }

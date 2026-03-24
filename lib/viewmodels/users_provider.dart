@@ -17,7 +17,8 @@ class UsersProvider with ChangeNotifier {
   bool get selectionMode => _selectionMode;
   List<AppUser> get selectedUsers => _users.where((u) => u.isSelected).toList();
   bool get hasSelectedUsers => _users.any((u) => u.isSelected);
-  bool get allSelected => _users.isNotEmpty && _users.every((u) => u.isSelected);
+  bool get allSelected =>
+      _users.isNotEmpty && _users.every((u) => u.isSelected);
 
   void toggleSelectionMode() {
     HapticFeedback.mediumImpact();
@@ -34,7 +35,9 @@ class UsersProvider with ChangeNotifier {
     HapticFeedback.selectionClick();
     final index = _users.indexWhere((u) => u.uid == uid);
     if (index != -1) {
-      _users[index] = _users[index].copyWith(isSelected: !_users[index].isSelected);
+      _users[index] = _users[index].copyWith(
+        isSelected: !_users[index].isSelected,
+      );
       notifyListeners();
     }
   }
@@ -61,11 +64,15 @@ class UsersProvider with ChangeNotifier {
       if (forceRefresh) {
         _users.clear();
       }
-      
+
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
-          .get(GetOptions(source: forceRefresh ? Source.server : Source.serverAndCache));
-      
+          .get(
+            GetOptions(
+              source: forceRefresh ? Source.server : Source.serverAndCache,
+            ),
+          );
+
       _users.clear();
       for (final doc in snapshot.docs) {
         try {
@@ -76,9 +83,9 @@ class UsersProvider with ChangeNotifier {
           debugPrint('Error parsing user ${doc.id}: $e');
         }
       }
-      
+
       _users.sort((a, b) => a.email.compareTo(b.email));
-      
+
       // Auto-sync missing users from Firebase Auth
       await _syncMissingAuthUsers();
     } catch (e) {
@@ -93,18 +100,20 @@ class UsersProvider with ChangeNotifier {
     }
   }
 
-  /// Syncs users from Firebase Auth to Firestore
-  /// Creates missing Firestore documents for authenticated users
+  /// Sync users from Firebase Auth into Firestore.
+  /// Creates Firestore docs for accounts that are missing there.
   Future<Map<String, dynamic>> syncAuthUsers() async {
     _isLoading = true;
     notifyListeners();
     try {
       final functions = FirebaseFunctions.instance;
-      final result = await functions.httpsCallable('syncAuthUsersToFirestore').call();
-      
+      final result = await functions
+          .httpsCallable('syncAuthUsersToFirestore')
+          .call();
+
       // Reload users after sync
       await loadUsers(forceRefresh: true);
-      
+
       debugPrint('Sync result: ${result.data}');
       return result.data as Map<String, dynamic>;
     } on FirebaseFunctionsException catch (e) {
@@ -135,36 +144,44 @@ class UsersProvider with ChangeNotifier {
     }
   }
 
-  /// Auto-syncs missing users from Firebase Auth
+  /// Sync missing Firestore users from Firebase Auth.
   Future<void> _syncMissingAuthUsers() async {
     try {
       final authUsers = await listAuthUsers();
       final firestoreUids = _users.map((u) => u.uid).toSet();
-      final missingUids = authUsers.where((u) => !firestoreUids.contains(u['uid'])).toList();
-      
+      final missingUids = authUsers
+          .where((u) => !firestoreUids.contains(u['uid']))
+          .toList();
+
       if (missingUids.isNotEmpty) {
-        debugPrint('Found ${missingUids.length} users missing from Firestore, syncing...');
+        debugPrint(
+          'Found ${missingUids.length} users missing from Firestore, syncing...',
+        );
         await syncAuthUsers();
       }
     } catch (e) {
       debugPrint('Error auto-syncing missing users: $e');
-      // Silently fail - don't block the UI
+      // Non-blocking failure: keep UI usable even if sync fails.
     }
   }
 
-  Future<void> updateUserPermissions(String uid,
-      {bool? canMoveTools, bool? canControlObjects}) async {
+  Future<void> updateUserPermissions(
+    String uid, {
+    bool? canMoveTools,
+    bool? canControlObjects,
+  }) async {
     try {
       final updates = <String, dynamic>{};
       if (canMoveTools != null) updates['canMoveTools'] = canMoveTools;
-      if (canControlObjects != null) updates['canControlObjects'] = canControlObjects;
-      
+      if (canControlObjects != null)
+        updates['canControlObjects'] = canControlObjects;
+
       if (updates.isNotEmpty) {
         await FirebaseFirestore.instance
             .collection('users')
             .doc(uid)
             .update(updates);
-        
+
         // Update local state
         final index = _users.indexWhere((u) => u.uid == uid);
         if (index != -1) {
@@ -181,17 +198,16 @@ class UsersProvider with ChangeNotifier {
         }
       }
     } catch (e) {
-      // Silent error handling
+      // Keep UI responsive if this update fails.
     }
   }
 
   Future<void> updateUserRole(String uid, String newRole) async {
     try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .update({'role': newRole});
-      
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'role': newRole,
+      });
+
       // Update local state
       final index = _users.indexWhere((u) => u.uid == uid);
       if (index != -1) {
@@ -207,7 +223,7 @@ class UsersProvider with ChangeNotifier {
         notifyListeners();
       }
     } catch (e) {
-      // Silent error handling
+      // Keep UI responsive if this update fails.
     }
   }
 
@@ -218,14 +234,16 @@ class UsersProvider with ChangeNotifier {
   }) async {
     try {
       final functions = FirebaseFunctions.instance;
-      final result = await functions.httpsCallable('deleteUserCompletely').call({
-        'uid': uid,
-        'deleteFromAuth': deleteFromAuth,
-        'deleteFromFirestore': deleteFromFirestore,
-      });
-      
+      final result = await functions
+          .httpsCallable('deleteUserCompletely')
+          .call({
+            'uid': uid,
+            'deleteFromAuth': deleteFromAuth,
+            'deleteFromFirestore': deleteFromFirestore,
+          });
+
       debugPrint('Delete result: ${result.data}');
-      
+
       // Remove from local list
       _users.removeWhere((u) => u.uid == uid);
       notifyListeners();
@@ -244,7 +262,7 @@ class UsersProvider with ChangeNotifier {
   }) async {
     final selected = selectedUsers.toList();
     final errors = <String>[];
-    
+
     for (final user in selected) {
       try {
         await deleteUser(
@@ -257,10 +275,10 @@ class UsersProvider with ChangeNotifier {
         debugPrint('Error deleting user ${user.uid}: $e');
       }
     }
-    
+
     _selectionMode = false;
     notifyListeners();
-    
+
     if (errors.isNotEmpty) {
       debugPrint('Deletion errors: $errors');
     }
@@ -279,7 +297,7 @@ class UsersProvider with ChangeNotifier {
           _users[index] = _users[index].copyWith(role: newRole);
         }
       } catch (e) {
-        // Silent error handling
+        // Continue updating other users even if one fails.
       }
     }
     notifyListeners();

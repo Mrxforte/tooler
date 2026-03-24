@@ -1,254 +1,109 @@
-# Firebase Cloud Functions - Email Services
+# Firebase Cloud Functions (Email)
 
-This directory contains Firebase Cloud Functions for the Tooler App that handle email notifications for password recovery and password backups.
+This folder contains the Cloud Functions used for password-related emails in Tooler.
 
-## Functions Overview
+## What Is Here
 
-### 1. `sendPasswordRecoveryEmail`
-**Purpose:** Sends a professional password recovery email notification when a user requests password reset.
+### sendPasswordRecoveryEmail
+- Used by the password recovery screen.
+- Sends a recovery notification email.
+- Inputs:
+  - `email` (required)
+  - `userName` (optional)
 
-**Trigger:** Called from `password_recovery_screen.dart` via Callable HTTP Function
+### sendPasswordBackupEmail
+- Used by the password backup screen.
+- Sends a backup/recovery reminder email.
+- Inputs:
+  - `email` (required)
+  - `userName` (optional)
+  - `createdAt` (optional)
 
-**Parameters:**
-- `email` (required): User's email address
-- `userName` (optional): User's display name for personalization
+Both functions return a payload like:
 
-**Response:**
 ```json
 {
   "success": true,
-  "message": "Password recovery email sent successfully",
-  "messageId": "email-message-id"
+  "message": "...",
+  "messageId": "..."
 }
 ```
 
-### 2. `sendPasswordBackupEmail`
-**Purpose:** Sends a password recovery link reminder to the user's registered email.
+## Setup
 
-**Trigger:** Called from `password_backup_screen.dart` via Callable HTTP Function
+Requirements:
+- Node.js 18+
+- Firebase CLI
+- Configured Firebase project
+- Email provider credentials (current setup uses Gmail App Password)
 
-**Parameters:**
-- `email` (required): User's email address
-- `userName` (optional): User's display name
-- `createdAt` (optional): Timestamp when the backup was created
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Password backup email sent successfully",
-  "messageId": "email-message-id"
-}
-```
-
-## Installation & Deployment
-
-### Prerequisites
-- Node.js 18 or higher
-- Firebase CLI installed (`npm install -g firebase-tools`)
-- Active Firebase project configured in your Flutter app
-- Gmail account or email service configured for sending
-
-### Step 1: Install Dependencies
+Install dependencies:
 
 ```bash
 cd functions
 npm install
 ```
 
-This installs:
-- `firebase-functions` - Firebase Cloud Functions SDK
-- `firebase-admin` - Firebase Admin SDK
-- `nodemailer` - Email sending library
-
-### Step 2: Configure Email Service
-
-The functions currently use Gmail with App Passwords. You need to:
-
-1. **Enable 2-Factor Authentication** on your Gmail account (required for App Passwords)
-2. **Generate an App Password:**
-   - Go to https://myaccount.google.com/apppasswords
-   - Select "Mail" and "Windows Computer"
-   - Google will generate a 16-character password
-   - Copy this password
-
-3. **Set Environment Variables in Firebase:**
+Set Gmail config values:
 
 ```bash
-firebase functions:config:set gmail.email="your-email@gmail.com" gmail.password="your-16-char-app-password"
+firebase functions:config:set gmail.email="your-email@gmail.com" gmail.password="your-app-password"
 ```
 
-Or manually via Firebase Console:
-- Go to Firebase Console → Project Settings → Cloud Functions
-- Set the environment variables in the configuration
-
-### Step 3: Deploy Functions
+Deploy:
 
 ```bash
 firebase deploy --only functions
 ```
 
-Or deploy specific function:
-```bash
-firebase deploy --only functions:sendPasswordRecoveryEmail
-```
-
-### Step 4: Verify Deployment
+Check deployed functions:
 
 ```bash
 firebase functions:list
 ```
 
-You should see both functions listed:
-- `sendPasswordRecoveryEmail`
-- `sendPasswordBackupEmail`
+## Local Testing
 
-## Testing
+Run emulator:
 
-### Using Firebase Emulator
-
-1. Start the emulator:
 ```bash
 firebase emulators:start --only functions
 ```
 
-2. The functions will run locally for testing
-
-### Manual Testing with cURL
+Or use npm scripts:
 
 ```bash
-# Requires Firebase Authentication token
-curl -X POST https://region-projectid.cloudfunctions.net/sendPasswordRecoveryEmail \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_ID_TOKEN" \
-  -d '{
-    "data": {
-      "email": "user@example.com",
-      "userName": "John Doe"
-    }
-  }'
+npm run serve
+npm run shell
+npm run logs
 ```
-
-## Email Configuration
-
-### Using Different Email Services
-
-The current implementation uses Gmail with Nodemailer. To use other services:
-
-#### SendGrid
-```javascript
-const sgMail = require('@sendgrid/mail');
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-// Then use sgMail.send() instead of nodemailer
-```
-
-#### Mailgun
-```javascript
-const mailgun = require('mailgun.js');
-const FormData = require('form-data');
-```
-
-#### Firebase Cloud Email Service (recommended for production)
-```javascript
-// Use Firebase Extensions for professional email service
-// https://firebase.google.com/products/extensions
-```
-
-## Security Considerations
-
-1. **Sensitive Data:**
-   - Environment variables are stored securely in Firebase
-   - Email content uses HTTPS transport
-   - No credentials are logged or exposed
-
-2. **Rate Limiting:**
-   - Consider adding rate limiting to prevent abuse
-   - Firebase Cloud Functions have built-in quotas
-
-3. **Authentication:**
-   - Functions check for authenticated users (context.auth)
-   - Only authenticated requests are processed
-
-4. **Email Content:**
-   - HTML emails are structured properly
-   - Links are secure and authenticated
 
 ## Troubleshooting
 
-### Email Not Sending
+Check logs:
 
-1. **Check Function Logs:**
 ```bash
 firebase functions:log
 ```
 
-2. **Verify Gmail App Password:**
-   - Re-generate the App Password
-   - Ensure 2FA is enabled on Gmail account
+Check config:
 
-3. **Check Environment Variables:**
 ```bash
 firebase functions:config:get
 ```
 
-4. **Verify Function Execution:**
-   - Check Firebase Console → Cloud Functions
-   - Review execution logs
+Common issues:
+- `auth/unauthenticated`: user is not signed in when calling the function.
+- `timeout`: function is taking too long.
+- Email auth errors: verify Gmail App Password and 2FA.
 
-### Common Errors
+## Notes
 
-| Error | Solution |
-|-------|----------|
-| `401 Invalid email` | Check email/password in environment variables |
-| `timeout` | Functions are slow; increase timeout settings |
-| `auth/unauthenticated` | Ensure user is logged in when calling function |
-
-## Local Development
-
-```bash
-# Test functions locally
-npm run serve
-
-# Run shell for interactive testing
-npm run shell
-
-# View logs
-npm run logs
-```
-
-## Production Deployment
-
-1. **Use environment management:**
-```bash
-firebase functions:config:set gmail.email="..." gmail.password="..."
-```
-
-2. **Monitor function metrics:**
-   - Firebase Console → Cloud Functions → Metrics
-   - Monitor invocation count, duration, errors
-
-3. **Set up alerting:**
-   - Cloud Monitoring → Alerting Policies
-   - Alert on function errors
-
-4. **Update function code:**
-```bash
-# Make changes to index.js, then redeploy
-firebase deploy --only functions
-```
+- Credentials should stay in Firebase config, not in source files.
+- If you switch email providers, update `functions/index.js` accordingly.
 
 ## References
 
-- [Firebase Cloud Functions Documentation](https://firebase.google.com/docs/functions)
-- [Nodemailer Documentation](https://nodemailer.com/)
-- [Firebase Callable Functions](https://firebase.google.com/docs/functions/callable)
-- [Gmail App Passwords](https://support.google.com/accounts/answer/185833)
-
-## Support
-
-For issues or questions:
-1. Check Firebase Cloud Functions logs
-2. Review email service configuration
-3. Consult official Firebase documentation
-4. Verify network connectivity and firewall rules
+- https://firebase.google.com/docs/functions
+- https://firebase.google.com/docs/functions/callable
+- https://nodemailer.com/

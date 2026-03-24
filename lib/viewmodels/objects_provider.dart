@@ -14,14 +14,9 @@ import '../core/utils/error_handler.dart';
 import 'auth_provider.dart' as app_auth;
 import 'tools_provider.dart' as app_tools;
 
-/// ObjectsProvider - Provider for construction objects management
-/// 
-/// FULL IMPLEMENTATION:
-/// - CRUD operations with permission checks  
-/// - Search and sort functionality
-/// - Selection mode
-/// - Favorites for objects
-/// - Firebase sync
+/// Manages construction objects: CRUD, filters, selection, and favorites.
+///
+/// Handles permission checks and keeps object data in sync with Firebase.
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -41,7 +36,8 @@ class ObjectsProvider with ChangeNotifier {
   bool get hasSelectedObjects => _objects.any((o) => o.isSelected);
   int get totalObjects => _objects.length;
   // NEW: Favorites
-  List<ConstructionObject> get favoriteObjects => _objects.where((o) => o.isFavorite).toList();
+  List<ConstructionObject> get favoriteObjects =>
+      _objects.where((o) => o.isFavorite).toList();
 
   bool _canUseContext(BuildContext? context) =>
       context != null && context.mounted;
@@ -52,21 +48,25 @@ class ObjectsProvider with ChangeNotifier {
     if (!_selectionMode) _deselectAllObjects();
     notifyListeners();
   }
+
   void toggleObjectSelection(String objectId) {
     HapticFeedback.selectionClick();
     final index = _objects.indexWhere((o) => o.id == objectId);
     if (index != -1) {
-      _objects[index] =
-          _objects[index].copyWith(isSelected: !_objects[index].isSelected);
+      _objects[index] = _objects[index].copyWith(
+        isSelected: !_objects[index].isSelected,
+      );
       notifyListeners();
     }
   }
+
   void selectAllObjects() {
     for (var i = 0; i < _objects.length; i++) {
       _objects[i] = _objects[i].copyWith(isSelected: true);
     }
     notifyListeners();
   }
+
   void _deselectAllObjects() {
     for (var i = 0; i < _objects.length; i++) {
       _objects[i] = _objects[i].copyWith(isSelected: false);
@@ -78,12 +78,14 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> toggleFavorite(String objectId) async {
     final index = _objects.indexWhere((o) => o.id == objectId);
     if (index == -1) return;
-    final updated = _objects[index].copyWith(isFavorite: !_objects[index].isFavorite);
+    final updated = _objects[index].copyWith(
+      isFavorite: !_objects[index].isFavorite,
+    );
     _objects[index] = updated;
-    
+
     // Update UI immediately (optimistic update)
     notifyListeners();
-    
+
     // Save to Firebase in background (don't await)
     FirebaseFirestore.instance
         .collection('objects')
@@ -99,7 +101,7 @@ class ObjectsProvider with ChangeNotifier {
       if (index != -1) {
         final updated = obj.copyWith(isFavorite: !obj.isFavorite);
         _objects[index] = updated;
-        
+
         // Save to Firebase in background (don't await)
         FirebaseFirestore.instance
             .collection('objects')
@@ -115,11 +117,15 @@ class ObjectsProvider with ChangeNotifier {
   List<ConstructionObject> _getFilteredObjects() {
     if (_searchQuery.isEmpty) return _sortObjects(List.from(_objects));
     final q = _searchQuery.toLowerCase();
-    return _sortObjects(_objects
-        .where((o) =>
-            o.name.toLowerCase().contains(q) ||
-            o.description.toLowerCase().contains(q))
-        .toList());
+    return _sortObjects(
+      _objects
+          .where(
+            (o) =>
+                o.name.toLowerCase().contains(q) ||
+                o.description.toLowerCase().contains(q),
+          )
+          .toList(),
+    );
   }
 
   List<ConstructionObject> _sortObjects(List<ConstructionObject> list) {
@@ -147,6 +153,7 @@ class ObjectsProvider with ChangeNotifier {
     _searchQuery = query;
     notifyListeners();
   }
+
   void setSort(String sortBy, bool ascending) {
     _sortBy = sortBy;
     _sortAscending = ascending;
@@ -175,7 +182,10 @@ class ObjectsProvider with ChangeNotifier {
         : null;
     if (auth != null && !auth.canControlObjects) {
       if (_canUseContext(ctx)) {
-        ErrorHandler.showErrorDialog(ctx!, 'У вас нет прав на добавление объектов');
+        ErrorHandler.showErrorDialog(
+          ctx!,
+          'У вас нет прав на добавление объектов',
+        );
       }
       return;
     }
@@ -192,11 +202,14 @@ class ObjectsProvider with ChangeNotifier {
           obj = obj.copyWith(localImagePath: imageFile.path);
         }
       }
-      
+
       // Save to Firebase directly
-      await FirebaseFirestore.instance.collection('objects').doc(obj.id).set(obj.toJson());
+      await FirebaseFirestore.instance
+          .collection('objects')
+          .doc(obj.id)
+          .set(obj.toJson());
       _objects.add(obj);
-      
+
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект добавлен');
       }
@@ -218,7 +231,10 @@ class ObjectsProvider with ChangeNotifier {
         : null;
     if (auth != null && !auth.canControlObjects) {
       if (_canUseContext(ctx)) {
-        ErrorHandler.showErrorDialog(ctx!, 'У вас нет прав на редактирование объектов');
+        ErrorHandler.showErrorDialog(
+          ctx!,
+          'У вас нет прав на редактирование объектов',
+        );
       }
       return;
     }
@@ -243,10 +259,13 @@ class ObjectsProvider with ChangeNotifier {
         return;
       }
       _objects[index] = obj;
-      
+
       // Save to Firebase directly
-      await FirebaseFirestore.instance.collection('objects').doc(obj.id).update(obj.toJson());
-      
+      await FirebaseFirestore.instance
+          .collection('objects')
+          .doc(obj.id)
+          .update(obj.toJson());
+
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект обновлён');
       }
@@ -273,10 +292,13 @@ class ObjectsProvider with ChangeNotifier {
       // If context is invalid, allow deletion (assume admin)
       canDelete = true;
     }
-    
+
     if (!canDelete) {
       if (_canUseContext(context)) {
-        ErrorHandler.showErrorDialog(context!, 'У вас нет прав на удаление объектов');
+        ErrorHandler.showErrorDialog(
+          context!,
+          'У вас нет прав на удаление объектов',
+        );
       }
       return;
     }
@@ -290,14 +312,20 @@ class ObjectsProvider with ChangeNotifier {
       }
 
       final ctx = context ?? navigatorKey.currentContext;
-      final toolsProvider = ctx != null ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false) : null;
-      final toolsToMove = toolsProvider?.tools.where((t) => t.currentLocation == objectId).toList() ?? [];
-      
+      final toolsProvider = ctx != null
+          ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false)
+          : null;
+      final toolsToMove =
+          toolsProvider?.tools
+              .where((t) => t.currentLocation == objectId)
+              .toList() ??
+          [];
+
       // Batch update tools to garage location
       if (toolsToMove.isNotEmpty && toolsProvider != null) {
         final batch = FirebaseFirestore.instance.batch();
         final toolCollection = FirebaseFirestore.instance.collection('tools');
-        
+
         for (final tool in toolsToMove) {
           final newHistory = LocationHistory(
             date: DateTime.now(),
@@ -305,17 +333,17 @@ class ObjectsProvider with ChangeNotifier {
             locationName: 'Гараж',
           );
           final updatedHistory = [...tool.locationHistory, newHistory];
-          
+
           final updatedTool = tool.copyWith(
             currentLocation: 'garage',
             currentLocationName: 'Гараж',
             updatedAt: DateTime.now(),
             locationHistory: updatedHistory,
           );
-          
+
           batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
         }
-        
+
         await batch.commit();
         toolsProvider.notifyListeners();
       }
@@ -325,7 +353,10 @@ class ObjectsProvider with ChangeNotifier {
 
       // Delete from Firebase
       try {
-        await FirebaseFirestore.instance.collection('objects').doc(objectId).delete();
+        await FirebaseFirestore.instance
+            .collection('objects')
+            .doc(objectId)
+            .delete();
       } catch (e) {
         // Firebase deletion error
       }
@@ -353,10 +384,13 @@ class ObjectsProvider with ChangeNotifier {
       // If context is invalid, allow deletion (assume admin)
       canDelete = true;
     }
-    
+
     if (!canDelete) {
       if (context != null) {
-        ErrorHandler.showErrorDialog(context, 'У вас нет прав на удаление объектов');
+        ErrorHandler.showErrorDialog(
+          context,
+          'У вас нет прав на удаление объектов',
+        );
       }
       return;
     }
@@ -370,16 +404,20 @@ class ObjectsProvider with ChangeNotifier {
       }
 
       final ctx = context ?? navigatorKey.currentContext;
-      final toolsProvider = ctx != null ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false) : null;
-      
+      final toolsProvider = ctx != null
+          ? Provider.of<app_tools.ToolsProvider>(ctx, listen: false)
+          : null;
+
       // Batch update tools from all selected objects to garage location
       final batch = FirebaseFirestore.instance.batch();
       final toolCollection = FirebaseFirestore.instance.collection('tools');
-      
+
       if (toolsProvider != null) {
         for (final obj in selected) {
-          final toolsToMove = toolsProvider.tools.where((t) => t.currentLocation == obj.id).toList();
-          
+          final toolsToMove = toolsProvider.tools
+              .where((t) => t.currentLocation == obj.id)
+              .toList();
+
           for (final tool in toolsToMove) {
             final newHistory = LocationHistory(
               date: DateTime.now(),
@@ -387,39 +425,47 @@ class ObjectsProvider with ChangeNotifier {
               locationName: 'Гараж',
             );
             final updatedHistory = [...tool.locationHistory, newHistory];
-            
+
             final updatedTool = tool.copyWith(
               currentLocation: 'garage',
               currentLocationName: 'Гараж',
               updatedAt: DateTime.now(),
               locationHistory: updatedHistory,
             );
-            
+
             batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
           }
         }
-        
+
         // Commit batch tool updates
-        if (selected.any((obj) => toolsProvider.tools.any((t) => t.currentLocation == obj.id))) {
+        if (selected.any(
+          (obj) => toolsProvider.tools.any((t) => t.currentLocation == obj.id),
+        )) {
           await batch.commit();
           toolsProvider.notifyListeners();
         }
       }
-      
+
       // Delete objects from Firebase
       for (final obj in selected) {
         try {
-          await FirebaseFirestore.instance.collection('objects').doc(obj.id).delete();
+          await FirebaseFirestore.instance
+              .collection('objects')
+              .doc(obj.id)
+              .delete();
         } catch (e) {
           // Firebase deletion error for individual object
         }
       }
-      
+
       _objects.removeWhere((o) => o.isSelected);
       _selectionMode = false;
       notifyListeners();
       if (_canUseContext(context)) {
-        ErrorHandler.showSuccessDialog(context!, 'Удалено ${selected.length} объектов');
+        ErrorHandler.showSuccessDialog(
+          context!,
+          'Удалено ${selected.length} объектов',
+        );
       }
     } catch (e, s) {
       ErrorHandler.handleError(e, s);
@@ -429,7 +475,6 @@ class ObjectsProvider with ChangeNotifier {
     }
   }
 
-
   Future<void> _syncWithFirebase() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -438,8 +483,10 @@ class ObjectsProvider with ChangeNotifier {
       // Determine if admin
       bool isAdmin = false;
       try {
-        final userDoc =
-            await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
         if (userDoc.exists) {
           isAdmin = (userDoc.data()?['role'] ?? 'user') == 'admin';
         }
@@ -458,7 +505,9 @@ class ObjectsProvider with ChangeNotifier {
       final snapshot = await query.get();
       for (final doc in snapshot.docs) {
         try {
-          final obj = ConstructionObject.fromJson(doc.data() as Map<String, dynamic>);
+          final obj = ConstructionObject.fromJson(
+            doc.data() as Map<String, dynamic>,
+          );
           _objects.add(obj);
         } catch (e) {
           // Error parsing object handled silently

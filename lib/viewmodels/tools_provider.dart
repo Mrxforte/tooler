@@ -16,16 +16,8 @@ import '../core/utils/error_handler.dart';
 import '../core/utils/id_generator.dart';
 import 'objects_provider.dart' as app_objects;
 
-/// ToolsProvider - Main provider for tool management with permissions, search, filters
-///
-/// FULL IMPLEMENTATION:
-/// - CRUD operations with permission checks
-/// - Advanced filtering (location, brand, favorites)
-/// - Search functionality
-/// - Selection mode for batch operations
-/// - Move requests with admin approval
-/// - Firebase sync
-/// - Favorites management
+/// Main state holder for tools, including search, filters, selection,
+/// permissions, and Firebase sync.
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -449,7 +441,7 @@ class ToolsProvider with ChangeNotifier {
       );
       return;
     }
-    // NOTE: Create MoveRequest and notify admins
+    // TODO: create MoveRequest entity and notify admins.
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
       'Запрос отправлен администратору',
@@ -599,8 +591,10 @@ class ToolsProvider with ChangeNotifier {
       }
 
       // Filter out tools that are already at the target location
-      final movableTools = selected.where((t) => t.currentLocation != newLocationId).toList();
-      
+      final movableTools = selected
+          .where((t) => t.currentLocation != newLocationId)
+          .toList();
+
       if (movableTools.isEmpty) {
         final ctx = navigatorKey.currentContext;
         if (ctx != null && ctx.mounted) {
@@ -671,7 +665,8 @@ class ToolsProvider with ChangeNotifier {
             .toList();
 
         final objectToolIdsById = <String, Set<String>>{
-          for (final object in allObjects) object.id: Set<String>.from(object.toolIds),
+          for (final object in allObjects)
+            object.id: Set<String>.from(object.toolIds),
         };
         final touchedObjectIds = <String>{};
 
@@ -758,8 +753,10 @@ class ToolsProvider with ChangeNotifier {
       }
 
       // Filter out tools that are already at the target location
-      final movableTools = selected.where((t) => t.currentLocation != newLocationId).toList();
-      
+      final movableTools = selected
+          .where((t) => t.currentLocation != newLocationId)
+          .toList();
+
       if (movableTools.isEmpty) {
         final ctx = navigatorKey.currentContext;
         if (ctx != null && ctx.mounted) {
@@ -892,7 +889,7 @@ class ToolsProvider with ChangeNotifier {
       );
       return;
     }
-    // NOTE: Create BatchMoveRequest and notify admins
+    // TODO: create BatchMoveRequest and notify admins.
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
       'Запрос отправлен администратору',

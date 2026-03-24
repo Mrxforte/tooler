@@ -41,10 +41,10 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
     try {
       // Send Firebase password reset email
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      
+
       // Also send backup email notification
       await _sendBackupEmailNotification(email);
-      
+
       setState(() {
         _emailSent = true;
         _recoveryEmail = email;
@@ -79,17 +79,17 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
 
   Future<void> _sendBackupEmailNotification(String email) async {
     try {
-      // Call Firebase Cloud Function to send password recovery email
+      // Trigger Cloud Function that sends the recovery notification.
       final functions = FirebaseFunctions.instance;
-      
+
       debugPrint('Calling sendPasswordRecoveryEmail Cloud Function...');
-      
+
       final result = await functions
           .httpsCallable('sendPasswordRecoveryEmail')
           .call({
-        'email': email,
-        'userName': '', // Optional: can be fetched from user profile
-      });
+            'email': email,
+            'userName': '', // Optional field, can come from user profile.
+          });
 
       if (result.data['success'] == true) {
         debugPrint(
@@ -100,11 +100,11 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
       }
     } on FirebaseFunctionsException catch (e) {
       debugPrint('Cloud Function error: ${e.code} - ${e.message}');
-      // Silently fail - main Firebase password reset email was already sent
-      // User can still proceed without the backup notification
+      // If this fails, don't block recovery: Firebase reset email is already sent.
+      // The user can continue even without this extra notification.
     } catch (e) {
       debugPrint('Backup email notification error: $e');
-      // Silently fail - main email was already sent via Firebase
+      // Same here: failure is non-critical because the main reset email was sent.
     }
   }
 
@@ -254,7 +254,8 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                                     Icons.clear,
                                     color: Colors.grey.shade600,
                                   ),
-                                  onPressed: () => setState(() => _emailController.clear()),
+                                  onPressed: () =>
+                                      setState(() => _emailController.clear()),
                                 )
                               : null,
                         ),
@@ -265,9 +266,13 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                       SizedBox(
                         height: 48,
                         child: ElevatedButton(
-                          onPressed: _isLoading ? null : _sendPasswordResetEmail,
+                          onPressed: _isLoading
+                              ? null
+                              : _sendPasswordResetEmail,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.primary,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
                             foregroundColor: Colors.white,
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -280,7 +285,9 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(
                                     strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
                                   ),
                                 )
                               : Row(
@@ -422,13 +429,29 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
                           ),
                         ),
                         const SizedBox(height: 16),
-                        _buildStepItem('1', 'Откройте письмо', 'Проверьте папку входящих писем и папку спама'),
+                        _buildStepItem(
+                          '1',
+                          'Откройте письмо',
+                          'Проверьте папку входящих писем и папку спама',
+                        ),
                         const SizedBox(height: 12),
-                        _buildStepItem('2', 'Нажмите ссылку', 'Перейдите по ссылке восстановления в письме'),
+                        _buildStepItem(
+                          '2',
+                          'Нажмите ссылку',
+                          'Перейдите по ссылке восстановления в письме',
+                        ),
                         const SizedBox(height: 12),
-                        _buildStepItem('3', 'Новый пароль', 'Придумайте безопасный пароль (минимум 6 символов)'),
+                        _buildStepItem(
+                          '3',
+                          'Новый пароль',
+                          'Придумайте безопасный пароль (минимум 6 символов)',
+                        ),
                         const SizedBox(height: 12),
-                        _buildStepItem('4', 'Вернитесь в приложение', 'Выполните вход с новым паролем'),
+                        _buildStepItem(
+                          '4',
+                          'Вернитесь в приложение',
+                          'Выполните вход с новым паролем',
+                        ),
                       ],
                     ),
                   ),
@@ -523,10 +546,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey.shade600,
-                ),
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
               ),
             ],
           ),
@@ -548,18 +568,11 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.security,
-                color: Colors.orange.shade700,
-                size: 24,
-              ),
+              Icon(Icons.security, color: Colors.orange.shade700, size: 24),
               const SizedBox(width: 12),
               const Text(
                 'Советы по безопасности',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ],
           ),
@@ -588,10 +601,7 @@ class _PasswordRecoveryScreenState extends State<PasswordRecoveryScreen> {
           Expanded(
             child: Text(
               text,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey.shade700,
-              ),
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
             ),
           ),
         ],
