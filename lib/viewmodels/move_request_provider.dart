@@ -1,4 +1,4 @@
-// ignore_for_file: unused_field
+﻿// ignore_for_file: unused_field
 
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -29,7 +29,7 @@ class MoveRequestProvider with ChangeNotifier {
         query = query.where('requestedBy', isEqualTo: userId);
       }
       final snapshot =
-          await query.get().timeout(const Duration(seconds: 15));
+          await query.get();
       _requests.clear();
       for (final doc in snapshot.docs) {
         try {
@@ -66,7 +66,7 @@ class MoveRequestProvider with ChangeNotifier {
         .collection(_collection)
         .doc(request.id)
         .set(request.toJson(), SetOptions(merge: true))
-        .timeout(const Duration(seconds: 15));
+        ;
     _requests.insert(0, request);
     notifyListeners();
   }
@@ -75,7 +75,7 @@ class MoveRequestProvider with ChangeNotifier {
     await FirebaseFirestore.instance
         .collection(_collection)
         .doc(requestId)
-        .update({'status': status}).timeout(const Duration(seconds: 15));
+        .update({'status': status});
     final index = _requests.indexWhere((r) => r.id == requestId);
     if (index != -1) {
       final r = _requests[index];
@@ -99,7 +99,7 @@ class MoveRequestProvider with ChangeNotifier {
         .collection(_collection)
         .doc(requestId)
         .delete()
-        .timeout(const Duration(seconds: 15));
+        ;
     _requests.removeWhere((r) => r.id == requestId);
     notifyListeners();
   }

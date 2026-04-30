@@ -3,6 +3,7 @@
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -15,6 +16,9 @@ import 'package:timezone/data/latest.dart' as tz;
 
 import 'core/constants/app_constants.dart';
 import 'firebase_options.dart';
+
+import 'core/services/connectivity_service.dart';
+import 'views/widgets/offline_banner.dart';
 
 // Providers
 import 'viewmodels/theme_provider.dart';
@@ -50,6 +54,13 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
+    );
+
+    // Enable Firestore offline persistence — works without internet,
+    // queues writes and syncs automatically when connection is restored
+    FirebaseFirestore.instance.settings = const Settings(
+      persistenceEnabled: true,
+      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
 
     try {
@@ -211,6 +222,7 @@ class _MyAppState extends State<MyApp> {
 
         return MultiProvider(
           providers: [
+            ChangeNotifierProvider(create: (_) => ConnectivityService()),
             ChangeNotifierProvider(create: (_) => ThemeProvider()),
             ChangeNotifierProvider(create: (_) => AdminSettingsProvider()),
             ChangeNotifierProxyProvider<AdminSettingsProvider, AuthProvider>(
@@ -329,7 +341,7 @@ class _MainHomeState extends State<MainHome> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildScreen(_navIndex),
+      body: OfflineBanner(child: _buildScreen(_navIndex)),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _navIndex,
         onTap: (index) {

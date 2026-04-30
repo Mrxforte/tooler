@@ -1,4 +1,4 @@
-// ignore_for_file: unused_field, unused_import, use_build_context_synchronously
+﻿// ignore_for_file: unused_field, unused_import, use_build_context_synchronously
 
 import 'dart:async';
 import 'dart:io';
@@ -459,7 +459,7 @@ class ToolsProvider with ChangeNotifier {
           .collection('move_requests')
           .doc(request['id'] as String)
           .set(request, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 15));
+          ;
     } catch (_) {}
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
@@ -925,7 +925,7 @@ class ToolsProvider with ChangeNotifier {
           .collection('batch_move_requests')
           .doc(request['id'] as String)
           .set(request, SetOptions(merge: true))
-          .timeout(const Duration(seconds: 15));
+          ;
     } catch (_) {}
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
@@ -942,33 +942,15 @@ class ToolsProvider with ChangeNotifier {
     if (docId == null || docId.isEmpty) {
       throw Exception('Некорректный ID для синхронизации');
     }
-
+    // Firestore offline persistence is enabled: writes complete immediately
+    // from local cache and auto-sync to server when connection is restored.
     final docRef = FirebaseFirestore.instance.collection(collection).doc(docId);
-
     switch (action) {
       case 'create':
       case 'update':
-        await docRef
-            .set(data, SetOptions(merge: true))
-            .timeout(
-              const Duration(seconds: 15),
-              onTimeout: () {
-                throw TimeoutException(
-                  'Синхронизация данных заняла слишком много времени',
-                );
-              },
-            );
-        break;
+        await docRef.set(data, SetOptions(merge: true));
       case 'delete':
-        await docRef.delete().timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            throw TimeoutException(
-              'Удаление данных заняло слишком много времени',
-            );
-          },
-        );
-        break;
+        await docRef.delete();
       default:
         throw Exception('Неизвестное действие синхронизации: $action');
     }

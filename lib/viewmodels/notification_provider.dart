@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../data/models/notification.dart';
@@ -42,7 +42,7 @@ class NotificationProvider with ChangeNotifier {
           .collection(_collection)
           .doc(notification.id)
           .set(notification.toJson(), SetOptions(merge: true))
-          .timeout(const Duration(seconds: 15));
+          ;
     } catch (_) {
       _notifications.insert(0, notification);
       notifyListeners();
@@ -77,7 +77,7 @@ class NotificationProvider with ChangeNotifier {
       await FirebaseFirestore.instance
           .collection(_collection)
           .doc(id)
-          .update({'read': true}).timeout(const Duration(seconds: 10));
+          .update({'read': true});
     } catch (_) {}
   }
 
@@ -96,7 +96,7 @@ class NotificationProvider with ChangeNotifier {
           {'read': true},
         );
       }
-      await batch.commit().timeout(const Duration(seconds: 15));
+      await batch.commit();
     } catch (_) {}
   }
 
@@ -108,7 +108,7 @@ class NotificationProvider with ChangeNotifier {
           .collection(_collection)
           .doc(id)
           .delete()
-          .timeout(const Duration(seconds: 10));
+          ;
     } catch (_) {}
   }
 
