@@ -290,8 +290,9 @@ class AuthProvider with ChangeNotifier {
     _profileImage = image;
     if (_user != null) {
       final imageUrl = await ImageService.uploadImage(image, _user!.uid);
-      if (imageUrl != null)
+      if (imageUrl != null) {
         await _prefs.setString('profile_image_url', imageUrl);
+      }
     }
     notifyListeners();
   }

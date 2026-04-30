@@ -52,16 +52,11 @@ void main() async {
       options: DefaultFirebaseOptions.currentPlatform,
     );
 
-    // Initialize Firebase App Check with fallback for connectivity issues
     try {
       await FirebaseAppCheck.instance.activate(
-        // Use Debug provider for development - use Play Integrity in production
-        androidProvider: kDebugMode 
-            ? AndroidProvider.debug 
+        androidProvider: kDebugMode
+            ? AndroidProvider.debug
             : AndroidProvider.playIntegrity,
-        // Use reCAPTCHA for web
-        // webProvider: ReCaptchaV3Provider('recaptcha-v3-site-key'),
-        // For iOS when configured: appleProvider: AppleProvider.appAttest,
       );
     } catch (e) {
       print('Firebase App Check initialization failed: $e');
@@ -73,14 +68,18 @@ void main() async {
     final DarwinInitializationSettings iosSettings =
         DarwinInitializationSettings();
     final InitializationSettings settings = InitializationSettings(
-        android: androidSettings, iOS: iosSettings);
+      android: androidSettings,
+      iOS: iosSettings,
+    );
     await flutterLocalNotificationsPlugin.initialize(settings: settings);
 
     Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
     Workmanager().registerPeriodicTask(
-        'daily-salary-reminder', 'dailySalaryReminder',
-        frequency: Duration(hours: 24),
-        initialDelay: _getTimeUntil7PM());
+      'daily-salary-reminder',
+      'dailySalaryReminder',
+      frequency: Duration(hours: 24),
+      initialDelay: _getTimeUntil7PM(),
+    );
 
     print('App ready');
   } catch (e) {
@@ -126,6 +125,7 @@ ThemeData _buildLightTheme() {
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: primary,
       foregroundColor: Colors.white,
+      shape: const CircleBorder(),
     ),
   );
 }
@@ -165,6 +165,7 @@ ThemeData _buildDarkTheme() {
     floatingActionButtonTheme: FloatingActionButtonThemeData(
       backgroundColor: primary,
       foregroundColor: Colors.white,
+      shape: const CircleBorder(),
     ),
   );
 }
@@ -180,7 +181,7 @@ Duration _getTimeUntil7PM() {
   return time.difference(now);
 }
 
-  class MyApp extends StatelessWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
@@ -190,9 +191,7 @@ Duration _getTimeUntil7PM() {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return MaterialApp(
-            home: Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            ),
+            home: Scaffold(body: Center(child: CircularProgressIndicator())),
           );
         }
 
@@ -207,10 +206,8 @@ Duration _getTimeUntil7PM() {
                 prefs,
                 Provider.of<AdminSettingsProvider>(context, listen: false),
               ),
-              update: (context, adminSettings, previousAuth) => previousAuth ?? AuthProvider(
-                prefs,
-                adminSettings,
-              ),
+              update: (context, adminSettings, previousAuth) =>
+                  previousAuth ?? AuthProvider(prefs, adminSettings),
             ),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
@@ -231,8 +228,8 @@ Duration _getTimeUntil7PM() {
                 themeMode: themeProvider.themeMode == 'dark'
                     ? ThemeMode.dark
                     : themeProvider.themeMode == 'system'
-                        ? ThemeMode.system
-                        : ThemeMode.light,
+                    ? ThemeMode.system
+                    : ThemeMode.light,
                 routes: {
                   '/home': (_) => const MainHome(),
                   '/auth': (_) => const AuthFlow(),
@@ -248,14 +245,19 @@ Duration _getTimeUntil7PM() {
                             children: [
                               CircularProgressIndicator(),
                               SizedBox(height: 16),
-                              Text('Загрузка...', style: TextStyle(color: Colors.grey)),
+                              Text(
+                                'Загрузка...',
+                                style: TextStyle(color: Colors.grey),
+                              ),
                             ],
                           ),
                         ),
                       );
                     }
                     // Show main app or auth flow based on login state
-                    return auth.isLoggedIn ? const MainHome() : const AuthFlow();
+                    return auth.isLoggedIn
+                        ? const MainHome()
+                        : const AuthFlow();
                   },
                 ),
               );
@@ -275,9 +277,8 @@ class AuthFlow extends StatelessWidget {
       onContinue: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => OnboardingScreen(
-            onComplete: () => Navigator.pop(context),
-          ),
+          builder: (_) =>
+              OnboardingScreen(onComplete: () => Navigator.pop(context)),
         ),
       ),
     );
@@ -322,16 +323,22 @@ class _MainHomeState extends State<MainHome> {
         currentIndex: _navIndex,
         onTap: (index) {
           // Dismiss any active selection modes when switching tabs
-          final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-          final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
-          
+          final toolsProvider = Provider.of<ToolsProvider>(
+            context,
+            listen: false,
+          );
+          final objectsProvider = Provider.of<ObjectsProvider>(
+            context,
+            listen: false,
+          );
+
           if (toolsProvider.selectionMode) {
             toolsProvider.toggleSelectionMode();
           }
           if (objectsProvider.selectionMode) {
             objectsProvider.toggleSelectionMode();
           }
-          
+
           setState(() => _navIndex = index);
         },
         elevation: 8,
@@ -348,10 +355,7 @@ class _MainHomeState extends State<MainHome> {
             icon: Icon(Icons.favorite),
             label: 'Избранное',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Профиль',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Профиль'),
         ],
       ),
     );

@@ -118,7 +118,7 @@ class _MoveToolsScreenState extends State<MoveToolsScreen> {
                   children: [
                     const SizedBox(height: 12),
                     Text(
-                      '${toolsAlreadyInDest.length} из ${widget.selectedTools.length} инструментов уже находятся в "${_selectedLocationName}":',
+                      '${toolsAlreadyInDest.length} из ${widget.selectedTools.length} инструментов уже находятся в "$_selectedLocationName":',
                       style: const TextStyle(
                         fontSize: 14,
                         color: Colors.black87,

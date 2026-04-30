@@ -4,16 +4,6 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
@@ -50,23 +40,21 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyBrpy8SVF6AEg-gjJ5uGjyYtybc2APsUUc',
-    appId: '1:927665559732:web:ac5715b5a84f946f325fe1',
-    messagingSenderId: '927665559732',
-    projectId: 'myblog-8ca17',
-    authDomain: 'myblog-8ca17.firebaseapp.com',
-    databaseURL: 'https://myblog-8ca17-default-rtdb.firebaseio.com',
-    storageBucket: 'myblog-8ca17.firebasestorage.app',
-    measurementId: 'G-4NB18PWJXH',
+    apiKey: 'AIzaSyChIYTuQnno1qb7WF_GD1jiKq_580pqRXI',
+    appId: '1:880431422459:web:22c3ed68f382bdf800c95e',
+    messagingSenderId: '880431422459',
+    projectId: 'fire-app-8408a',
+    authDomain: 'fire-app-8408a.firebaseapp.com',
+    databaseURL: 'https://fire-app-8408a-default-rtdb.firebaseio.com',
+    storageBucket: 'fire-app-8408a.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAsXGfTNAXz1CxWddmeaZWtDyCGFv8yK7o',
-    appId: '1:927665559732:android:853addd3bc7720b1325fe1',
-    messagingSenderId: '927665559732',
-    projectId: 'myblog-8ca17',
-    databaseURL: 'https://myblog-8ca17-default-rtdb.firebaseio.com',
-    storageBucket: 'myblog-8ca17.firebasestorage.app',
+    apiKey: 'AIzaSyDHBa37nXaO1Qj5CrrF67_qRTfP_RH3_oQ',
+    appId: '1:880431422459:android:39803773df8d8a7f00c95e',
+    messagingSenderId: '880431422459',
+    projectId: 'fire-app-8408a',
+    databaseURL: 'https://fire-app-8408a-default-rtdb.firebaseio.com',
+    storageBucket: 'fire-app-8408a.firebasestorage.app',
   );
-
 }

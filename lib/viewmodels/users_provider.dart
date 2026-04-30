@@ -173,8 +173,9 @@ class UsersProvider with ChangeNotifier {
     try {
       final updates = <String, dynamic>{};
       if (canMoveTools != null) updates['canMoveTools'] = canMoveTools;
-      if (canControlObjects != null)
+      if (canControlObjects != null) {
         updates['canControlObjects'] = canControlObjects;
+      }
 
       if (updates.isNotEmpty) {
         await FirebaseFirestore.instance

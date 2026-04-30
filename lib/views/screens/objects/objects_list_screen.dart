@@ -11,7 +11,6 @@ import '../../../viewmodels/auth_provider.dart';
 import '../../../views/widgets/object_card.dart';
 import 'object_details_screen.dart';
 import 'add_edit_object_screen.dart';
-import 'package:flutter/foundation.dart';
 
 class EnhancedObjectsListScreen extends StatefulWidget {
   const EnhancedObjectsListScreen({super.key});
@@ -19,11 +18,12 @@ class EnhancedObjectsListScreen extends StatefulWidget {
   State<EnhancedObjectsListScreen> createState() =>
       _EnhancedObjectsListScreenState();
 }
+
 class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _showFavoritesOnly = false;
   bool _loadingTimeout = false;
-  
+
   // Advanced filters
   String _sortBy = 'name'; // name, date, tools_count
   DateTime? _createdDateFrom;
@@ -42,24 +42,26 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       if (mounted) setState(() => _loadingTimeout = true);
     });
   }
+
   @override
   void dispose() {
     _searchController.dispose();
     // Do not access Provider here; context is deactivated.
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final objectsProvider = Provider.of<ObjectsProvider>(context);
     final auth = Provider.of<AuthProvider>(context);
 
     List<ConstructionObject> displayObjects = objectsProvider.objects;
-    
+
     // Apply filters
     if (_showFavoritesOnly) {
       displayObjects = displayObjects.where((o) => o.isFavorite).toList();
     }
-    
+
     // Apply date range filter
     if (_createdDateFrom != null) {
       displayObjects = displayObjects
@@ -68,43 +70,59 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     }
     if (_createdDateTo != null) {
       displayObjects = displayObjects
-          .where((o) => o.createdAt.isBefore(_createdDateTo!.add(const Duration(days: 1))))
+          .where(
+            (o) => o.createdAt.isBefore(
+              _createdDateTo!.add(const Duration(days: 1)),
+            ),
+          )
           .toList();
     }
-    
+
     // Apply tool count filter
     if (_minToolCount > 0 || _maxToolCount < 100) {
       displayObjects = displayObjects
-          .where((o) => o.toolIds.length >= _minToolCount && o.toolIds.length <= _maxToolCount)
+          .where(
+            (o) =>
+                o.toolIds.length >= _minToolCount &&
+                o.toolIds.length <= _maxToolCount,
+          )
           .toList();
     }
-    
+
     // Apply search filter
     if (_searchController.text.isNotEmpty) {
       final q = _searchController.text.toLowerCase();
-      displayObjects = displayObjects.where((o) =>
-          o.name.toLowerCase().contains(q) ||
-          o.description.toLowerCase().contains(q)).toList();
+      displayObjects = displayObjects
+          .where(
+            (o) =>
+                o.name.toLowerCase().contains(q) ||
+                o.description.toLowerCase().contains(q),
+          )
+          .toList();
     }
-    
+
     // Apply sorting
     switch (_sortBy) {
       case 'date':
         displayObjects.sort((a, b) => b.createdAt.compareTo(a.createdAt));
         break;
       case 'tools_count':
-        displayObjects.sort((a, b) => b.toolIds.length.compareTo(a.toolIds.length));
+        displayObjects.sort(
+          (a, b) => b.toolIds.length.compareTo(a.toolIds.length),
+        );
         break;
       case 'name':
       default:
         displayObjects.sort((a, b) => a.name.compareTo(b.name));
     }
-    
+
     // Calculate active filters count
     _activeFilters.clear();
     if (_showFavoritesOnly) _activeFilters.add('Избранные');
-    if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
-    if (_minToolCount > 0 || _maxToolCount < 100) _activeFilters.add('Инструменты');
+    if (_createdDateFrom != null || _createdDateTo != null)
+      _activeFilters.add('Дата');
+    if (_minToolCount > 0 || _maxToolCount < 100)
+      _activeFilters.add('Инструменты');
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
@@ -112,9 +130,12 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
         title: Text('Объекты (${displayObjects.length})'),
         actions: [
           IconButton(
-            icon: Icon(_showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
-                color: _showFavoritesOnly ? Colors.red : null),
-            onPressed: () => setState(() => _showFavoritesOnly = !_showFavoritesOnly),
+            icon: Icon(
+              _showFavoritesOnly ? Icons.favorite : Icons.favorite_border,
+              color: _showFavoritesOnly ? Colors.red : null,
+            ),
+            onPressed: () =>
+                setState(() => _showFavoritesOnly = !_showFavoritesOnly),
           ),
           Stack(
             alignment: Alignment.center,
@@ -123,7 +144,8 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                 icon: const Icon(Icons.tune),
                 onPressed: () => _showAdvancedFiltersPanel(context),
               ),
-              if (_activeFilters.isNotEmpty && !_activeFilters.contains('Поиск'))
+              if (_activeFilters.isNotEmpty &&
+                  !_activeFilters.contains('Поиск'))
                 Positioned(
                   top: 8,
                   right: 8,
@@ -160,7 +182,9 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                       decoration: InputDecoration(
                         hintText: 'Поиск объектов...',
                         prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         filled: true,
                         fillColor: Colors.grey.shade50,
                       ),
@@ -179,19 +203,28 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                       ),
                     ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12.0,
+                      vertical: 8.0,
+                    ),
                     child: Row(
                       children: [
                         ElevatedButton.icon(
                           onPressed: objectsProvider.toggleSelectionMode,
                           icon: const Icon(Icons.checklist),
-                          label: Text(objectsProvider.selectionMode ? 'Отменить' : 'Выбрать'),
+                          label: Text(
+                            objectsProvider.selectionMode
+                                ? 'Отменить'
+                                : 'Выбрать',
+                          ),
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
                         ),
-                        if (objectsProvider.selectionMode && displayObjects.isNotEmpty) ...[
+                        if (objectsProvider.selectionMode &&
+                            displayObjects.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
                             onPressed: objectsProvider.selectAllObjects,
@@ -200,7 +233,8 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.green,
                               shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12)),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
                             ),
                           ),
                         ],
@@ -209,7 +243,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                   ),
                   Expanded(
                     child: displayObjects.isEmpty
-                        ? _buildEmptyObjectsScreen(auth.canControlObjects, _showFavoritesOnly)
+                        ? _buildEmptyObjectsScreen(
+                            auth.canControlObjects,
+                            _showFavoritesOnly,
+                          )
                         : ListView.builder(
                             itemCount: displayObjects.length,
                             itemBuilder: (context, index) {
@@ -220,10 +257,12 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                                 objectsProvider: objectsProvider,
                                 selectionMode: objectsProvider.selectionMode,
                                 onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                            ObjectDetailsScreen(object: object))),
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ObjectDetailsScreen(object: object),
+                                  ),
+                                ),
                               );
                             },
                           ),
@@ -240,19 +279,20 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
               label: Text('${objectsProvider.selectedObjects.length}'),
               backgroundColor: Theme.of(context).colorScheme.primary,
             )
-          : (auth.canControlObjects
-              ? FloatingActionButton(
-                  onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => const AddEditObjectScreen())),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  child: const Icon(Icons.add),
-                )
-              : null),
+          : FloatingActionButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AddEditObjectScreen(),
+                ),
+              ),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              child: const Icon(Icons.add),
+            ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
+
   void _clearAllFilters() {
     setState(() {
       _showFavoritesOnly = false;
@@ -287,7 +327,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                   children: [
                     const Text(
                       'Расширенные фильтры',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close),
@@ -306,13 +349,24 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                 DropdownButtonFormField<String>(
                   initialValue: _sortBy,
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                   ),
                   items: const [
                     DropdownMenuItem(value: 'name', child: Text('По названию')),
-                    DropdownMenuItem(value: 'date', child: Text('По дате создания')),
-                    DropdownMenuItem(value: 'tools_count', child: Text('По кол-ву инструментов')),
+                    DropdownMenuItem(
+                      value: 'date',
+                      child: Text('По дате создания'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'tools_count',
+                      child: Text('По кол-ву инструментов'),
+                    ),
                   ],
                   onChanged: (v) {
                     setState(() => _sortBy = v ?? 'name');
@@ -331,7 +385,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                   children: [
                     Text('От $_minToolCount до $_maxToolCount'),
                     RangeSlider(
-                      values: RangeValues(_minToolCount.toDouble(), _maxToolCount.toDouble()),
+                      values: RangeValues(
+                        _minToolCount.toDouble(),
+                        _maxToolCount.toDouble(),
+                      ),
                       min: 0,
                       max: 100,
                       divisions: 20,
@@ -457,46 +514,60 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   }
 
   Widget _buildLoadingScreen() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(
-                    Theme.of(context).colorScheme.primary)),
-            const SizedBox(height: 20),
-            Text('Загрузка объектов...',
-                style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-            if (_loadingTimeout) ...[
-              const SizedBox(height: 12),
-              Text('Загрузка занимает больше времени,\nпроверьте интернет или попробуйте позже.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-            ],
-          ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(
+            Theme.of(context).colorScheme.primary,
+          ),
         ),
-      );
-  Widget _buildEmptyObjectsScreen(bool canControl, bool favoritesOnly) => Center(
+        const SizedBox(height: 20),
+        Text(
+          'Загрузка объектов...',
+          style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+        ),
+        if (_loadingTimeout) ...[
+          const SizedBox(height: 12),
+          Text(
+            'Загрузка занимает больше времени,\nпроверьте интернет или попробуйте позже.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+          ),
+        ],
+      ],
+    ),
+  );
+  Widget _buildEmptyObjectsScreen(bool canControl, bool favoritesOnly) =>
+      Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(Icons.location_city, size: 80, color: Colors.grey.shade300),
             const SizedBox(height: 20),
-            Text(favoritesOnly ? 'Нет избранных объектов' : 'Нет объектов',
-                style: const TextStyle(fontSize: 18, color: Colors.grey)),
+            Text(
+              favoritesOnly ? 'Нет избранных объектов' : 'Нет объектов',
+              style: const TextStyle(fontSize: 18, color: Colors.grey),
+            ),
             const SizedBox(height: 10),
-            if (canControl && !favoritesOnly)
+            if (!favoritesOnly)
               ElevatedButton(
                 onPressed: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => const AddEditObjectScreen())),
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddEditObjectScreen(),
+                  ),
+                ),
                 child: const Text('Добавить объект'),
               ),
           ],
         ),
       );
   void _showObjectSelectionActions(BuildContext context) {
-    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
     final auth = Provider.of<AuthProvider>(context, listen: false);
     final selectedCount = objectsProvider.selectedObjects.length;
     showModalBottomSheet(
@@ -515,8 +586,13 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Выбрано: $selectedCount объектов',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(
+                'Выбрано: $selectedCount объектов',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
               const SizedBox(height: 20),
               ListTile(
                 leading: const Icon(Icons.favorite, color: Colors.red),
@@ -540,7 +616,10 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                 title: const Text('Поделиться отчетами'),
                 onTap: () {
                   Navigator.pop(context);
-                  _showObjectReportTypeDialog(context, objectsProvider.selectedObjects);
+                  _showObjectReportTypeDialog(
+                    context,
+                    objectsProvider.selectedObjects,
+                  );
                 },
               ),
               const SizedBox(height: 20),
@@ -554,14 +633,19 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       },
     );
   }
+
   void _showObjectsDeleteDialog(BuildContext context) {
-    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Подтверждение удаления'),
         content: Text(
-            'Удалить выбранные ${objectsProvider.selectedObjects.length} объектов?\n\nИнструменты на этих объектах будут перемещены в гараж.'),
+          'Удалить выбранные ${objectsProvider.selectedObjects.length} объектов?\n\nИнструменты на этих объектах будут перемещены в гараж.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -581,10 +665,15 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   }
 
   void _showObjectReportTypeDialog(
-      BuildContext context, List<ConstructionObject> selectedObjects) {
+    BuildContext context,
+    List<ConstructionObject> selectedObjects,
+  ) {
     final toolsProvider = Provider.of<ToolsProvider>(context, listen: false);
-    final objectsProvider = Provider.of<ObjectsProvider>(context, listen: false);
-    
+    final objectsProvider = Provider.of<ObjectsProvider>(
+      context,
+      listen: false,
+    );
+
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -608,7 +697,11 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.assessment, size: 28, color: Colors.orange),
+                    const Icon(
+                      Icons.assessment,
+                      size: 28,
+                      color: Colors.orange,
+                    ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
@@ -616,11 +709,17 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
                         children: [
                           const Text(
                             'Создать отчет',
-                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           Text(
                             'Выбрано: ${selectedObjects.length} объект(ов)',
-                            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                            ),
                           ),
                         ],
                       ),
@@ -705,7 +804,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     try {
       final dialogContext = context;
       int processedReports = 0;
-      
+
       // Show progress dialog
       showDialog(
         context: context,
@@ -739,11 +838,11 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       // Generate reports
       for (final obj in selectedObjects) {
         if (!dialogContext.mounted) break;
-        
+
         final toolsOnObject = toolsProvider.tools
             .where((t) => t.currentLocation == obj.id)
             .toList();
-        
+
         try {
           await ReportService.shareObjectReport(
             obj,
@@ -792,10 +891,9 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
         try {
           Navigator.of(context).pop();
         } catch (_) {}
-        
+
         Future.delayed(const Duration(milliseconds: 300), () {
           if (context.mounted) {
-           
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: Text('Ошибка при создании отчета: $e'),

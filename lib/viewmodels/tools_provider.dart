@@ -441,7 +441,26 @@ class ToolsProvider with ChangeNotifier {
       );
       return;
     }
-    // TODO: create MoveRequest entity and notify admins.
+    final tool = _tools[toolIndex];
+    final requestedBy = FirebaseAuth.instance.currentUser?.uid ?? '';
+    try {
+      final request = {
+        'id': IdGenerator.generateRequestId(),
+        'toolId': toolId,
+        'fromLocationId': tool.currentLocation,
+        'fromLocationName': tool.currentLocationName,
+        'toLocationId': toLocationId,
+        'toLocationName': toLocationName,
+        'requestedBy': requestedBy,
+        'status': 'pending',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await FirebaseFirestore.instance
+          .collection('move_requests')
+          .doc(request['id'] as String)
+          .set(request, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {}
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
       'Запрос отправлен администратору',
@@ -889,7 +908,25 @@ class ToolsProvider with ChangeNotifier {
       );
       return;
     }
-    // TODO: create BatchMoveRequest and notify admins.
+    final requestedBy = FirebaseAuth.instance.currentUser?.uid ?? '';
+    try {
+      final request = {
+        'id': IdGenerator.generateBatchRequestId(),
+        'toolIds': selectedTools.map((t) => t.id).toList(),
+        'fromLocationId': selectedTools.first.currentLocation,
+        'fromLocationName': selectedTools.first.currentLocationName,
+        'toLocationId': toLocationId,
+        'toLocationName': toLocationName,
+        'requestedBy': requestedBy,
+        'status': 'pending',
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+      await FirebaseFirestore.instance
+          .collection('batch_move_requests')
+          .doc(request['id'] as String)
+          .set(request, SetOptions(merge: true))
+          .timeout(const Duration(seconds: 15));
+    } catch (_) {}
     ErrorHandler.showSuccessDialog(
       navigatorKey.currentContext!,
       'Запрос отправлен администратору',

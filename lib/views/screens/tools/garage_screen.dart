@@ -129,11 +129,13 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
         .toList();
 
     _activeFilters.clear();
-    if (_filterBrand != null && _filterBrand != 'all')
+    if (_filterBrand != null && _filterBrand != 'all') {
       _activeFilters.add('Бренд');
+    }
     if (_showFavoritesOnly) _activeFilters.add('Избранные');
-    if (_createdDateFrom != null || _createdDateTo != null)
+    if (_createdDateFrom != null || _createdDateTo != null) {
       _activeFilters.add('Дата');
+    }
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(
@@ -248,31 +250,29 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        if (authProvider.isAdmin)
-                          ElevatedButton.icon(
-                            onPressed: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const AddEditToolScreen(),
-                                ),
-                              );
-                              if (!mounted) return;
-                              await Provider.of<ToolsProvider>(
-                                context,
-                                listen: false,
-                              ).loadTools(forceRefresh: true);
-                            },
-                            icon: const Icon(Icons.add),
-                            label: const Text('Добавить'),
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                        ElevatedButton.icon(
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const AddEditToolScreen(),
                               ),
+                            );
+                            if (!mounted) return;
+                            await Provider.of<ToolsProvider>(
+                              context,
+                              listen: false,
+                            ).loadTools(forceRefresh: true);
+                          },
+                          icon: const Icon(Icons.add),
+                          label: const Text('Добавить'),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
                           ),
-                        if (authProvider.isAdmin) const SizedBox(width: 8),
+                        ),
+                        const SizedBox(width: 8),
                         ElevatedButton.icon(
                           onPressed: toolsProvider.toggleSelectionMode,
                           icon: const Icon(Icons.checklist),
@@ -570,16 +570,13 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
           style: TextStyle(color: Colors.grey[500]),
         ),
         const SizedBox(height: 20),
-        if (isAdmin)
-          ElevatedButton(
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const AddEditToolScreen(),
-              ),
-            ),
-            child: const Text('Добавить первый инструмент'),
+        ElevatedButton(
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const AddEditToolScreen()),
           ),
+          child: const Text('Добавить первый инструмент'),
+        ),
       ],
     ),
   );

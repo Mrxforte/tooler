@@ -29,7 +29,7 @@ class SelectionToolCard extends StatelessWidget {
       builder: (context, toolsProvider, _) {
         // Get fresh tool state from provider (using unfiltered lookup)
         final updatedTool = toolsProvider.getToolById(tool.id) ?? tool;
-        
+
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           elevation: updatedTool.isSelected ? 4 : 1,
@@ -47,75 +47,101 @@ class SelectionToolCard extends StatelessWidget {
                 ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.1)
                 : null,
             child: ListTile(
-            leading: selectionMode 
-                ? Checkbox(
-                    value: updatedTool.isSelected,
-                    onChanged: (_) {
-                      HapticFeedback.selectionClick();
-                      toolsProvider.toggleToolSelection(tool.id);
-                    },
-                  )
-                : _buildLeadingImage(context),
-        title: Text(updatedTool.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: subtitleOverride != null
-            ? Text(subtitleOverride!, style: const TextStyle(fontSize: 13))
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_on, size: 14, color: Colors.blue),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          updatedTool.currentLocationName.isNotEmpty
-                              ? updatedTool.currentLocationName
-                              : 'Нет локации',
-                          style: const TextStyle(fontSize: 13, color: Colors.blue),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              leading: selectionMode
+                  ? Checkbox(
+                      value: updatedTool.isSelected,
+                      onChanged: (_) {
+                        HapticFeedback.selectionClick();
+                        toolsProvider.toggleToolSelection(tool.id);
+                      },
+                    )
+                  : _buildLeadingImage(context),
+              title: Text(
+                updatedTool.title,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: subtitleOverride != null
+                  ? Text(
+                      subtitleOverride!,
+                      style: const TextStyle(fontSize: 13),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.location_on,
+                              size: 14,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                updatedTool.currentLocationName.isNotEmpty
+                                    ? updatedTool.currentLocationName
+                                    : 'Нет локации',
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.blue,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text('${updatedTool.brand}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  if (updatedTool.description.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      updatedTool.description,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        const SizedBox(height: 4),
+                        Text(
+                          updatedTool.brand,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        if (updatedTool.description.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            updatedTool.description,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ],
-              ),
-        isThreeLine: updatedTool.description.isNotEmpty,
-        trailing: trailingOverride ?? IconButton(
-              icon: Icon(
-                updatedTool.isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: updatedTool.isFavorite ? Colors.red : null,
-              ),
-              onPressed: () {
-                HapticFeedback.mediumImpact();
-                toolsProvider.toggleFavorite(tool.id);
+              isThreeLine: updatedTool.description.isNotEmpty,
+              trailing:
+                  trailingOverride ??
+                  IconButton(
+                    icon: Icon(
+                      updatedTool.isFavorite
+                          ? Icons.favorite
+                          : Icons.favorite_border,
+                      color: updatedTool.isFavorite ? Colors.red : null,
+                    ),
+                    onPressed: () {
+                      HapticFeedback.mediumImpact();
+                      toolsProvider.toggleFavorite(tool.id);
+                    },
+                  ),
+              onTap: () {
+                HapticFeedback.selectionClick();
+                onTap();
+              },
+              onLongPress: () {
+                if (!selectionMode) {
+                  HapticFeedback.mediumImpact();
+                  toolsProvider.toggleSelectionMode();
+                  toolsProvider.toggleToolSelection(tool.id);
+                }
               },
             ),
-        onTap: () {
-          HapticFeedback.selectionClick();
-          onTap();
-        },
-        onLongPress: () {
-          if (!selectionMode) {
-            HapticFeedback.mediumImpact();
-            toolsProvider.toggleSelectionMode();
-            toolsProvider.toggleToolSelection(tool.id);
-          }
-        },
-      ),
-      ),
+          ),
         );
       },
     );
@@ -163,11 +189,7 @@ class SelectionToolCard extends StatelessWidget {
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(8),
       ),
-      child: Icon(
-        Icons.build,
-        color: Colors.grey[400],
-        size: 28,
-      ),
+      child: Icon(Icons.build, color: Colors.grey[400], size: 28),
     );
   }
 }

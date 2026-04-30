@@ -853,7 +853,7 @@ class ReportService {
                                   ),
                                 ),
                                 pw.Text(
-                                  '${tool.brand}',
+                                  tool.brand,
                                   style: pw.TextStyle(
                                     fontSize: 7,
                                     color: PdfColors.grey600,
