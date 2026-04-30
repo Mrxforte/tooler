@@ -1,5 +1,6 @@
 // ignore_for_file: unused_field
 
+import 'dart:async';
 import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -28,6 +29,7 @@ class AuthProvider with ChangeNotifier {
   String? _role;
   bool _canMoveTools = false;
   bool _canControlObjects = false;
+  StreamSubscription<User?>? _authSubscription;
 
   User? get user => _user;
   bool get isLoading => _isLoading;
@@ -43,7 +45,7 @@ class AuthProvider with ChangeNotifier {
   AuthProvider(this._prefs, this._adminSettings) {
     _rememberMe = _prefs.getBool('remember_me') ?? false;
     _initializeAuth();
-    _auth.authStateChanges().listen((user) {
+    _authSubscription = _auth.authStateChanges().listen((user) {
       _user = user;
       if (user != null) {
         _fetchUserData(user.uid);
@@ -54,6 +56,12 @@ class AuthProvider with ChangeNotifier {
         notifyListeners();
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _initializeAuth() async {

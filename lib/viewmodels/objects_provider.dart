@@ -480,28 +480,12 @@ class ObjectsProvider with ChangeNotifier {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      // Determine if admin
-      bool isAdmin = false;
-      try {
-        final userDoc = await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .get();
-        if (userDoc.exists) {
-          isAdmin = (userDoc.data()?['role'] ?? 'user') == 'admin';
-        }
-      } catch (e) {
-        // Admin status check handled silently
-      }
-
       // Clear objects list before syncing to avoid duplicates
       _objects.clear();
 
-      // Admin sees all objects, others only their own
-      Query query = FirebaseFirestore.instance.collection('objects');
-      if (!isAdmin) {
-        query = query.where('userId', isEqualTo: user.uid);
-      }
+      Query query = FirebaseFirestore.instance
+          .collection('objects')
+          .where('userId', isEqualTo: user.uid);
       final snapshot = await query.get();
       for (final doc in snapshot.docs) {
         try {

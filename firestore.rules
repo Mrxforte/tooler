@@ -12,61 +12,56 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Users — all can read; own doc update; only admin deletes
+    // Users — all can read; own doc create/update; only admin deletes
     match /users/{userId} {
       allow read: if isAuth();
       allow create: if isAuth() && request.auth.uid == userId;
-      allow update: if isAuth() && (request.auth.uid == userId || isAdmin());
+      allow update: if isAuth() && request.auth.uid == userId;
       allow delete: if isAdmin();
     }
 
-    // Tools — all can read; only admin creates/updates/deletes
+    // Tools — each user reads only their own; only owner (admin) creates/updates/deletes
     match /tools/{toolId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isAdmin();
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // Objects — all can read; only admin creates/updates/deletes
+    // Objects — each user reads only their own; only owner creates/updates/deletes
     match /objects/{objectId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isAdmin();
+      allow read: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuth() && resource.data.userId == request.auth.uid;
     }
 
-    // Move requests — all can read and CREATE (to request a move);
-    // only admin can update status or delete
+    // Move requests — owner reads/creates; owner updates/deletes
     match /move_requests/{requestId} {
-      allow read: if isAuth();
+      allow read: if isAuth() && resource.data.requestedBy == request.auth.uid;
       allow create: if isAuth();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAuth() && resource.data.requestedBy == request.auth.uid;
     }
 
     // Batch move requests — same as move_requests
     match /batch_move_requests/{requestId} {
-      allow read: if isAuth();
+      allow read: if isAuth() && resource.data.requestedBy == request.auth.uid;
       allow create: if isAuth();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAuth() && resource.data.requestedBy == request.auth.uid;
     }
 
-    // Brigadier requests — all can read and create; only admin updates/deletes
+    // Brigadier requests — owner reads/creates/updates/deletes
     match /brigadier_requests/{requestId} {
-      allow read: if isAuth();
+      allow read: if isAuth() && resource.data.requestedBy == request.auth.uid;
       allow create: if isAuth();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAuth() && resource.data.requestedBy == request.auth.uid;
     }
 
-    // Notifications — users read/delete their own; only admin creates; admin reads all
+    // Notifications — users access only their own
     match /notifications/{notificationId} {
-      allow read: if isAuth() && (
-        resource.data.userId == request.auth.uid || isAdmin()
-      );
-      allow create: if isAdmin();
-      allow update: if isAuth() && (
-        resource.data.userId == request.auth.uid || isAdmin()
-      );
-      allow delete: if isAdmin();
+      allow read, update, delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
     }
 
-    // App settings (admin secret) — all can read; only admin writes
+    // App settings — all authenticated users can read; any admin can write
     match /app_settings/{docId} {
       allow read: if isAuth();
       allow write: if isAdmin();

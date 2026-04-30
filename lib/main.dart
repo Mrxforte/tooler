@@ -181,16 +181,28 @@ Duration _getTimeUntil7PM() {
   return time.difference(now);
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  // Cache the future so it's not recreated on every rebuild
+  final Future<SharedPreferences> _prefsFuture = SharedPreferences.getInstance();
+
+  // Cache themes so they're not rebuilt on every ThemeProvider change
+  final ThemeData _lightTheme = _buildLightTheme();
+  final ThemeData _darkTheme = _buildDarkTheme();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<SharedPreferences>(
-      future: SharedPreferences.getInstance(),
+      future: _prefsFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return MaterialApp(
+          return const MaterialApp(
             home: Scaffold(body: Center(child: CircularProgressIndicator())),
           );
         }
@@ -218,13 +230,12 @@ class MyApp extends StatelessWidget {
           ],
           child: Consumer<ThemeProvider>(
             builder: (context, themeProvider, child) {
-              final isDark = themeProvider.themeMode == 'dark';
               return MaterialApp(
                 title: 'Tooler',
                 navigatorKey: navigatorKey,
                 debugShowCheckedModeBanner: false,
-                theme: _buildLightTheme(),
-                darkTheme: _buildDarkTheme(),
+                theme: _lightTheme,
+                darkTheme: _darkTheme,
                 themeMode: themeProvider.themeMode == 'dark'
                     ? ThemeMode.dark
                     : themeProvider.themeMode == 'system'
@@ -234,38 +245,38 @@ class MyApp extends StatelessWidget {
                   '/home': (_) => const MainHome(),
                   '/auth': (_) => const AuthFlow(),
                 },
-                home: Consumer<AuthProvider>(
-                  builder: (context, auth, _) {
-                    // Show loading spinner while auth is initializing
-                    if (auth.isLoading) {
-                      return Scaffold(
-                        body: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 16),
-                              Text(
-                                'Загрузка...',
-                                style: TextStyle(color: Colors.grey),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }
-                    // Show main app or auth flow based on login state
-                    return auth.isLoggedIn
-                        ? const MainHome()
-                        : const AuthFlow();
-                  },
-                ),
+                home: const _AuthGate(),
               );
             },
           ),
         );
       },
     );
+  }
+}
+
+// Separate widget so Consumer<AuthProvider> doesn't rebuild MaterialApp
+class _AuthGate extends StatelessWidget {
+  const _AuthGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    if (auth.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Загрузка...', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+    return auth.isLoggedIn ? const MainHome() : const AuthFlow();
   }
 }
 
