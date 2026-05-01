@@ -19,9 +19,10 @@ class _AuthScreenState extends State<AuthScreen> {
     super.dispose();
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     final auth = Provider.of<AuthProvider>(context, listen: false);
-    final error = auth.unlock(_controller.text);
+    final error = await auth.unlock(_controller.text);
+    if (!mounted) return;
     if (error != null) {
       setState(() => _error = error);
     } else {
