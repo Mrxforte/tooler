@@ -82,24 +82,10 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
 
       if (success) {
-        // Auth succeeded - AuthProvider notified listeners
-        // Show success message
         if (mounted) {
           setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).clearSnackBars();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isLogin ? 'Вход выполнен успешно!' : 'Регистрация прошла успешно!'),
-              backgroundColor: Colors.green,
-              duration: const Duration(milliseconds: 1500),
-            ),
-          );
-          // Pop back to root so Consumer rebuilds with updated auth state and shows MainHome
-          Future.delayed(const Duration(milliseconds: 800), () {
-            if (mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil('/', (_) => false);
-            }
-          });
+          // Pop back to root — _AuthGate watches auth.isLoggedIn and shows MainHome
+          Navigator.of(context).popUntil((route) => route.isFirst);
         }
       } else {
         if (mounted) {
