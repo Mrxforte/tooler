@@ -294,10 +294,10 @@ class _AdminBrigadierRequestsScreenState extends State<AdminBrigadierRequestsScr
   }
 
   void _approveRequest(BuildContext context, BrigadierRequest request) {
-    final currentUser = context.read<AuthProvider>().user;
+    final adminId = context.read<AuthProvider>().userId ?? 'unknown';
     context.read<BrigadierRequestProvider>().approveRequest(
       requestId: request.id,
-      adminId: currentUser?.uid ?? 'unknown',
+      adminId: adminId,
     );
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Запрос одобрен')),
@@ -333,10 +333,10 @@ class _AdminBrigadierRequestsScreenState extends State<AdminBrigadierRequestsScr
         ),
         ElevatedButton(
           onPressed: () {
-            final currentUser = context.read<AuthProvider>().user;
+            final adminId = context.read<AuthProvider>().userId ?? 'unknown';
             context.read<BrigadierRequestProvider>().rejectRequest(
               requestId: request.id,
-              adminId: currentUser?.uid ?? 'unknown',
+              adminId: adminId,
               rejectionReason: controller.text.trim(),
             );
             Navigator.pop(context);

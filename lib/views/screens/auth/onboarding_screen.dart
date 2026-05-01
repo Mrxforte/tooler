@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'auth_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  final VoidCallback onComplete;
-  const OnboardingScreen({super.key, required this.onComplete});
+  const OnboardingScreen({super.key});
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
@@ -53,11 +52,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               Align(
                 alignment: Alignment.topRight,
                 child: TextButton(
-                  onPressed: () {
-                    widget.onComplete();
-                    Navigator.pushReplacement(context,
-                        MaterialPageRoute(builder: (context) => const AuthScreen()));
-                  },
+                  onPressed: () => Navigator.pushReplacement(context,
+                      MaterialPageRoute(builder: (_) => const AuthScreen())),
                   child: Text('Пропустить',
                       style: TextStyle(color: Theme.of(context).colorScheme.primary)),
                 ),
@@ -119,9 +115,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           _pageController.nextPage(
                               duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
                         } else {
-                          widget.onComplete();
                           Navigator.pushReplacement(context,
-                              MaterialPageRoute(builder: (context) => const AuthScreen()));
+                              MaterialPageRoute(builder: (_) => const AuthScreen()));
                         }
                       },
                       child: Text(_currentPage == _pages.length - 1 ? 'Начать' : 'Далее'),

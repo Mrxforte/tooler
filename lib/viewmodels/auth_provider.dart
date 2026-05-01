@@ -1,326 +1,161 @@
-// ignore_for_file: unused_field
-
-import 'dart:async';
 import 'dart:io';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../data/services/image_service.dart';
-import '../core/utils/error_handler.dart';
-import 'admin_settings_provider.dart';
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-/// Handles auth, role checks, and profile-related user state.
-///
-/// Includes Firebase Auth integration, role/permission checks,
-/// profile image support, and remember-me behavior.
-
 class AuthProvider with ChangeNotifier {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final SharedPreferences _prefs;
-  final AdminSettingsProvider _adminSettings;
-  User? _user;
-  bool _isLoading = false;
-  bool _rememberMe = false;
-  File? _profileImage;
-  String? _role;
-  bool _canMoveTools = false;
-  bool _canControlObjects = false;
-  StreamSubscription<User?>? _authSubscription;
 
-  User? get user => _user;
-  bool get isLoading => _isLoading;
-  bool get isLoggedIn => _user != null;
-  bool get rememberMe => _rememberMe;
-  File? get profileImage => _profileImage;
+  String? _userId;
+  String? _username;
+  String? _role;
+  bool _isLoading = false;
+  File? _profileImage;
+
+  String? get userId => _userId;
+  String? get username => _username;
   String? get role => _role;
+  bool get isLoading => _isLoading;
+  bool get isLoggedIn => _userId != null;
   bool get isAdmin => _role == 'admin';
   bool get isBrigadir => _role == 'brigadir';
-  bool get canMoveTools => _canMoveTools || isAdmin;
-  bool get canControlObjects => _canControlObjects || isAdmin;
+  bool get canMoveTools => isAdmin;
+  bool get canControlObjects => isAdmin;
+  bool get rememberMe => false;
+  File? get profileImage => _profileImage;
 
-  AuthProvider(this._prefs, this._adminSettings) {
-    _rememberMe = _prefs.getBool('remember_me') ?? false;
-    _initializeAuth();
-    _authSubscription = _auth.authStateChanges().listen((user) {
-      _user = user;
-      if (user != null) {
-        _fetchUserData(user.uid);
-      } else {
-        _role = null;
-        _canMoveTools = false;
-        _canControlObjects = false;
-        notifyListeners();
-      }
-    });
+  AuthProvider(this._prefs) {
+    _userId = _prefs.getString('user_id');
+    _username = _prefs.getString('username');
+    _role = _prefs.getString('user_role');
   }
 
-  @override
-  void dispose() {
-    _authSubscription?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _initializeAuth() async {
-    try {
-      _isLoading = true;
-      notifyListeners();
-
-      // Check if there's a currently signed-in user
-      final savedUser = _auth.currentUser;
-      if (savedUser != null) {
-        _user = savedUser;
-        await _fetchUserData(savedUser.uid);
-      }
-    } catch (e) {
-      debugPrint('Error during auth initialization: $e');
-      // Error handled silently, user will see login screen
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  Future<void> _fetchUserData(String uid) async {
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(uid)
-          .get();
-      if (doc.exists) {
-        final data = doc.data()!;
-        _role = data['role'] ?? 'user';
-        _canMoveTools = data['canMoveTools'] ?? false;
-        _canControlObjects = data['canControlObjects'] ?? false;
-      } else {
-        // Create default user doc if missing
-        await FirebaseFirestore.instance.collection('users').doc(uid).set({
-          'email': _user!.email,
-          'role': 'user',
-          'canMoveTools': false,
-          'canControlObjects': false,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-        _role = 'user';
-        _canMoveTools = false;
-        _canControlObjects = false;
-      }
-    } catch (e) {
-      debugPrint('Error fetching user data: $e');
-      _role = 'user';
-    }
-    notifyListeners();
-  }
-
-  Future<bool> signInWithEmail(String email, String password) async {
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      final userCredential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-
-      _user = userCredential.user;
-
-      if (_user != null) {
-        // Block login if email not verified
-        if (!_user!.emailVerified) {
-          await _auth.signOut();
-          _user = null;
-          _isLoading = false;
-          notifyListeners();
-          if (navigatorKey.currentContext != null) {
-            ErrorHandler.showErrorDialog(
-              navigatorKey.currentContext!,
-              'Подтвердите email перед входом.\nПроверьте почту и перейдите по ссылке.',
-            );
-          }
-          return false;
-        }
-        await _fetchUserData(_user!.uid);
-        if (_rememberMe) {
-          await _prefs.setString('saved_email', email);
-        }
-        _isLoading = false;
-        notifyListeners();
-        return true;
-      } else {
-        _isLoading = false;
-        notifyListeners();
-        if (navigatorKey.currentContext != null) {
-          ErrorHandler.showErrorDialog(
-            navigatorKey.currentContext!,
-            'Не удалось выполнить вход. Попробуйте еще раз.',
-          );
-        }
-        return false;
-      }
-    } on FirebaseAuthException catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          ErrorHandler.getFirebaseErrorMessage(e),
-        );
-      }
-      return false;
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          'Произошла неизвестная ошибка: ${e.toString()}',
-        );
-      }
-      return false;
-    }
-  }
-
-  Future<bool> signUpWithEmail(
-    String email,
-    String password, {
-    File? profileImage,
+  /// Returns null on success, error message string on failure.
+  Future<String?> register(
+    String username,
+    String code, {
     String? adminPhrase,
   }) async {
+    final trimmedUser = username.trim();
+    if (trimmedUser.isEmpty) return 'Введите имя пользователя';
+    if (code.length != 8) return 'Код должен быть ровно 8 символов';
+
     _isLoading = true;
     notifyListeners();
 
     try {
-      UserCredential userCredential;
-      try {
-        userCredential = await _auth.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-      } catch (e) {
-        // Handle network errors with reCAPTCHA in development
-        if (e.toString().contains('network') ||
-            e.toString().contains('timeout') ||
-            e.toString().contains('No address associated with hostname')) {
-          debugPrint('Network error during sign-up: $e');
-          debugPrint('Attempting fallback sign-up method...');
-          // Retry with small delay for network recovery
-          await Future.delayed(const Duration(seconds: 1));
-          userCredential = await _auth.createUserWithEmailAndPassword(
-            email: email,
-            password: password,
-          );
-        } else {
-          rethrow;
-        }
-      }
+      final existing = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: trimmedUser)
+          .limit(1)
+          .get();
 
-      _user = userCredential.user;
-
-      if (profileImage != null && _user != null) {
-        final imageUrl = await ImageService.uploadImage(
-          profileImage,
-          _user!.uid,
-        );
-        if (imageUrl != null) _profileImage = profileImage;
-      }
-
-      if (_user != null) {
-        // Send email verification
-        await _user!.sendEmailVerification();
-
-        // Save user record in Firestore
-        final currentSecret = await _adminSettings.getSecretWord();
-        final role = (adminPhrase == currentSecret) ? 'admin' : 'user';
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(_user!.uid)
-            .set({
-              'email': email,
-              'role': role,
-              'canMoveTools': false,
-              'canControlObjects': false,
-              'createdAt': FieldValue.serverTimestamp(),
-            });
-
-        // Sign out immediately — user must verify email first
-        await _auth.signOut();
-        _user = null;
-        _role = null;
+      if (existing.docs.isNotEmpty) {
         _isLoading = false;
         notifyListeners();
-        return true; // true = show "check email" screen
-      } else {
-        _isLoading = false;
-        notifyListeners();
-        if (navigatorKey.currentContext != null) {
-          ErrorHandler.showErrorDialog(
-            navigatorKey.currentContext!,
-            'Не удалось создать аккаунт. Попробуйте еще раз.',
-          );
-        }
-        return false;
+        return 'Имя пользователя уже занято';
       }
-    } on FirebaseAuthException catch (e) {
+
+      final role =
+          (adminPhrase?.trim() == 'admin123') ? 'admin' : 'user';
+
+      final docRef = await FirebaseFirestore.instance.collection('users').add({
+        'username': trimmedUser,
+        'code': code,
+        'role': role,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      await _saveSession(docRef.id, trimmedUser, role);
       _isLoading = false;
       notifyListeners();
-      // Re-throw email-already-in-use so auth_screen can handle with custom dialog
-      if (e.code == 'email-already-in-use') {
-        rethrow;
-      }
-      // For other errors, show error dialog
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          ErrorHandler.getFirebaseErrorMessage(e),
-        );
-      }
-      return false;
+      return null;
     } catch (e) {
+      debugPrint('Register error: $e');
       _isLoading = false;
       notifyListeners();
-      if (navigatorKey.currentContext != null) {
-        ErrorHandler.showErrorDialog(
-          navigatorKey.currentContext!,
-          'Произошла неизвестная ошибка: ${e.toString()}',
-        );
-      }
-      return false;
+      return 'Произошла ошибка. Попробуйте снова.';
     }
+  }
+
+  /// Returns null on success, error message string on failure.
+  Future<String?> login(String username, String code) async {
+    final trimmedUser = username.trim();
+    if (trimmedUser.isEmpty) return 'Введите имя пользователя';
+    if (code.isEmpty) return 'Введите код';
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: trimmedUser)
+          .limit(1)
+          .get();
+
+      if (query.docs.isEmpty) {
+        _isLoading = false;
+        notifyListeners();
+        return 'Пользователь не найден';
+      }
+
+      final doc = query.docs.first;
+      final data = doc.data();
+
+      if (data['code'] != code) {
+        _isLoading = false;
+        notifyListeners();
+        return 'Неверный код';
+      }
+
+      final role = data['role'] as String? ?? 'user';
+      await _saveSession(doc.id, trimmedUser, role);
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    } catch (e) {
+      debugPrint('Login error: $e');
+      _isLoading = false;
+      notifyListeners();
+      return 'Произошла ошибка. Попробуйте снова.';
+    }
+  }
+
+  Future<void> _saveSession(
+    String userId,
+    String username,
+    String role,
+  ) async {
+    _userId = userId;
+    _username = username;
+    _role = role;
+    await _prefs.setString('user_id', userId);
+    await _prefs.setString('username', username);
+    await _prefs.setString('user_role', role);
   }
 
   Future<void> signOut() async {
-    await _auth.signOut();
-    _user = null;
-    _profileImage = null;
+    _userId = null;
+    _username = null;
     _role = null;
-    _canMoveTools = false;
-    _canControlObjects = false;
-    notifyListeners();
-  }
-
-  Future<void> setRememberMe(bool value) async {
-    _rememberMe = value;
-    await _prefs.setBool('remember_me', value);
-    if (!value) await _prefs.remove('saved_email');
+    _profileImage = null;
+    await _prefs.remove('user_id');
+    await _prefs.remove('username');
+    await _prefs.remove('user_role');
     notifyListeners();
   }
 
   Future<void> setProfileImage(File image) async {
     _profileImage = image;
-    if (_user != null) {
-      final imageUrl = await ImageService.uploadImage(image, _user!.uid);
-      if (imageUrl != null) {
-        await _prefs.setString('profile_image_url', imageUrl);
-      }
-    }
     notifyListeners();
+    if (_userId != null) {
+      await ImageService.uploadImage(image, _userId!);
+    }
   }
 
-  // Forgot password
-  Future<void> sendPasswordResetEmail(String email) async {
-    await _auth.sendPasswordResetEmail(email: email);
-  }
+  Future<void> setRememberMe(bool value) async {}
 }

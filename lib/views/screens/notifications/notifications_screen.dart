@@ -23,7 +23,7 @@ class NotificationsScreen extends StatelessWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () => notifProvider.loadNotifications(authProvider.user!.uid),
+        onRefresh: () => notifProvider.loadNotifications(authProvider.userId ?? ''),
         child: notifProvider.notifications.isEmpty
             ? const Center(child: Text('Нет уведомлений'))
             : ListView.builder(

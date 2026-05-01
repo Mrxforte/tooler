@@ -1,6 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/notification.dart';
 import '../../viewmodels/notification_provider.dart';
@@ -42,7 +42,8 @@ class ErrorHandler {
   }) async {
     try {
       final notifProvider = context.read<NotificationProvider>();
-      final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id') ?? 'local';
 
       await notifProvider.addNotification(
         AppNotification(
@@ -204,42 +205,4 @@ class ErrorHandler {
     debugPrint('Stack trace: $stackTrace');
   }
 
-  static String getFirebaseErrorMessage(FirebaseAuthException e) {
-    switch (e.code) {
-      case 'email-already-in-use':
-        return 'Этот email уже зарегистрирован.';
-      case 'invalid-email':
-        return 'Некорректный формат email адреса.';
-      case 'operation-not-allowed':
-        return 'Операция не разрешена. Обратитесь к администратору.';
-      case 'weak-password':
-        return 'Пароль слишком простой. Используйте минимум 6 символов.';
-      case 'user-disabled':
-        return 'Этот аккаунт заблокирован.';
-      case 'user-not-found':
-        return 'Пользователь с таким email не найден.';
-      case 'wrong-password':
-        return 'Неверный пароль. Попробуйте еще раз.';
-      case 'invalid-credential':
-        return 'Неверные учетные данные. Проверьте email и пароль.';
-      case 'too-many-requests':
-        return 'Слишком много попыток входа. Попробуйте позже.';
-      case 'network-request-failed':
-        return 'Ошибка сети. Проверьте подключение к интернету.';
-      case 'requires-recent-login':
-        return 'Требуется повторный вход в систему.';
-      case 'invalid-verification-code':
-        return 'Неверный код подтверждения.';
-      case 'invalid-verification-id':
-        return 'Недействительный идентификатор подтверждения.';
-      case 'account-exists-with-different-credential':
-        return 'Аккаунт с таким email уже существует.';
-      case 'credential-already-in-use':
-        return 'Эти учетные данные уже используются.';
-      case 'timeout':
-        return 'Превышено время ожидания. Попробуйте еще раз.';
-      default:
-        return 'Произошла ошибка: ${e.code}. Попробуйте еще раз.';
-    }
-  }
 }

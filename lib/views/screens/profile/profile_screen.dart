@@ -167,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        authProvider.user?.email ?? 'Гость',
+                        authProvider.username ?? 'Гость',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -503,7 +503,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             uniqueId: '',
                             currentLocation: '',
                             currentLocationName: '',
-                            userId: authProvider.user?.uid ?? 'local',
+                            userId: authProvider.userId ?? 'local',
                           ),
                           (type) async {
                             await ReportService.shareInventoryReport(

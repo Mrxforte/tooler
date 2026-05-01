@@ -223,14 +223,7 @@ class _MyAppState extends State<MyApp> {
             ChangeNotifierProvider(create: (_) => ConnectivityService()),
             ChangeNotifierProvider(create: (_) => ThemeProvider()),
             ChangeNotifierProvider(create: (_) => AdminSettingsProvider()),
-            ChangeNotifierProxyProvider<AdminSettingsProvider, AuthProvider>(
-              create: (context) => AuthProvider(
-                prefs,
-                Provider.of<AdminSettingsProvider>(context, listen: false),
-              ),
-              update: (context, adminSettings, previousAuth) =>
-                  previousAuth ?? AuthProvider(prefs, adminSettings),
-            ),
+            ChangeNotifierProvider(create: (_) => AuthProvider(prefs)),
             ChangeNotifierProvider(create: (_) => NotificationProvider()),
             ChangeNotifierProvider(create: (_) => ToolsProvider()),
             ChangeNotifierProvider(create: (_) => ObjectsProvider()),
@@ -295,12 +288,13 @@ class AuthFlow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return WelcomeScreen(
+      onLogin: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const AuthScreen()),
+      ),
       onContinue: () => Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) =>
-              OnboardingScreen(onComplete: () => Navigator.pop(context)),
-        ),
+        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
       ),
     );
   }

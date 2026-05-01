@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/models/tool.dart';
@@ -236,7 +236,8 @@ class ToolsProvider with ChangeNotifier {
         throw Exception('Заполните обязательные поля');
       }
       if (imageFile != null) {
-        final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('user_id') ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           tool = tool.copyWith(imageUrl: url);
@@ -276,7 +277,8 @@ class ToolsProvider with ChangeNotifier {
         throw Exception('Заполните обязательные поля');
       }
       if (imageFile != null) {
-        final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('user_id') ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           tool = tool.copyWith(imageUrl: url, localImagePath: null);
@@ -442,7 +444,8 @@ class ToolsProvider with ChangeNotifier {
       return;
     }
     final tool = _tools[toolIndex];
-    final requestedBy = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    final requestedBy = prefs.getString('user_id') ?? '';
     try {
       final request = {
         'id': IdGenerator.generateRequestId(),
@@ -908,7 +911,8 @@ class ToolsProvider with ChangeNotifier {
       );
       return;
     }
-    final requestedBy = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final prefs = await SharedPreferences.getInstance();
+    final requestedBy = prefs.getString('user_id') ?? '';
     try {
       final request = {
         'id': IdGenerator.generateBatchRequestId(),
@@ -958,15 +962,16 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      if (userId == null || userId.isEmpty) return;
 
       // Clear tools list before syncing to avoid duplicates
       _tools.clear();
 
       Query query = FirebaseFirestore.instance
           .collection('tools')
-          .where('userId', isEqualTo: user.uid);
+          .where('userId', isEqualTo: userId);
       final snapshot = await query.get();
       for (final doc in snapshot.docs) {
         try {

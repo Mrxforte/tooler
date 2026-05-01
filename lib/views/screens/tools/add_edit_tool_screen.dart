@@ -90,7 +90,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
         locationHistory: widget.tool?.locationHistory ?? [],
         isFavorite: widget.tool?.isFavorite ?? false,
         createdAt: widget.tool?.createdAt ?? DateTime.now(),
-        userId: authProvider.user?.uid ?? 'local',
+        userId: authProvider.userId ?? 'local',
       );
       if (widget.tool == null) {
         await toolsProvider.addTool(tool, imageFile: _imageFile, context: context);

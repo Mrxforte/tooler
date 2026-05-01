@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter pub *)",
+      "Bash(flutter analyze *)",
+      "Bash(del \"c:\\\\Users\\\\Azamat\\\\Desktop\\\\Flutter\\\\tooler\\\\android\\\\app\\\\google-services.json\")",
+      "Bash(del \"c:\\\\Users\\\\Azamat\\\\Desktop\\\\Flutter\\\\tooler\\\\lib\\\\firebase_options.dart\")",
+      "Bash(del \"c:\\\\Users\\\\Azamat\\\\Desktop\\\\Flutter\\\\tooler\\\\firebase.json\")",
+      "Bash(firebase --version)",
+      "Bash(firebase projects:list)",
+      "Bash(firebase deploy *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(keytool -genkey -v -keystore \"c:/Users/Azamat/Desktop/Flutter/tooler/android/tooler-release.jks\" -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 -alias tooler -storepass tooler2024 -keypass tooler2024 -dname \"CN=MrxForte, OU=Tooler, O=Tooler, L=Tashkent, ST=Tashkent, C=UZ\")",
+      "Bash(where keytool *)",
+      "Read(//c/Program Files/Java/**)",
+      "Read(//c/Users/Azamat/AppData/Local/Android/Sdk/ndk/**)",
+      "Read(//c/Users/Azamat/Android/Sdk/**)",
+      "Bash(./gradlew bundleRelease --info)",
+      "Bash(./gradlew --stop)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" cd \"c:/Users/Azamat/Desktop/Flutter/tooler\")",
+      "Bash(flutter doctor *)",
+      "Bash(grep -v \"^$\")"
+    ]
+  }
+}

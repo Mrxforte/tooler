@@ -1620,7 +1620,7 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
                           ),
                         ),
                         pw.Text(
-                          authProvider.user?.email ?? 'Не указан',
+                          authProvider.username ?? 'Не указан',
                           style: pw.TextStyle(fontSize: 11, font: font),
                         ),
                       ],

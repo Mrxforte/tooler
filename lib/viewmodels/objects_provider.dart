@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../data/models/construction_object.dart';
@@ -194,7 +194,8 @@ class ObjectsProvider with ChangeNotifier {
       notifyListeners();
       if (obj.name.isEmpty) throw Exception('Введите название');
       if (imageFile != null) {
-        final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('user_id') ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           obj = obj.copyWith(imageUrl: url);
@@ -243,7 +244,8 @@ class ObjectsProvider with ChangeNotifier {
       notifyListeners();
       if (obj.name.isEmpty) throw Exception('Введите название');
       if (imageFile != null) {
-        final userId = FirebaseAuth.instance.currentUser?.uid ?? 'local';
+        final prefs = await SharedPreferences.getInstance();
+        final userId = prefs.getString('user_id') ?? 'local';
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           obj = obj.copyWith(imageUrl: url, localImagePath: null);
@@ -477,15 +479,16 @@ class ObjectsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getString('user_id');
+      if (userId == null || userId.isEmpty) return;
 
       // Clear objects list before syncing to avoid duplicates
       _objects.clear();
 
       Query query = FirebaseFirestore.instance
           .collection('objects')
-          .where('userId', isEqualTo: user.uid);
+          .where('userId', isEqualTo: userId);
       final snapshot = await query.get();
       for (final doc in snapshot.docs) {
         try {

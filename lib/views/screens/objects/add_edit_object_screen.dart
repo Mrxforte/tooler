@@ -79,7 +79,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
         toolIds: widget.object?.toolIds ?? [],
         createdAt: widget.object?.createdAt ?? DateTime.now(),
         updatedAt: DateTime.now(),
-        userId: authProvider.user?.uid ?? 'local',
+        userId: authProvider.userId ?? 'local',
         isFavorite: widget.object?.isFavorite ?? false,
       );
       if (widget.object == null) {

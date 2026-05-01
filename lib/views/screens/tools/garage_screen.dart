@@ -40,7 +40,6 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
   bool _showFavoritesOnly = false;
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
-  final List<String> _activeFilters = [];
   bool _loadingTimeout = false;
 
   @override
@@ -65,6 +64,56 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     super.dispose();
   }
 
+  List<Tool> _applyFilters(List<Tool> source) {
+    var tools = source;
+    if (_filterBrand != null && _filterBrand != 'all') {
+      tools = tools.where((t) => t.brand == _filterBrand).toList();
+    }
+    if (_showFavoritesOnly) {
+      tools = tools.where((t) => t.isFavorite).toList();
+    }
+    if (_createdDateFrom != null) {
+      tools = tools
+          .where((t) => t.createdAt.isAfter(_createdDateFrom!))
+          .toList();
+    }
+    if (_createdDateTo != null) {
+      final until = _createdDateTo!.add(const Duration(days: 1));
+      tools = tools.where((t) => t.createdAt.isBefore(until)).toList();
+    }
+    final q = _searchController.text;
+    if (q.isNotEmpty) {
+      final ql = q.toLowerCase();
+      tools = tools
+          .where(
+            (t) =>
+                t.title.toLowerCase().contains(ql) ||
+                t.brand.toLowerCase().contains(ql) ||
+                t.description.toLowerCase().contains(ql) ||
+                t.uniqueId.toLowerCase().contains(ql),
+          )
+          .toList();
+    }
+    switch (_sortBy) {
+      case 'date':
+        tools.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      case 'brand':
+        tools.sort((a, b) => a.brand.compareTo(b.brand));
+      default:
+        tools.sort((a, b) => a.title.compareTo(b.title));
+    }
+    return tools;
+  }
+
+  List<String> get _activeFilterLabels {
+    return [
+      if (_filterBrand != null && _filterBrand != 'all') 'Бренд',
+      if (_showFavoritesOnly) 'Избранные',
+      if (_createdDateFrom != null || _createdDateTo != null) 'Дата',
+      if (_searchController.text.isNotEmpty) 'Поиск',
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final toolsProvider = Provider.of<ToolsProvider>(context);
@@ -73,70 +122,12 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     final sourceTools = authProvider.isAdmin
         ? toolsProvider.tools
         : toolsProvider.garageTools;
-    var garageTools = List<Tool>.from(sourceTools);
 
-    final allBrands = (toolsProvider.tools).map((t) => t.brand).toSet().toList()
+    final allBrands = toolsProvider.tools.map((t) => t.brand).toSet().toList()
       ..sort();
 
-    if (_filterBrand != null && _filterBrand != 'all') {
-      garageTools = garageTools.where((t) => t.brand == _filterBrand).toList();
-    }
-    if (_showFavoritesOnly) {
-      garageTools = garageTools.where((t) => t.isFavorite).toList();
-    }
-    if (_createdDateFrom != null) {
-      garageTools = garageTools
-          .where((t) => t.createdAt.isAfter(_createdDateFrom!))
-          .toList();
-    }
-    if (_createdDateTo != null) {
-      garageTools = garageTools
-          .where(
-            (t) => t.createdAt.isBefore(
-              _createdDateTo!.add(const Duration(days: 1)),
-            ),
-          )
-          .toList();
-    }
-
-    if (_searchController.text.isNotEmpty) {
-      final q = _searchController.text.toLowerCase();
-      garageTools = garageTools
-          .where(
-            (t) =>
-                t.title.toLowerCase().contains(q) ||
-                t.brand.toLowerCase().contains(q) ||
-                t.description.toLowerCase().contains(q) ||
-                t.uniqueId.toLowerCase().contains(q),
-          )
-          .toList();
-    }
-
-    switch (_sortBy) {
-      case 'date':
-        garageTools.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case 'brand':
-        garageTools.sort((a, b) => a.brand.compareTo(b.brand));
-        break;
-      case 'name':
-      default:
-        garageTools.sort((a, b) => a.title.compareTo(b.title));
-    }
-
-    final selectedGarageTools = garageTools
-        .where((tool) => tool.isSelected)
-        .toList();
-
-    _activeFilters.clear();
-    if (_filterBrand != null && _filterBrand != 'all') {
-      _activeFilters.add('Бренд');
-    }
-    if (_showFavoritesOnly) _activeFilters.add('Избранные');
-    if (_createdDateFrom != null || _createdDateTo != null) {
-      _activeFilters.add('Дата');
-    }
-    if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
+    final garageTools = _applyFilters(sourceTools);
+    final selectedGarageTools = garageTools.where((t) => t.isSelected).toList();
 
     return Scaffold(
       appBar: AppBar(centerTitle: true, title: const Text('Гараж')),
@@ -211,8 +202,8 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               onPressed: () =>
                                   _showAdvancedFiltersPanel(context),
                             ),
-                            if (_activeFilters.isNotEmpty &&
-                                !_activeFilters.contains('Поиск'))
+                            if (_activeFilterLabels.isNotEmpty &&
+                                !_activeFilterLabels.contains('Поиск'))
                               Positioned(
                                 top: 8,
                                 right: 8,
@@ -223,7 +214,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Text(
-                                    '${_activeFilters.length}',
+                                    '${_activeFilterLabels.length}',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 10,
@@ -234,7 +225,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                               ),
                           ],
                         ),
-                        if (_activeFilters.isNotEmpty)
+                        if (_activeFilterLabels.isNotEmpty)
                           ElevatedButton(
                             onPressed: _clearAllFilters,
                             style: ElevatedButton.styleFrom(
@@ -340,12 +331,15 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
       ),
       floatingActionButton:
           toolsProvider.selectionMode && selectedGarageTools.isNotEmpty
-          ? FloatingActionButton.extended(
-              onPressed: () =>
-                  _showGarageSelectionActions(context, selectedGarageTools),
-              icon: const Icon(Icons.more_vert),
-              label: Text('Выбрано: ${selectedGarageTools.length}'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+          ? Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: FloatingActionButton.extended(
+                onPressed: () =>
+                    _showGarageSelectionActions(context, selectedGarageTools),
+                icon: const Icon(Icons.more_vert),
+                label: Text('Выбрано: ${selectedGarageTools.length}'),
+                backgroundColor: Theme.of(context).colorScheme.primary,
+              ),
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,

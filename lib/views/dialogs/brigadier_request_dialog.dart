@@ -42,12 +42,12 @@ class _BrigadierRequestDialogState extends State<BrigadierRequestDialog> {
   Future<void> _createRequest() async {
     final reason = _reasonController.text.trim();
 
-    final currentUser = context.read<AuthProvider>().user;
+    final currentUserId = context.read<AuthProvider>().userId ?? 'unknown';
     final requestProvider = context.read<BrigadierRequestProvider>();
 
     try {
       await requestProvider.createRequest(
-        brigadierId: currentUser?.uid ?? 'unknown',
+        brigadierId: currentUserId,
         objectId: widget.objectId,
         type: widget.requestType,
         data: {
