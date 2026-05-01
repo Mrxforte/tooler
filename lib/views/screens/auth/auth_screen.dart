@@ -44,6 +44,35 @@ class _AuthScreenState extends State<AuthScreen> {
     if (file != null) setState(() => _profileImage = file);
   }
 
+  void _showVerificationSentDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.mark_email_read, color: Colors.green),
+            SizedBox(width: 12),
+            Text('Подтвердите email'),
+          ],
+        ),
+        content: const Text(
+          'Письмо с подтверждением отправлено на вашу почту.\n\nПерейдите по ссылке в письме, затем войдите в аккаунт.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              setState(() => _isLogin = true);
+            },
+            child: const Text('Войти'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showForgotPasswordDialog() async {
     Navigator.push(
       context,
@@ -84,8 +113,13 @@ class _AuthScreenState extends State<AuthScreen> {
       if (success) {
         if (mounted) {
           setState(() => _isLoading = false);
-          // Pop back to root — _AuthGate watches auth.isLoggedIn and shows MainHome
-          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (_isLogin) {
+            // Login succeeded — go to home
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          } else {
+            // Registration succeeded — show email verification dialog
+            _showVerificationSentDialog();
+          }
         }
       } else {
         if (mounted) {

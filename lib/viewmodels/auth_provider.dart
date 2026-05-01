@@ -128,6 +128,20 @@ class AuthProvider with ChangeNotifier {
       _user = userCredential.user;
 
       if (_user != null) {
+        // Block login if email not verified
+        if (!_user!.emailVerified) {
+          await _auth.signOut();
+          _user = null;
+          _isLoading = false;
+          notifyListeners();
+          if (navigatorKey.currentContext != null) {
+            ErrorHandler.showErrorDialog(
+              navigatorKey.currentContext!,
+              'Подтвердите email перед входом.\nПроверьте почту и перейдите по ссылке.',
+            );
+          }
+          return false;
+        }
         await _fetchUserData(_user!.uid);
         if (_rememberMe) {
           await _prefs.setString('saved_email', email);
@@ -214,7 +228,10 @@ class AuthProvider with ChangeNotifier {
       }
 
       if (_user != null) {
-        // Fetch current admin secret from Firestore
+        // Send email verification
+        await _user!.sendEmailVerification();
+
+        // Save user record in Firestore
         final currentSecret = await _adminSettings.getSecretWord();
         final role = (adminPhrase == currentSecret) ? 'admin' : 'user';
         await FirebaseFirestore.instance
@@ -227,17 +244,14 @@ class AuthProvider with ChangeNotifier {
               'canControlObjects': false,
               'createdAt': FieldValue.serverTimestamp(),
             });
-        _role = role;
-        _canMoveTools = false;
-        _canControlObjects = false;
 
-        if (_rememberMe) {
-          await _prefs.setString('saved_email', email);
-        }
-
+        // Sign out immediately — user must verify email first
+        await _auth.signOut();
+        _user = null;
+        _role = null;
         _isLoading = false;
         notifyListeners();
-        return true;
+        return true; // true = show "check email" screen
       } else {
         _isLoading = false;
         notifyListeners();
