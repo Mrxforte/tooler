@@ -286,18 +286,7 @@ class _AuthGate extends StatelessWidget {
 class AuthFlow extends StatelessWidget {
   const AuthFlow({super.key});
   @override
-  Widget build(BuildContext context) {
-    return WelcomeScreen(
-      onLogin: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const AuthScreen()),
-      ),
-      onContinue: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const OnboardingScreen()),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const AuthScreen();
 }
 
 class MainHome extends StatefulWidget {

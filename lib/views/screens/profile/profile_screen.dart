@@ -552,6 +552,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                       },
                     ),
                     const SizedBox(height: 12),
+                    _buildActionCard(
+                      title: 'Секретное слово',
+                      subtitle: 'Изменить секретное слово входа',
+                      icon: Icons.key,
+                      color: const Color(0xFF059669),
+                      onTap: () => _changeSecretWord(context),
+                    ),
+                    const SizedBox(height: 12),
                     GestureDetector(
                       onTap: () async {
                         await authProvider.signOut();
@@ -722,6 +730,95 @@ class _ProfileScreenState extends State<ProfileScreen>
       ),
     ),
   );
+
+  Future<void> _changeSecretWord(BuildContext context) async {
+    final auth = Provider.of<AuthProvider>(context, listen: false);
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? errorMsg;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Изменить секретное слово'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: currentCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Текущее слово',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Новое слово',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: 'Повторите новое слово',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              if (errorMsg != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  errorMsg!,
+                  style: const TextStyle(color: Colors.red, fontSize: 13),
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (newCtrl.text.trim() != confirmCtrl.text.trim()) {
+                  setDialogState(
+                    () => errorMsg = 'Новые слова не совпадают',
+                  );
+                  return;
+                }
+                final err = auth.changeSecretWord(
+                  currentCtrl.text,
+                  newCtrl.text,
+                );
+                if (err != null) {
+                  setDialogState(() => errorMsg = err);
+                } else {
+                  Navigator.pop(ctx);
+                  ErrorHandler.showSuccessDialog(
+                    context,
+                    'Секретное слово изменено',
+                  );
+                }
+              },
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    currentCtrl.dispose();
+    newCtrl.dispose();
+    confirmCtrl.dispose();
+  }
 
   Future<void> _pickProfileImage(AuthProvider auth) async {
     final file = await ImageService.pickImage();
