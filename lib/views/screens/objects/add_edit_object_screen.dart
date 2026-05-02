@@ -2,6 +2,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../../../data/models/construction_object.dart';
@@ -10,6 +11,7 @@ import '../../../viewmodels/auth_provider.dart';
 import '../../../data/services/image_service.dart';
 import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/image_utils.dart';
 
 class AddEditObjectScreen extends StatefulWidget {
   final ConstructionObject? object;
@@ -21,7 +23,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoading = false;
   String? _imageUrl;
   String? _localImagePath;
@@ -223,7 +225,7 @@ class _AddEditObjectScreenState extends State<AddEditObjectScreen> {
     if (_imageFile != null) {
       return ClipRRect(
           borderRadius: BorderRadius.circular(16),
-          child: Image.file(_imageFile!, fit: BoxFit.cover));
+          child: buildPickedImage(xfile: _imageFile!, fit: BoxFit.cover));
     }
     if (_imageUrl != null) {
       return ClipRRect(

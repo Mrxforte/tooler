@@ -1,5 +1,4 @@
-// UsersProvider - User management for admin
-// Manages user roles, permissions, and admin operations
+// ignore_for_file: unused_field, unused_import
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -60,11 +59,6 @@ class UsersProvider with ChangeNotifier {
     _isLoading = true;
     notifyListeners();
     try {
-      // Force clear cache on refresh
-      if (forceRefresh) {
-        _users.clear();
-      }
-
       final snapshot = await FirebaseFirestore.instance
           .collection('users')
           .get(
@@ -79,17 +73,12 @@ class UsersProvider with ChangeNotifier {
           final user = AppUser.fromFirestore(doc);
           _users.add(user);
         } catch (e) {
-          // Error parsing user document
           debugPrint('Error parsing user ${doc.id}: $e');
         }
       }
 
       _users.sort((a, b) => a.email.compareTo(b.email));
-
-      // Auto-sync missing users from Firebase Auth
-      await _syncMissingAuthUsers();
     } catch (e) {
-      // Error loading users, retry with server source if needed
       debugPrint('Error loading users: $e');
       if (!forceRefresh) {
         await loadUsers(forceRefresh: true);
@@ -100,27 +89,32 @@ class UsersProvider with ChangeNotifier {
     }
   }
 
-  /// Sync users from Firebase Auth into Firestore.
-  /// Creates Firestore docs for accounts that are missing there.
-  Future<Map<String, dynamic>> syncAuthUsers() async {
+  // ── CREATE ──────────────────────────────────────────────────────────────────
+
+  Future<void> createUser({
+    required String email,
+    required String name,
+    required String role,
+    bool canMoveTools = false,
+    bool canControlObjects = false,
+  }) async {
     _isLoading = true;
     notifyListeners();
     try {
-      final functions = FirebaseFunctions.instance;
-      final result = await functions
-          .httpsCallable('syncAuthUsersToFirestore')
-          .call();
-
-      // Reload users after sync
-      await loadUsers(forceRefresh: true);
-
-      debugPrint('Sync result: ${result.data}');
-      return result.data as Map<String, dynamic>;
-    } on FirebaseFunctionsException catch (e) {
-      debugPrint('Sync error: ${e.code} - ${e.message}');
-      rethrow;
+      final docRef = FirebaseFirestore.instance.collection('users').doc();
+      final user = AppUser(
+        uid: docRef.id,
+        email: email.trim(),
+        name: name.trim(),
+        role: role,
+        canMoveTools: canMoveTools,
+        canControlObjects: canControlObjects,
+      );
+      await docRef.set(user.toFirestore());
+      _users.add(user);
+      _users.sort((a, b) => a.email.compareTo(b.email));
     } catch (e) {
-      debugPrint('Sync error: $e');
+      debugPrint('Create user error: $e');
       rethrow;
     } finally {
       _isLoading = false;
@@ -128,40 +122,22 @@ class UsersProvider with ChangeNotifier {
     }
   }
 
-  /// Lists all users from Firebase Auth
-  Future<List<Map<String, dynamic>>> listAuthUsers() async {
-    try {
-      final functions = FirebaseFunctions.instance;
-      final result = await functions.httpsCallable('listAllAuthUsers').call();
-      final users = result.data['users'] as List<dynamic>;
-      return users.map((u) => Map<String, dynamic>.from(u as Map)).toList();
-    } on FirebaseFunctionsException catch (e) {
-      debugPrint('List auth users error: ${e.code} - ${e.message}');
-      rethrow;
-    } catch (e) {
-      debugPrint('List auth users error: $e');
-      rethrow;
-    }
-  }
+  // ── UPDATE ──────────────────────────────────────────────────────────────────
 
-  /// Sync missing Firestore users from Firebase Auth.
-  Future<void> _syncMissingAuthUsers() async {
+  Future<void> editUser(AppUser updated) async {
     try {
-      final authUsers = await listAuthUsers();
-      final firestoreUids = _users.map((u) => u.uid).toSet();
-      final missingUids = authUsers
-          .where((u) => !firestoreUids.contains(u['uid']))
-          .toList();
-
-      if (missingUids.isNotEmpty) {
-        debugPrint(
-          'Found ${missingUids.length} users missing from Firestore, syncing...',
-        );
-        await syncAuthUsers();
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(updated.uid)
+          .update(updated.toFirestore());
+      final index = _users.indexWhere((u) => u.uid == updated.uid);
+      if (index != -1) {
+        _users[index] = updated;
+        notifyListeners();
       }
     } catch (e) {
-      debugPrint('Error auto-syncing missing users: $e');
-      // Non-blocking failure: keep UI usable even if sync fails.
+      debugPrint('Edit user error: $e');
+      rethrow;
     }
   }
 
@@ -183,23 +159,17 @@ class UsersProvider with ChangeNotifier {
             .doc(uid)
             .update(updates);
 
-        // Update local state
         final index = _users.indexWhere((u) => u.uid == uid);
         if (index != -1) {
-          final user = _users[index];
-          _users[index] = AppUser(
-            uid: user.uid,
-            email: user.email,
-            role: user.role,
-            canMoveTools: canMoveTools ?? user.canMoveTools,
-            canControlObjects: canControlObjects ?? user.canControlObjects,
-            createdAt: user.createdAt,
+          _users[index] = _users[index].copyWith(
+            canMoveTools: canMoveTools,
+            canControlObjects: canControlObjects,
           );
           notifyListeners();
         }
       }
     } catch (e) {
-      // Keep UI responsive if this update fails.
+      debugPrint('Update permissions error: $e');
     }
   }
 
@@ -209,24 +179,36 @@ class UsersProvider with ChangeNotifier {
         'role': newRole,
       });
 
-      // Update local state
       final index = _users.indexWhere((u) => u.uid == uid);
       if (index != -1) {
-        final user = _users[index];
-        _users[index] = AppUser(
-          uid: user.uid,
-          email: user.email,
-          role: newRole,
-          canMoveTools: user.canMoveTools,
-          canControlObjects: user.canControlObjects,
-          createdAt: user.createdAt,
-        );
+        _users[index] = _users[index].copyWith(role: newRole);
         notifyListeners();
       }
     } catch (e) {
-      // Keep UI responsive if this update fails.
+      debugPrint('Update role error: $e');
     }
   }
+
+  Future<void> updateSelectedUsersRole(String newRole) async {
+    final selected = selectedUsers;
+    for (final user in selected) {
+      try {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'role': newRole});
+        final index = _users.indexWhere((u) => u.uid == user.uid);
+        if (index != -1) {
+          _users[index] = _users[index].copyWith(role: newRole);
+        }
+      } catch (e) {
+        debugPrint('Update selected role error: $e');
+      }
+    }
+    notifyListeners();
+  }
+
+  // ── DELETE ──────────────────────────────────────────────────────────────────
 
   Future<void> deleteUser(
     String uid, {
@@ -234,25 +216,28 @@ class UsersProvider with ChangeNotifier {
     bool deleteFromFirestore = true,
   }) async {
     try {
-      final functions = FirebaseFunctions.instance;
-      final result = await functions
-          .httpsCallable('deleteUserCompletely')
-          .call({
+      if (deleteFromFirestore) {
+        await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+      }
+
+      if (deleteFromAuth) {
+        try {
+          final functions = FirebaseFunctions.instance;
+          await functions.httpsCallable('deleteUserCompletely').call({
             'uid': uid,
-            'deleteFromAuth': deleteFromAuth,
-            'deleteFromFirestore': deleteFromFirestore,
+            'deleteFromAuth': true,
+            'deleteFromFirestore': false,
           });
+        } catch (e) {
+          debugPrint('Auth delete error: $e');
+          if (!deleteFromFirestore) rethrow;
+        }
+      }
 
-      debugPrint('Delete result: ${result.data}');
-
-      // Remove from local list
       _users.removeWhere((u) => u.uid == uid);
       notifyListeners();
-    } on FirebaseFunctionsException catch (e) {
-      debugPrint('Delete error: ${e.code} - ${e.message}');
-      rethrow;
     } catch (e) {
-      debugPrint('Delete error: $e');
+      debugPrint('Delete user error: $e');
       rethrow;
     }
   }
@@ -285,22 +270,29 @@ class UsersProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateSelectedUsersRole(String newRole) async {
-    final selected = selectedUsers;
-    for (final user in selected) {
-      try {
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({'role': newRole});
-        final index = _users.indexWhere((u) => u.uid == user.uid);
-        if (index != -1) {
-          _users[index] = _users[index].copyWith(role: newRole);
-        }
-      } catch (e) {
-        // Continue updating other users even if one fails.
-      }
-    }
+  // ── SYNC (Auth → Firestore) ─────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> syncAuthUsers() async {
+    _isLoading = true;
     notifyListeners();
+    try {
+      final functions = FirebaseFunctions.instance;
+      final result = await functions
+          .httpsCallable('syncAuthUsersToFirestore')
+          .call();
+
+      await loadUsers(forceRefresh: true);
+      debugPrint('Sync result: ${result.data}');
+      return result.data as Map<String, dynamic>;
+    } on FirebaseFunctionsException catch (e) {
+      debugPrint('Sync error: ${e.code} - ${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('Sync error: $e');
+      rethrow;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

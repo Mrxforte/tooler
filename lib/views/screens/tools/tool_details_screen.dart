@@ -1,7 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +11,7 @@ import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../core/utils/error_handler.dart';
+import '../../../core/utils/image_utils.dart';
 import '../../../data/services/report_service.dart';
 import 'add_edit_tool_screen.dart';
 
@@ -44,17 +44,12 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
               flexibleSpace: FlexibleSpaceBar(
                 background: Hero(
                   tag: 'tool-${tool.id}',
-                  child: tool.displayImage != null
-                      ? Image(
-                          image: tool.displayImage!.startsWith('http')
-                              ? NetworkImage(tool.displayImage!)
-                                    as ImageProvider
-                              : FileImage(File(tool.displayImage!)),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              _buildToolImagePlaceholder(theme),
-                        )
-                      : _buildToolImagePlaceholder(theme),
+                  child: buildToolImage(
+                    imageUrl: tool.imageUrl,
+                    localImagePath: tool.localImagePath,
+                    placeholder: _buildToolImagePlaceholder(theme),
+                    fit: BoxFit.cover,
+                  ),
                 ),
               ),
               actions: [

@@ -1,11 +1,11 @@
 // SelectionToolCard widget for displaying tools with selection mode support
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/tool.dart';
 import '../../viewmodels/tools_provider.dart';
+import '../../core/utils/image_utils.dart';
 
 class SelectionToolCard extends StatelessWidget {
   final Tool tool;
@@ -148,37 +148,17 @@ class SelectionToolCard extends StatelessWidget {
   }
 
   Widget _buildLeadingImage(BuildContext context) {
-    if (tool.imageUrl != null && tool.imageUrl!.isNotEmpty) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          tool.imageUrl!,
-          width: 56,
-          height: 56,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildPlaceholderImage();
-          },
-        ),
-      );
-    } else if (tool.localImagePath != null && tool.localImagePath!.isNotEmpty) {
-      final file = File(tool.localImagePath!);
-      if (file.existsSync()) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: Image.file(
-            file,
-            width: 56,
-            height: 56,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return _buildPlaceholderImage();
-            },
-          ),
-        );
-      }
-    }
-    return _buildPlaceholderImage();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: buildToolImage(
+        imageUrl: tool.imageUrl,
+        localImagePath: tool.localImagePath,
+        placeholder: _buildPlaceholderImage(),
+        width: 56,
+        height: 56,
+        fit: BoxFit.cover,
+      ),
+    );
   }
 
   Widget _buildPlaceholderImage() {

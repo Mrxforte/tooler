@@ -1,10 +1,11 @@
 ﻿// ignore_for_file: unused_field, unused_import, use_build_context_synchronously
 
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -226,7 +227,7 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> addTool(
     Tool tool, {
-    File? imageFile,
+    XFile? imageFile,
     BuildContext? context,
   }) async {
     try {
@@ -241,7 +242,7 @@ class ToolsProvider with ChangeNotifier {
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           tool = tool.copyWith(imageUrl: url);
-        } else {
+        } else if (!kIsWeb) {
           tool = tool.copyWith(localImagePath: imageFile.path);
         }
       }
@@ -267,7 +268,7 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> updateTool(
     Tool tool, {
-    File? imageFile,
+    XFile? imageFile,
     BuildContext? context,
   }) async {
     try {
@@ -282,7 +283,7 @@ class ToolsProvider with ChangeNotifier {
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           tool = tool.copyWith(imageUrl: url, localImagePath: null);
-        } else {
+        } else if (!kIsWeb) {
           tool = tool.copyWith(localImagePath: imageFile.path, imageUrl: null);
         }
       }
@@ -962,20 +963,13 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      if (userId == null || userId.isEmpty) return;
-
-      // Clear tools list before syncing to avoid duplicates
       _tools.clear();
-
-      Query query = FirebaseFirestore.instance
-          .collection('tools')
-          .where('userId', isEqualTo: userId);
-      final snapshot = await query.get();
+      // Load all tools so the admin sees every record across all devices/users
+      final snapshot =
+          await FirebaseFirestore.instance.collection('tools').get();
       for (final doc in snapshot.docs) {
         try {
-          final tool = Tool.fromJson(doc.data() as Map<String, dynamic>);
+          final tool = Tool.fromJson(doc.data());
           _tools.add(tool);
         } catch (e) {
           // Error parsing tool handled silently

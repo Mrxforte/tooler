@@ -4,6 +4,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -43,10 +44,12 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
+  if (!kIsWeb) {
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+  }
 
   tz.initializeTimeZones();
 
@@ -62,33 +65,35 @@ void main() async {
       cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
     );
 
-    try {
-      // Use debug provider until app is published on Play Store.
-      // PlayIntegrity requires the app to be distributed via Play Store.
-      await FirebaseAppCheck.instance.activate(
-        androidProvider: AndroidProvider.debug,
+    if (!kIsWeb) {
+      // App Check — debug provider for Android (not needed on web)
+      try {
+        await FirebaseAppCheck.instance.activate(
+          androidProvider: AndroidProvider.debug,
+        );
+      } catch (e) {
+        print('Firebase App Check initialization failed: $e');
+      }
+
+      // Local notifications & background tasks — Android/iOS only
+      const AndroidInitializationSettings androidSettings =
+          AndroidInitializationSettings('@mipmap/ic_launcher');
+      final DarwinInitializationSettings iosSettings =
+          DarwinInitializationSettings();
+      final InitializationSettings settings = InitializationSettings(
+        android: androidSettings,
+        iOS: iosSettings,
       );
-    } catch (e) {
-      print('Firebase App Check initialization failed: $e');
+      await flutterLocalNotificationsPlugin.initialize(settings: settings);
+
+      Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
+      Workmanager().registerPeriodicTask(
+        'daily-salary-reminder',
+        'dailySalaryReminder',
+        frequency: Duration(hours: 24),
+        initialDelay: _getTimeUntil7PM(),
+      );
     }
-
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-    final DarwinInitializationSettings iosSettings =
-        DarwinInitializationSettings();
-    final InitializationSettings settings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-    await flutterLocalNotificationsPlugin.initialize(settings: settings);
-
-    Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
-    Workmanager().registerPeriodicTask(
-      'daily-salary-reminder',
-      'dailySalaryReminder',
-      frequency: Duration(hours: 24),
-      initialDelay: _getTimeUntil7PM(),
-    );
 
     print('App ready');
   } catch (e) {
@@ -211,8 +216,20 @@ class _MyAppState extends State<MyApp> {
       future: _prefsFuture,
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
-          return const MaterialApp(
-            home: Scaffold(body: Center(child: CircularProgressIndicator())),
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            // Define stub routes so web doesn't warn about unknown initial route
+            routes: {
+              '/': (_) => const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  ),
+              '/home': (_) => const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  ),
+              '/auth': (_) => const Scaffold(
+                    body: Center(child: CircularProgressIndicator()),
+                  ),
+            },
           );
         }
 

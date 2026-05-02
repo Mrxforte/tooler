@@ -1,7 +1,8 @@
 // ignore_for_file: unused_field, use_build_context_synchronously
 
-import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -175,7 +176,7 @@ class ObjectsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> addObject(ConstructionObject obj, {File? imageFile}) async {
+  Future<void> addObject(ConstructionObject obj, {XFile? imageFile}) async {
     final ctx = navigatorKey.currentContext;
     final auth = ctx != null
         ? Provider.of<app_auth.AuthProvider>(ctx, listen: false)
@@ -199,7 +200,7 @@ class ObjectsProvider with ChangeNotifier {
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           obj = obj.copyWith(imageUrl: url);
-        } else {
+        } else if (!kIsWeb) {
           obj = obj.copyWith(localImagePath: imageFile.path);
         }
       }
@@ -225,7 +226,7 @@ class ObjectsProvider with ChangeNotifier {
     }
   }
 
-  Future<void> updateObject(ConstructionObject obj, {File? imageFile}) async {
+  Future<void> updateObject(ConstructionObject obj, {XFile? imageFile}) async {
     final ctx = navigatorKey.currentContext;
     final auth = ctx != null
         ? Provider.of<app_auth.AuthProvider>(ctx, listen: false)
@@ -249,7 +250,7 @@ class ObjectsProvider with ChangeNotifier {
         final url = await ImageService.uploadImage(imageFile, userId);
         if (url != null) {
           obj = obj.copyWith(imageUrl: url, localImagePath: null);
-        } else {
+        } else if (!kIsWeb) {
           obj = obj.copyWith(localImagePath: imageFile.path, imageUrl: null);
         }
       }
@@ -479,22 +480,12 @@ class ObjectsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userId = prefs.getString('user_id');
-      if (userId == null || userId.isEmpty) return;
-
-      // Clear objects list before syncing to avoid duplicates
       _objects.clear();
-
-      Query query = FirebaseFirestore.instance
-          .collection('objects')
-          .where('userId', isEqualTo: userId);
-      final snapshot = await query.get();
+      final snapshot =
+          await FirebaseFirestore.instance.collection('objects').get();
       for (final doc in snapshot.docs) {
         try {
-          final obj = ConstructionObject.fromJson(
-            doc.data() as Map<String, dynamic>,
-          );
+          final obj = ConstructionObject.fromJson(doc.data());
           _objects.add(obj);
         } catch (e) {
           // Error parsing object handled silently

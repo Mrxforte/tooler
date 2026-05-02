@@ -16,19 +16,17 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   String _filterRole = 'all';
   String _searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
-  
-  // Advanced filters
-  String _sortBy = 'email'; // email, date, role
+  String _sortBy = 'email';
   DateTime? _createdDateFrom;
   DateTime? _createdDateTo;
-  String _permissionsFilter = 'all'; // all, can_move, can_control, both
-  final List<String> _activeFilters = [];
+  String _permissionsFilter = 'all';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<UsersProvider>(context, listen: false).loadUsers(forceRefresh: true);
+      Provider.of<UsersProvider>(context, listen: false)
+          .loadUsers(forceRefresh: true);
     });
   }
 
@@ -38,31 +36,38 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final usersProvider = Provider.of<UsersProvider>(context);
-    final auth = Provider.of<AuthProvider>(context);
+  // ── helpers ─────────────────────────────────────────────────────────────────
 
-    if (!auth.isAdmin) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Пользователи')),
-        body: const Center(
-            child: Text('Только администратор может просматривать пользователей')),
-      );
+  Color _roleColor(String role) {
+    switch (role) {
+      case 'admin':
+        return Colors.red;
+      case 'brigadir':
+        return Colors.purple;
+      default:
+        return Colors.blue;
     }
+  }
 
-    // Apply filters
-    var filteredUsers = List<AppUser>.from(usersProvider.users);
-    
-    // Role filter
+  String _roleLabel(String role) {
+    switch (role) {
+      case 'admin':
+        return 'Администратор';
+      case 'brigadir':
+        return 'Бригадир';
+      default:
+        return 'Пользователь';
+    }
+  }
+
+  List<AppUser> _applyFilters(List<AppUser> all) {
+    var list = List<AppUser>.from(all);
+
     if (_filterRole != 'all') {
-      filteredUsers =
-          filteredUsers.where((u) => u.role == _filterRole).toList();
+      list = list.where((u) => u.role == _filterRole).toList();
     }
-    
-    // Permissions filter
     if (_permissionsFilter != 'all') {
-      filteredUsers = filteredUsers.where((u) {
+      list = list.where((u) {
         switch (_permissionsFilter) {
           case 'can_move':
             return u.canMoveTools;
@@ -75,73 +80,149 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         }
       }).toList();
     }
-    
-    // Date range filter
     if (_createdDateFrom != null) {
-      filteredUsers = filteredUsers
-          .where((u) => u.createdAt.isAfter(_createdDateFrom!))
-          .toList();
+      list = list.where((u) => u.createdAt.isAfter(_createdDateFrom!)).toList();
     }
     if (_createdDateTo != null) {
-      filteredUsers = filteredUsers
-          .where((u) => u.createdAt.isBefore(_createdDateTo!.add(const Duration(days: 1))))
+      list = list
+          .where((u) => u.createdAt
+              .isBefore(_createdDateTo!.add(const Duration(days: 1))))
           .toList();
     }
-    
-    // Search filter
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
-      filteredUsers =
-          filteredUsers.where((u) => u.email.toLowerCase().contains(q)).toList();
+      list = list
+          .where((u) =>
+              u.email.toLowerCase().contains(q) ||
+              u.name.toLowerCase().contains(q))
+          .toList();
     }
-    
-    // Apply sorting
     switch (_sortBy) {
       case 'date':
-        filteredUsers.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
+        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
       case 'role':
-        filteredUsers.sort((a, b) => a.role.compareTo(b.role));
-        break;
-      case 'email':
+        list.sort((a, b) => a.role.compareTo(b.role));
+      case 'name':
+        list.sort((a, b) => a.name.compareTo(b.name));
       default:
-        filteredUsers.sort((a, b) => a.email.compareTo(b.email));
+        list.sort((a, b) => a.email.compareTo(b.email));
     }
-    
-    // Calculate active filters count
-    _activeFilters.clear();
-    if (_filterRole != 'all') _activeFilters.add('Роль');
-    if (_permissionsFilter != 'all') _activeFilters.add('Доступ');
-    if (_createdDateFrom != null || _createdDateTo != null) _activeFilters.add('Дата');
-    if (_searchQuery.isNotEmpty) _activeFilters.add('Поиск');
+    return list;
+  }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: usersProvider.selectionMode
-            ? Text('Выбрано: ${usersProvider.selectedUsers.length}')
-            : const Text('Управление пользователями'),
-        elevation: 0,
-        leading: usersProvider.selectionMode
-            ? IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => usersProvider.toggleSelectionMode(),
-              )
-            : null,
-        actions: [
-          if (!usersProvider.selectionMode)
-            IconButton(
-              icon: const Icon(Icons.sync),
-              tooltip: 'Синхронизировать пользователей из Auth',
+  int get _activeFilterCount {
+    int count = 0;
+    if (_filterRole != 'all') count++;
+    if (_permissionsFilter != 'all') count++;
+    if (_createdDateFrom != null || _createdDateTo != null) count++;
+    return count;
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      _filterRole = 'all';
+      _sortBy = 'email';
+      _createdDateFrom = null;
+      _createdDateTo = null;
+      _permissionsFilter = 'all';
+      _searchController.clear();
+      _searchQuery = '';
+    });
+  }
+
+  // ── CREATE dialog ────────────────────────────────────────────────────────────
+
+  void _showCreateUserDialog() {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    String selectedRole = 'user';
+    bool canMove = false;
+    bool canControl = false;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Добавить пользователя'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Имя',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Email *',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Введите email' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Роль',
+                      prefixIcon: Icon(Icons.shield),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'user', child: Text('Пользователь')),
+                      DropdownMenuItem(value: 'brigadir', child: Text('Бригадир')),
+                      DropdownMenuItem(value: 'admin', child: Text('Администратор')),
+                    ],
+                    onChanged: (v) =>
+                        setDlgState(() => selectedRole = v ?? 'user'),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Может перемещать'),
+                    value: canMove,
+                    onChanged: (v) => setDlgState(() => canMove = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Управление объектами'),
+                    value: canControl,
+                    onChanged: (v) => setDlgState(() => canControl = v),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
               onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.pop(ctx);
                 try {
-                  final result = await usersProvider.syncAuthUsers();
+                  await Provider.of<UsersProvider>(context, listen: false)
+                      .createUser(
+                    email: emailCtrl.text,
+                    name: nameCtrl.text,
+                    role: selectedRole,
+                    canMoveTools: canMove,
+                    canControlObjects: canControl,
+                  );
                   if (mounted) {
-                    final stats = result['stats'] as Map<String, dynamic>;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Синхронизирован: ${stats['created']} новых, ${stats['skipped']} уже существовали',
-                        ),
+                      const SnackBar(
+                        content: Text('Пользователь добавлен'),
                         backgroundColor: Colors.green,
                       ),
                     );
@@ -149,30 +230,194 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Ошибка синхронизации: $e'),
-                        backgroundColor: Colors.red,
-                      ),
+                      SnackBar(content: Text('Ошибка: $e')),
                     );
                   }
                 }
               },
+              child: const Text('Добавить'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── EDIT dialog ──────────────────────────────────────────────────────────────
+
+  void _showEditUserDialog(AppUser user) {
+    final emailCtrl = TextEditingController(text: user.email);
+    final nameCtrl = TextEditingController(text: user.name);
+    String selectedRole = user.role;
+    bool canMove = user.canMoveTools;
+    bool canControl = user.canControlObjects;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('Редактировать пользователя'),
+          content: SingleChildScrollView(
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Имя',
+                      prefixIcon: Icon(Icons.person),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Email *',
+                      prefixIcon: Icon(Icons.email),
+                    ),
+                    keyboardType: TextInputType.emailAddress,
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Введите email' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: selectedRole,
+                    decoration: const InputDecoration(
+                      labelText: 'Роль',
+                      prefixIcon: Icon(Icons.shield),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'user', child: Text('Пользователь')),
+                      DropdownMenuItem(value: 'brigadir', child: Text('Бригадир')),
+                      DropdownMenuItem(value: 'admin', child: Text('Администратор')),
+                    ],
+                    onChanged: (v) =>
+                        setDlgState(() => selectedRole = v ?? 'user'),
+                  ),
+                  const SizedBox(height: 8),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Может перемещать'),
+                    value: canMove,
+                    onChanged: (v) => setDlgState(() => canMove = v),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Управление объектами'),
+                    value: canControl,
+                    onChanged: (v) => setDlgState(() => canControl = v),
+                  ),
+                  const SizedBox(height: 8),
+                  // Read-only info
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('UID:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(user.uid, style: const TextStyle(fontSize: 12)),
+                        const SizedBox(height: 4),
+                        const Text('Создан:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        Text(
+                          '${user.createdAt.day}.${user.createdAt.month}.${user.createdAt.year}',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
+                Navigator.pop(ctx);
+                try {
+                  final updated = user.copyWith(
+                    email: emailCtrl.text.trim(),
+                    name: nameCtrl.text.trim(),
+                    role: selectedRole,
+                    canMoveTools: canMove,
+                    canControlObjects: canControl,
+                  );
+                  await Provider.of<UsersProvider>(context, listen: false)
+                      .editUser(updated);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Пользователь обновлён'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Ошибка: $e')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Сохранить'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── BUILD ────────────────────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    final usersProvider = Provider.of<UsersProvider>(context);
+    final auth = Provider.of<AuthProvider>(context);
+
+    if (!auth.isAdmin) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Пользователи')),
+        body: const Center(
+            child:
+                Text('Только администратор может просматривать пользователей')),
+      );
+    }
+
+    final filteredUsers = _applyFilters(usersProvider.users);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: usersProvider.selectionMode
+            ? Text('Выбрано: ${usersProvider.selectedUsers.length}')
+            : const Text('Управление пользователями'),
+        leading: usersProvider.selectionMode
+            ? IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => usersProvider.toggleSelectionMode(),
+              )
+            : null,
+        actions: [
           if (usersProvider.selectionMode) ...[
             IconButton(
               icon: Icon(usersProvider.allSelected
                   ? Icons.deselect
                   : Icons.select_all),
-              tooltip: usersProvider.allSelected
-                  ? 'Снять выбор'
-                  : 'Выбрать все',
-              onPressed: () {
-                if (usersProvider.allSelected) {
-                  usersProvider.clearSelection();
-                } else {
-                  usersProvider.selectAllUsers();
-                }
-              },
+              tooltip: usersProvider.allSelected ? 'Снять выбор' : 'Выбрать все',
+              onPressed: () => usersProvider.allSelected
+                  ? usersProvider.clearSelection()
+                  : usersProvider.selectAllUsers(),
             ),
           ] else ...[
             Stack(
@@ -183,7 +428,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   tooltip: 'Фильтры',
                   onPressed: () => _showAdvancedFiltersPanel(context),
                 ),
-                if (_activeFilters.isNotEmpty && !_activeFilters.contains('Поиск'))
+                if (_activeFilterCount > 0)
                   Positioned(
                     top: 8,
                     right: 8,
@@ -194,12 +439,11 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        '${_activeFilters.length}',
+                        '$_activeFilterCount',
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),
@@ -221,348 +465,142 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         onRefresh: () => usersProvider.loadUsers(forceRefresh: true),
         child: Column(
           children: [
-          // Search and filter section
-          Container(
-            color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              children: [
-                // Search field
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Поиск по email...',
-                    prefixIcon: const Icon(Icons.search),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
+            // Search + role chips
+            Container(
+              color: Theme.of(context)
+                  .colorScheme
+                  .primary
+                  .withValues(alpha: 0.1),
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Поиск по email или имени...',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchQuery.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            )
+                          : null,
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10)),
+                      filled: true,
+                      fillColor: Colors.white,
                     ),
-                    filled: true,
-                    fillColor: Colors.white,
+                    onChanged: (v) => setState(() => _searchQuery = v),
                   ),
-                  onChanged: (v) => setState(() => _searchQuery = v),
-                ),
-                const SizedBox(height: 12),
-                // Filter chips
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      FilterChip(
-                        label: const Text('Все'),
-                        selected: _filterRole == 'all',
-                        onSelected: (_) => setState(() => _filterRole = 'all'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Администраторы'),
-                        selected: _filterRole == 'admin',
-                        onSelected: (_) => setState(() => _filterRole = 'admin'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Пользователи'),
-                        selected: _filterRole == 'user',
-                        onSelected: (_) => setState(() => _filterRole = 'user'),
-                      ),
-                      const SizedBox(width: 8),
-                      FilterChip(
-                        label: const Text('Бригадиры'),
-                        selected: _filterRole == 'brigadir',
-                        onSelected: (_) => setState(() => _filterRole = 'brigadir'),
-                      ),
-                      if (_activeFilters.isNotEmpty) ...[
-                        const SizedBox(width: 8),
-                        ElevatedButton(
-                          onPressed: _clearAllFilters,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red.shade200,
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final entry in {
+                          'all': 'Все',
+                          'admin': 'Администраторы',
+                          'brigadir': 'Бригадиры',
+                          'user': 'Пользователи',
+                        }.entries) ...[
+                          FilterChip(
+                            label: Text(entry.value),
+                            selected: _filterRole == entry.key,
+                            onSelected: (_) =>
+                                setState(() => _filterRole = entry.key),
                           ),
-                          child: const Text('Сбросить'),
-                        ),
+                          const SizedBox(width: 8),
+                        ],
+                        if (_activeFilterCount > 0 || _searchQuery.isNotEmpty)
+                          ElevatedButton(
+                            onPressed: _clearAllFilters,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red.shade200),
+                            child: const Text('Сбросить'),
+                          ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          // Users list
-          Expanded(
-            child: usersProvider.isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : filteredUsers.isEmpty
-                    ? _buildEmptyState()
-                    : ListView.builder(
-                        itemCount: filteredUsers.length,
-                        itemBuilder: (context, index) {
-                          final user = filteredUsers[index];
-                          return _buildUserCard(context, user, usersProvider);
-                        },
-                      ),
-          ),
-        ],
-      ),
+            // Stats row
+            Padding(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    'Всего: ${filteredUsers.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Из базы: ${usersProvider.users.length}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: usersProvider.isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : filteredUsers.isEmpty
+                      ? _buildEmptyState()
+                      : ListView.builder(
+                          itemCount: filteredUsers.length,
+                          itemBuilder: (context, index) => _buildUserCard(
+                              context, filteredUsers[index], usersProvider),
+                        ),
+            ),
+          ],
         ),
-      floatingActionButton: usersProvider.selectionMode && usersProvider.hasSelectedUsers
+      ),
+      floatingActionButton: usersProvider.selectionMode &&
+              usersProvider.hasSelectedUsers
           ? Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 FloatingActionButton.extended(
                   heroTag: 'delete_selected',
-                  onPressed: () => _showBatchDeleteDialog(context, usersProvider),
+                  onPressed: () =>
+                      _showBatchDeleteDialog(context, usersProvider),
                   backgroundColor: Colors.red,
                   icon: const Icon(Icons.delete),
-                  label: Text('Удалить (${usersProvider.selectedUsers.length})'),
+                  label: Text(
+                      'Удалить (${usersProvider.selectedUsers.length})'),
                 ),
                 const SizedBox(height: 12),
                 FloatingActionButton.extended(
                   heroTag: 'change_role_selected',
-                  onPressed: () => _showBatchRoleChangeDialog(context, usersProvider),
+                  onPressed: () =>
+                      _showBatchRoleChangeDialog(context, usersProvider),
                   backgroundColor: Colors.blue,
                   icon: const Icon(Icons.group),
                   label: const Text('Изменить роль'),
                 ),
               ],
             )
-          : null,
-    );
-  }
-
-  void _clearAllFilters() {
-    setState(() {
-      _filterRole = 'all';
-      _sortBy = 'email';
-      _createdDateFrom = null;
-      _createdDateTo = null;
-      _permissionsFilter = 'all';
-      _searchController.clear();
-      _searchQuery = '';
-    });
-  }
-
-  void _showAdvancedFiltersPanel(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => SingleChildScrollView(
-          child: Container(
-            padding: EdgeInsets.only(
-              top: 20,
-              left: 20,
-              right: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+          : FloatingActionButton.extended(
+              heroTag: 'add_user',
+              onPressed: _showCreateUserDialog,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Добавить'),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Расширенные фильтры',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.close),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Sort Option
-                const Text(
-                  'Сортировка',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _sortBy,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'email', child: Text('По email')),
-                    DropdownMenuItem(value: 'date', child: Text('По дате регистрации')),
-                    DropdownMenuItem(value: 'role', child: Text('По роли')),
-                  ],
-                  onChanged: (v) {
-                    setState(() => _sortBy = v ?? 'email');
-                    this.setState(() {});
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Permissions Filter
-                const Text(
-                  'Фильтр по доступам',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
-                  initialValue: _permissionsFilter,
-                  decoration: InputDecoration(
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: 'all', child: Text('Все')),
-                    DropdownMenuItem(value: 'can_move', child: Text('Могут перемещать')),
-                    DropdownMenuItem(value: 'can_control', child: Text('Могут управлять объектами')),
-                    DropdownMenuItem(value: 'both', child: Text('Оба доступа')),
-                  ],
-                  onChanged: (v) {
-                    setState(() => _permissionsFilter = v ?? 'all');
-                    this.setState(() {});
-                  },
-                ),
-                const SizedBox(height: 20),
-
-                // Date Range
-                const Text(
-                  'Диапазон даты регистрации',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _createdDateFrom ?? DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now(),
-                          );
-                          if (date != null) {
-                            setState(() => _createdDateFrom = date);
-                            this.setState(() {});
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _createdDateFrom != null
-                                ? '${_createdDateFrom!.day}.${_createdDateFrom!.month}.${_createdDateFrom!.year}'
-                                : 'От',
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () async {
-                          final date = await showDatePicker(
-                            context: context,
-                            initialDate: _createdDateTo ?? DateTime.now(),
-                            firstDate: DateTime(2020),
-                            lastDate: DateTime.now(),
-                          );
-                          if (date != null) {
-                            setState(() => _createdDateTo = date);
-                            this.setState(() {});
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            _createdDateTo != null
-                                ? '${_createdDateTo!.day}.${_createdDateTo!.month}.${_createdDateTo!.year}'
-                                : 'До',
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Action Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        _clearAllFilters();
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(Icons.delete),
-                      label: const Text('Очистить'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.red.shade200,
-                      ),
-                    ),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        this.setState(() {});
-                        Navigator.pop(context);
-                      },
-                      icon: const Icon(Icons.check),
-                      label: const Text('Применить'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green.shade200,
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.people, size: 80, color: Colors.grey.shade300),
-          const SizedBox(height: 16),
-          const Text('Нет пользователей',
-              style: TextStyle(fontSize: 18, color: Colors.grey)),
-          const SizedBox(height: 8),
-          Text(
-            _searchQuery.isNotEmpty
-                ? 'Не найдено пользователей с поиском "$_searchQuery"'
-                : 'Пока никто не зарегистрирован',
-            style: const TextStyle(color: Colors.grey),
-          ),
-        ],
-      ),
-    );
-  }
+  // ── user card ────────────────────────────────────────────────────────────────
 
   Widget _buildUserCard(
-    BuildContext context,
-    dynamic user,
-    UsersProvider usersProvider,
-  ) {
-    final roleColor = _getRoleColor(user.role);
-    final roleLabel = _getRoleLabel(user.role);
+      BuildContext context, AppUser user, UsersProvider usersProvider) {
+    final roleColor = _roleColor(user.role);
+    final roleLabel = _roleLabel(user.role);
+    final displayName =
+        user.name.isNotEmpty ? user.name : user.email.split('@').first;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
@@ -577,7 +615,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
           leading: usersProvider.selectionMode
               ? Checkbox(
                   value: user.isSelected,
-                  onChanged: (_) => usersProvider.toggleUserSelection(user.uid),
+                  onChanged: (_) =>
+                      usersProvider.toggleUserSelection(user.uid),
                 )
               : Container(
                   padding: const EdgeInsets.all(2),
@@ -590,54 +629,66 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   child: CircleAvatar(
                     backgroundColor: roleColor,
                     child: Text(
-                      user.email[0].toUpperCase(),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      displayName[0].toUpperCase(),
+                      style: const TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
-          title: Text(user.email,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-          subtitle: Row(
+          title: Text(
+            displayName,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: roleColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  roleLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: roleColor,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              if (user.canMoveTools || user.canControlObjects)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.check_circle, size: 12, color: Colors.green),
-                      SizedBox(width: 4),
-                      Text(
-                        'Разрешения',
-                        style: TextStyle(
-                          fontSize: 11,
+              if (user.name.isNotEmpty)
+                Text(user.email,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: roleColor.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      roleLabel,
+                      style: TextStyle(
+                          fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: Colors.green,
-                        ),
-                      ),
-                    ],
+                          color: roleColor),
+                    ),
                   ),
-                ),
+                  if (user.canMoveTools || user.canControlObjects) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.check_circle,
+                              size: 12, color: Colors.green),
+                          SizedBox(width: 4),
+                          Text('Разрешения',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
           trailing: IconButton(
@@ -651,35 +702,30 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               : null,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(
                 children: [
                   _buildPermissionSwitch(
-                    context: context,
                     title: 'Может перемещать инструменты',
-                    icon: Icons.info_outline,
-                    subtitle: 'Разрешить этому пользователю перемещать инструменты',
+                    icon: Icons.swap_horiz,
                     value: user.canMoveTools,
-                    onChanged: (value) => usersProvider.updateUserPermissions(
-                      user.uid,
-                      canMoveTools: value,
-                    ),
+                    onChanged: (v) => usersProvider.updateUserPermissions(
+                        user.uid,
+                        canMoveTools: v),
                   ),
                   const Divider(),
                   _buildPermissionSwitch(
-                    context: context,
                     title: 'Может управлять объектами',
                     icon: Icons.business,
-                    subtitle: 'Разрешить этому пользователю создавать и редактировать объекты',
                     value: user.canControlObjects,
-                    onChanged: (value) => usersProvider.updateUserPermissions(
-                      user.uid,
-                      canControlObjects: value,
-                    ),
+                    onChanged: (v) => usersProvider.updateUserPermissions(
+                        user.uid,
+                        canControlObjects: v),
                   ),
                   const SizedBox(height: 12),
-                  // User info
                   Container(
+                    width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,
@@ -688,19 +734,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Информация', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const Text('Информация',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
-                        _buildInfoRow('Email:', user.email),
-                        _buildInfoRow('UID:', user.uid),
-                        _buildInfoRow(
-                          'Разрешения:',
-                          user.canMoveTools && user.canControlObjects
-                              ? 'Все'
-                              : user.canMoveTools
-                                  ? 'Перемещение'
-                                  : user.canControlObjects
-                                      ? 'Объекты'
-                                      : 'Нет',
+                        if (user.name.isNotEmpty)
+                          _infoRow('Имя:', user.name),
+                        _infoRow('Email:', user.email),
+                        _infoRow('UID:', user.uid),
+                        _infoRow(
+                          'Зарегистрирован:',
+                          '${user.createdAt.day}.${user.createdAt.month}.${user.createdAt.year}',
                         ),
                       ],
                     ),
@@ -715,47 +758,47 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildPermissionSwitch({
-    required BuildContext context,
     required String title,
     required IconData icon,
-    required String subtitle,
     required bool value,
     required Function(bool) onChanged,
   }) {
     return SwitchListTile(
-      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      contentPadding: const EdgeInsets.symmetric(vertical: 4),
       secondary: Icon(icon),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      subtitle: Text(subtitle, style: const TextStyle(fontSize: 12)),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
       value: value,
       onChanged: onChanged,
     );
   }
 
-  Widget _buildInfoRow(String label, String value) {
+  Widget _infoRow(String label, String value) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          Text(label,
+              style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          Text(value,
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w500)),
         ],
       ),
     );
   }
 
+  // ── action menu ──────────────────────────────────────────────────────────────
+
   void _showUserActionsMenu(
-    BuildContext context,
-    dynamic user,
-    UsersProvider usersProvider,
-  ) {
+      BuildContext context, AppUser user, UsersProvider usersProvider) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) => Padding(
+      builder: (ctx) => Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -770,27 +813,41 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Действия с пользователем',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              user.name.isNotEmpty ? user.name : user.email,
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
             ),
+            const SizedBox(height: 4),
+            Text(user.email, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 16),
+            // Edit
             ListTile(
-              leading: const Icon(Icons.admin_panel_settings, color: Colors.blue),
-              title: const Text('Выдать права администратора'),
+              leading: const Icon(Icons.edit, color: Colors.teal),
+              title: const Text('Редактировать'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showEditUserDialog(user);
+              },
+            ),
+            const Divider(),
+            // Role shortcuts
+            ListTile(
+              leading:
+                  const Icon(Icons.admin_panel_settings, color: Colors.red),
+              title: const Text('Сделать администратором'),
+              enabled: user.role != 'admin',
               subtitle: user.role == 'admin'
                   ? const Text('Уже администратор')
                   : null,
-              enabled: user.role != 'admin',
               onTap: user.role == 'admin'
                   ? null
                   : () {
-                      Navigator.pop(context);
-                      _showConfirmDialog(
-                        context,
+                      Navigator.pop(ctx);
+                      _confirmAction(
                         'Выдать права администратора?',
-                        'Это даст пользователю полный доступ к системе',
+                        'Пользователь получит полный доступ.',
                         () => usersProvider.updateUserRole(user.uid, 'admin'),
                       );
                     },
@@ -798,36 +855,34 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ListTile(
               leading: const Icon(Icons.group, color: Colors.purple),
               title: const Text('Сделать бригадиром'),
-              subtitle: user.role == 'brigadir'
-                  ? const Text('Уже бригадир')
-                  : null,
               enabled: user.role != 'brigadir',
+              subtitle:
+                  user.role == 'brigadir' ? const Text('Уже бригадир') : null,
               onTap: user.role == 'brigadir'
                   ? null
                   : () {
-                      Navigator.pop(context);
-                      _showConfirmDialog(
-                        context,
+                      Navigator.pop(ctx);
+                      _confirmAction(
                         'Сделать бригадиром?',
-                        'Бригадир может управлять работниками на объектах',
-                        () => usersProvider.updateUserRole(user.uid, 'brigadir'),
+                        '',
+                        () =>
+                            usersProvider.updateUserRole(user.uid, 'brigadir'),
                       );
                     },
             ),
             ListTile(
-              leading: const Icon(Icons.person, color: Colors.green),
+              leading: const Icon(Icons.person, color: Colors.blue),
               title: const Text('Обычный пользователь'),
+              enabled: user.role != 'user',
               subtitle:
                   user.role == 'user' ? const Text('Уже пользователь') : null,
-              enabled: user.role != 'user',
               onTap: user.role == 'user'
                   ? null
                   : () {
-                      Navigator.pop(context);
-                      _showConfirmDialog(
-                        context,
+                      Navigator.pop(ctx);
+                      _confirmAction(
                         'Понизить роль?',
-                        'Пользователь потеряет расширенные права',
+                        'Пользователь потеряет расширенные права.',
                         () => usersProvider.updateUserRole(user.uid, 'user'),
                       );
                     },
@@ -838,8 +893,8 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               title: const Text('Удалить пользователя',
                   style: TextStyle(color: Colors.red)),
               onTap: () {
-                Navigator.pop(context);
-                _showDeleteOptionsDialog(context, usersProvider, user.uid);
+                Navigator.pop(ctx);
+                _showDeleteOptionsDialog(context, usersProvider, user);
               },
             ),
           ],
@@ -848,328 +903,365 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
     );
   }
 
-  void _showConfirmDialog(
-    BuildContext context,
-    String title,
-    String message,
-    VoidCallback onConfirm, {
-    bool isDangerous = false,
-  }) {
+  void _confirmAction(String title, String message, VoidCallback onConfirm) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: Text(title),
-        content: Text(message),
+        content: message.isNotEmpty ? Text(message) : null,
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена')),
           TextButton(
             onPressed: () {
               onConfirm();
-              Navigator.pop(context);
+              Navigator.pop(ctx);
             },
-            style: TextButton.styleFrom(
-              foregroundColor: isDangerous ? Colors.red : Colors.blue,
-            ),
-            child: Text(isDangerous ? 'Удалить' : 'Подтвердить'),
+            child: const Text('Подтвердить'),
           ),
         ],
       ),
     );
   }
 
-  Color _getRoleColor(String role) {
-    switch (role) {
-      case 'admin':
-        return Colors.red;
-      case 'brigadir':
-        return Colors.purple;
-      default:
-        return Colors.blue;
-    }
-  }
+  // ── delete dialogs ───────────────────────────────────────────────────────────
 
-  String _getRoleLabel(String role) {
-    switch (role) {
-      case 'admin':
-        return 'Администратор';
-      case 'brigadir':
-        return 'Бригадир';
-      default:
-        return 'Пользователь';
-    }
-  }
-
-  void _showBatchDeleteDialog(BuildContext context, UsersProvider usersProvider) {
+  void _showDeleteOptionsDialog(
+      BuildContext context, UsersProvider usersProvider, AppUser user) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить выбранных пользователей?'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить пользователя?'),
         content: Text(
-          'Вы уверены, что хотите удалить ${usersProvider.selectedUsers.length} пользователей?\n\n'
-          'Выберите из какой системы удалить данные.',
+          '"${user.name.isNotEmpty ? user.name : user.email}"\n\nВыберите откуда удалить:',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена')),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteSelectedUsers(
-                  deleteFromFirestore: true,
-                  deleteFromAuth: false,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Удалены из Firestore'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
             style: TextButton.styleFrom(foregroundColor: Colors.orange),
             child: const Text('Только из БД'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _runDelete(
+                () => usersProvider.deleteUser(user.uid,
+                    deleteFromFirestore: true, deleteFromAuth: false),
+                'Удалён из Firestore',
+              );
+            },
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteSelectedUsers(
-                  deleteFromFirestore: false,
-                  deleteFromAuth: true,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Удалены из Auth'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.blue),
-            child: const Text('Только из Auth'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteSelectedUsers(
-                  deleteFromFirestore: true,
-                  deleteFromAuth: true,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Полностью удалены из системы'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Полностью из системы'),
+            child: const Text('Полностью'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _runDelete(
+                () => usersProvider.deleteUser(user.uid,
+                    deleteFromFirestore: true, deleteFromAuth: true),
+                'Полностью удалён из системы',
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  void _showDeleteOptionsDialog(
-    BuildContext context,
-    UsersProvider usersProvider,
-    String uid,
-  ) {
+  void _showBatchDeleteDialog(
+      BuildContext context, UsersProvider usersProvider) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Удалить пользователя?'),
-        content: const Text('Выберите из какой системы удалить данные:'),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Удалить выбранных пользователей?'),
+        content: Text(
+            'Будет удалено ${usersProvider.selectedUsers.length} пользователей.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
-          ),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена')),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteUser(
-                  uid,
-                  deleteFromFirestore: true,
-                  deleteFromAuth: false,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Удален из Firestore'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
             style: TextButton.styleFrom(foregroundColor: Colors.orange),
             child: const Text('Только из БД'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _runDelete(
+                () => usersProvider.deleteSelectedUsers(
+                    deleteFromFirestore: true, deleteFromAuth: false),
+                'Удалены из Firestore',
+              );
+            },
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteUser(
-                  uid,
-                  deleteFromFirestore: false,
-                  deleteFromAuth: true,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Удален из Auth'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.blue),
-            child: const Text('Только из Auth'),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                await usersProvider.deleteUser(
-                  uid,
-                  deleteFromFirestore: true,
-                  deleteFromAuth: true,
-                );
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Полностью удален из системы'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Ошибка: $e')),
-                  );
-                }
-              }
-            },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('Полностью из системы'),
+            child: const Text('Полностью'),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _runDelete(
+                () => usersProvider.deleteSelectedUsers(
+                    deleteFromFirestore: true, deleteFromAuth: true),
+                'Полностью удалены из системы',
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  void _showBatchRoleChangeDialog(BuildContext context, UsersProvider usersProvider) {
+  Future<void> _runDelete(
+      Future<void> Function() action, String successMsg) async {
+    try {
+      await action();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(successMsg),
+          backgroundColor: Colors.green,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка: $e')),
+        );
+      }
+    }
+  }
+
+  // ── batch role change ────────────────────────────────────────────────────────
+
+  void _showBatchRoleChangeDialog(
+      BuildContext context, UsersProvider usersProvider) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (ctx) => AlertDialog(
         title: const Text('Изменить роль'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Выберите новую роль для ${usersProvider.selectedUsers.length} пользователей:'),
+            Text(
+                'Выберите новую роль для ${usersProvider.selectedUsers.length} пользователей:'),
             const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.admin_panel_settings, color: Colors.red),
-              title: const Text('Администратор'),
-              onTap: () async {
-                Navigator.pop(context);
-                await usersProvider.updateSelectedUsersRole('admin');
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Роль изменена на "Администратор"'),
+            for (final entry in {
+              'admin': ('Администратор', Icons.admin_panel_settings, Colors.red),
+              'brigadir': ('Бригадир', Icons.group, Colors.purple),
+              'user': ('Пользователь', Icons.person, Colors.blue),
+            }.entries)
+              ListTile(
+                leading: Icon(entry.value.$2, color: entry.value.$3),
+                title: Text(entry.value.$1),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await usersProvider.updateSelectedUsersRole(entry.key);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Роль изменена на "${entry.value.$1}"'),
                       backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.group, color: Colors.purple),
-              title: const Text('Бригадир'),
-              onTap: () async {
-                Navigator.pop(context);
-                await usersProvider.updateSelectedUsersRole('brigadir');
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Роль изменена на "Бригадир"'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.person, color: Colors.blue),
-              title: const Text('Пользователь'),
-              onTap: () async {
-                Navigator.pop(context);
-                await usersProvider.updateSelectedUsersRole('user');
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Роль изменена на "Пользователь"'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                }
-              },
-            ),
+                    ));
+                  }
+                },
+              ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Отмена'),
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Отмена')),
+        ],
+      ),
+    );
+  }
+
+  // ── advanced filters ─────────────────────────────────────────────────────────
+
+  void _showAdvancedFiltersPanel(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => SingleChildScrollView(
+          child: Container(
+            padding: EdgeInsets.only(
+              top: 20,
+              left: 20,
+              right: 20,
+              bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Расширенные фильтры',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                const Text('Сортировка',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _sortBy,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'email', child: Text('По email')),
+                    DropdownMenuItem(value: 'name', child: Text('По имени')),
+                    DropdownMenuItem(
+                        value: 'date', child: Text('По дате регистрации')),
+                    DropdownMenuItem(value: 'role', child: Text('По роли')),
+                  ],
+                  onChanged: (v) {
+                    setS(() => _sortBy = v ?? 'email');
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Text('Фильтр по доступам',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _permissionsFilter,
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 8),
+                  ),
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('Все')),
+                    DropdownMenuItem(
+                        value: 'can_move',
+                        child: Text('Могут перемещать')),
+                    DropdownMenuItem(
+                        value: 'can_control',
+                        child: Text('Управляют объектами')),
+                    DropdownMenuItem(
+                        value: 'both', child: Text('Оба доступа')),
+                  ],
+                  onChanged: (v) {
+                    setS(() => _permissionsFilter = v ?? 'all');
+                    setState(() {});
+                  },
+                ),
+                const SizedBox(height: 20),
+                const Text('Диапазон даты регистрации',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: ctx,
+                            initialDate: _createdDateFrom ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setS(() => _createdDateFrom = date);
+                            setState(() {});
+                          }
+                        },
+                        child: _dateBox(_createdDateFrom, 'От'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () async {
+                          final date = await showDatePicker(
+                            context: ctx,
+                            initialDate: _createdDateTo ?? DateTime.now(),
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime.now(),
+                          );
+                          if (date != null) {
+                            setS(() => _createdDateTo = date);
+                            setState(() {});
+                          }
+                        },
+                        child: _dateBox(_createdDateTo, 'До'),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        _clearAllFilters();
+                        Navigator.pop(ctx);
+                      },
+                      icon: const Icon(Icons.delete),
+                      label: const Text('Сбросить'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.red.shade200),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Применить'),
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green.shade200),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _dateBox(DateTime? date, String placeholder) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(date != null
+          ? '${date.day}.${date.month}.${date.year}'
+          : placeholder),
+    );
+  }
+
+  // ── empty state ──────────────────────────────────────────────────────────────
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.people, size: 80, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          const Text('Нет пользователей',
+              style: TextStyle(fontSize: 18, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Text(
+            _searchQuery.isNotEmpty
+                ? 'Не найдено пользователей: "$_searchQuery"'
+                : 'Нажмите + чтобы добавить пользователя',
+            style: const TextStyle(color: Colors.grey),
           ),
         ],
       ),

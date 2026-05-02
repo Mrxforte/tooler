@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../../../data/models/tool.dart';
 import '../../../viewmodels/tools_provider.dart';
@@ -7,6 +8,8 @@ import '../../../viewmodels/auth_provider.dart';
 import '../../../data/services/image_service.dart';
 import '../../../core/utils/error_handler.dart';
 import '../../../core/utils/id_generator.dart';
+import '../../../core/utils/image_utils.dart';
+// ignore_for_file: use_build_context_synchronously
 
 class AddEditToolScreen extends StatefulWidget {
   final Tool? tool;
@@ -21,7 +24,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
   final _descriptionController = TextEditingController();
   final _brandController = TextEditingController();
   final _uniqueIdController = TextEditingController();
-  File? _imageFile;
+  XFile? _imageFile;
   bool _isLoading = false;
   String? _imageUrl;
   String? _localImagePath;
@@ -40,6 +43,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       _uniqueIdController.text = IdGenerator.generateUniqueId();
     }
   }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -48,6 +52,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
     _uniqueIdController.dispose();
     super.dispose();
   }
+
   Future<void> _pickImage() async {
     final file = await ImageService.pickImage();
     if (file != null) {
@@ -58,6 +63,7 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       });
     }
   }
+
   Future<void> _takePhoto() async {
     final file = await ImageService.takePhoto();
     if (file != null) {
@@ -68,9 +74,13 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       });
     }
   }
+
   Future<void> _saveTool() async {
     if (_formKey.currentState == null || !_formKey.currentState!.validate()) {
-      ErrorHandler.showErrorDialog(context, 'Пожалуйста, заполните все обязательные поля');
+      ErrorHandler.showErrorDialog(
+        context,
+        'Пожалуйста, заполните все обязательные поля',
+      );
       return;
     }
     setState(() => _isLoading = true);
@@ -93,9 +103,17 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
         userId: authProvider.userId ?? 'local',
       );
       if (widget.tool == null) {
-        await toolsProvider.addTool(tool, imageFile: _imageFile, context: context);
+        await toolsProvider.addTool(
+          tool,
+          imageFile: _imageFile,
+          context: context,
+        );
       } else {
-        await toolsProvider.updateTool(tool, imageFile: _imageFile, context: context);
+        await toolsProvider.updateTool(
+          tool,
+          imageFile: _imageFile,
+          context: context,
+        );
       }
       if (!mounted) return;
       Navigator.pop(context);
@@ -108,17 +126,23 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
       }
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.tool != null;
     final auth = Provider.of<AuthProvider>(context);
     if (!auth.isAdmin) {
       return const Scaffold(
-          body: Center(child: Text('Только администратор может редактировать инструменты')));
+        body: Center(
+          child: Text('Только администратор может редактировать инструменты'),
+        ),
+      );
     }
     return Scaffold(
       appBar: AppBar(
-        title: Text(isEdit ? 'Редактировать инструмент' : 'Добавить инструмент'),
+        title: Text(
+          isEdit ? 'Редактировать инструмент' : 'Добавить инструмент',
+        ),
         actions: [
           if (isEdit && auth.isAdmin)
             IconButton(
@@ -143,12 +167,17 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                             listen: false,
                           ).deleteTool(widget.tool!.id, context: outerContext);
                           if (!outerContext.mounted) return;
-                          await Future.delayed(const Duration(milliseconds: 500));
+                          await Future.delayed(
+                            const Duration(milliseconds: 500),
+                          );
                           if (outerContext.mounted) {
                             Navigator.pop(outerContext); // Close screen
                           }
                         },
-                        child: const Text('Удалить', style: TextStyle(color: Colors.red)),
+                        child: const Text(
+                          'Удалить',
+                          style: TextStyle(color: Colors.red),
+                        ),
                       ),
                     ],
                   ),
@@ -161,137 +190,168 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
           ? const Center(child: CircularProgressIndicator())
           : SafeArea(
               child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  children: [
-                    GestureDetector(
-                      onTap: _showImagePickerDialog,
-                      child: Container(
-                        height: 200,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
-                              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
-                            ],
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: _showImagePickerDialog,
+                        child: Container(
+                          height: 200,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Theme.of(
+                                  context,
+                                ).colorScheme.primary.withValues(alpha: 0.1),
+                                Theme.of(
+                                  context,
+                                ).colorScheme.secondary.withValues(alpha: 0.1),
+                              ],
+                            ),
+                            border: Border.all(color: Colors.grey.shade300),
                           ),
-                          border: Border.all(color: Colors.grey.shade300),
+                          child: _getImageWidget(),
                         ),
-                        child: _getImageWidget(),
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                    TextFormField(
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        labelText: 'Название инструмента *',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: const Icon(Icons.title),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                      validator: (v) => v?.isEmpty == true ? 'Введите название' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _brandController,
-                      decoration: InputDecoration(
-                        labelText: 'Бренд *',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: const Icon(Icons.branding_watermark),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
-                      ),
-                      validator: (v) => v?.isEmpty == true ? 'Введите бренд' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _uniqueIdController,
-                      decoration: InputDecoration(
-                        labelText: 'Уникальный идентификатор *',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        prefixIcon: const Icon(Icons.qr_code),
-                        suffixIcon: IconButton(
-                          icon: const Icon(Icons.refresh),
-                          onPressed: () =>
-                              _uniqueIdController.text = IdGenerator.generateUniqueId(),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: InputDecoration(
+                          labelText: 'Название инструмента *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.title),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
                         ),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
+                        validator: (v) =>
+                            v?.isEmpty == true ? 'Введите название' : null,
                       ),
-                      validator: (v) => v?.isEmpty == true ? 'Введите идентификатор' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _descriptionController,
-                      decoration: InputDecoration(
-                        labelText: 'Описание',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                        alignLabelWithHint: true,
-                        prefixIcon: const Icon(Icons.description),
-                        filled: true,
-                        fillColor: Colors.grey.shade50,
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _brandController,
+                        decoration: InputDecoration(
+                          labelText: 'Бренд *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.branding_watermark),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (v) =>
+                            v?.isEmpty == true ? 'Введите бренд' : null,
                       ),
-                      maxLines: 4,
-                    ),
-                    const SizedBox(height: 32),
-                    ElevatedButton(
-                      onPressed: _saveTool,
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: const Size(double.infinity, 50),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _uniqueIdController,
+                        decoration: InputDecoration(
+                          labelText: 'Уникальный идентификатор *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          prefixIcon: const Icon(Icons.qr_code),
+                          suffixIcon: IconButton(
+                            icon: const Icon(Icons.refresh),
+                            onPressed: () => _uniqueIdController.text =
+                                IdGenerator.generateUniqueId(),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        validator: (v) =>
+                            v?.isEmpty == true ? 'Введите идентификатор' : null,
                       ),
-                      child: Text(
-                        isEdit ? 'Сохранить изменения' : 'Добавить инструмент',
-                        style: const TextStyle(fontSize: 16),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _descriptionController,
+                        decoration: InputDecoration(
+                          labelText: 'Описание',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          alignLabelWithHint: true,
+                          prefixIcon: const Icon(Icons.description),
+                          filled: true,
+                          fillColor: Colors.grey.shade50,
+                        ),
+                        maxLines: 4,
                       ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                        onPressed: _saveTool,
+                        style: ElevatedButton.styleFrom(
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          isEdit
+                              ? 'Сохранить изменения'
+                              : 'Добавить инструмент',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
+                  ),
                 ),
               ),
             ),
-          ),
     );
   }
+
   Widget _getImageWidget() {
     if (_imageFile != null) {
       return ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.file(_imageFile!, fit: BoxFit.cover));
+        borderRadius: BorderRadius.circular(16),
+        child: buildPickedImage(xfile: _imageFile!, fit: BoxFit.cover),
+      );
     }
     if (_imageUrl != null) {
       return ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.network(_imageUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildPlaceholder()));
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          _imageUrl!,
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _buildPlaceholder(),
+        ),
+      );
     }
     if (_localImagePath != null) {
       return ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Image.file(File(_localImagePath!),
-              fit: BoxFit.cover,
-              errorBuilder: (_, _, _) => _buildPlaceholder()));
+        borderRadius: BorderRadius.circular(16),
+        child: Image.file(
+          File(_localImagePath!),
+          fit: BoxFit.cover,
+          errorBuilder: (_, _, _) => _buildPlaceholder(),
+        ),
+      );
     }
     return _buildPlaceholder();
   }
+
   Widget _buildPlaceholder() => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.camera_alt, size: 50, color: Colors.grey.shade400),
-            const SizedBox(height: 8),
-            Text('Добавить фото инструмента', style: TextStyle(color: Colors.grey.shade600)),
-          ],
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.camera_alt, size: 50, color: Colors.grey.shade400),
+        const SizedBox(height: 8),
+        Text(
+          'Добавить фото инструмента',
+          style: TextStyle(color: Colors.grey.shade600),
         ),
-      );
+      ],
+    ),
+  );
   void _showImagePickerDialog() {
     showModalBottomSheet(
       context: context,
@@ -315,10 +375,15 @@ class _AddEditToolScreenState extends State<AddEditToolScreen> {
                 _takePhoto();
               },
             ),
-            if (_imageFile != null || _imageUrl != null || _localImagePath != null)
+            if (_imageFile != null ||
+                _imageUrl != null ||
+                _localImagePath != null)
               ListTile(
                 leading: const Icon(Icons.delete, color: Colors.red),
-                title: const Text('Удалить фото', style: TextStyle(color: Colors.red)),
+                title: const Text(
+                  'Удалить фото',
+                  style: TextStyle(color: Colors.red),
+                ),
                 onTap: () {
                   Navigator.pop(context);
                   setState(() {

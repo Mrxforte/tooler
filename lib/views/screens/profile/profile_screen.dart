@@ -133,7 +133,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                             radius: 60,
                             backgroundColor: Colors.white,
                             backgroundImage: authProvider.profileImage != null
-                                ? FileImage(authProvider.profileImage!)
+                                ? FileImage(
+                                    File(authProvider.profileImage!.path),
+                                  )
                                 : null,
                             child: authProvider.profileImage == null
                                 ? Icon(

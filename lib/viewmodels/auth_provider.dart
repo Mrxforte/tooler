@@ -1,6 +1,6 @@
-import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../data/services/image_service.dart';
 
@@ -11,7 +11,7 @@ class AuthProvider with ChangeNotifier {
 
   bool _isUnlocked = false;
   String? _userId;
-  File? _profileImage;
+  XFile? _profileImage;
 
   static const _defaultSecretWord = 'admin123';
 
@@ -25,7 +25,7 @@ class AuthProvider with ChangeNotifier {
   bool get canMoveTools => true;
   bool get canControlObjects => true;
   bool get rememberMe => false;
-  File? get profileImage => _profileImage;
+  XFile? get profileImage => _profileImage;
 
   AuthProvider(this._prefs) {
     // Prefer the old 'user_id' key so existing Firestore data keeps loading.
@@ -76,7 +76,7 @@ class AuthProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setProfileImage(File image) async {
+  Future<void> setProfileImage(XFile image) async {
     _profileImage = image;
     notifyListeners();
     if (_userId != null) {

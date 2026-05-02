@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class AppUser {
   final String uid;
   final String email;
+  final String name;
   final String role;
   final bool canMoveTools;
   final bool canControlObjects;
@@ -12,6 +13,7 @@ class AppUser {
   AppUser({
     required this.uid,
     required this.email,
+    this.name = '',
     required this.role,
     this.canMoveTools = false,
     this.canControlObjects = false,
@@ -24,6 +26,7 @@ class AppUser {
     return AppUser(
       uid: doc.id,
       email: data['email'] ?? '',
+      name: data['name'] ?? '',
       role: data['role'] ?? 'user',
       canMoveTools: data['canMoveTools'] ?? false,
       canControlObjects: data['canControlObjects'] ?? false,
@@ -33,6 +36,7 @@ class AppUser {
 
   Map<String, dynamic> toFirestore() => {
         'email': email,
+        'name': name,
         'role': role,
         'canMoveTools': canMoveTools,
         'canControlObjects': canControlObjects,
@@ -42,6 +46,7 @@ class AppUser {
   AppUser copyWith({
     String? uid,
     String? email,
+    String? name,
     String? role,
     bool? canMoveTools,
     bool? canControlObjects,
@@ -51,6 +56,7 @@ class AppUser {
     return AppUser(
       uid: uid ?? this.uid,
       email: email ?? this.email,
+      name: name ?? this.name,
       role: role ?? this.role,
       canMoveTools: canMoveTools ?? this.canMoveTools,
       canControlObjects: canControlObjects ?? this.canControlObjects,

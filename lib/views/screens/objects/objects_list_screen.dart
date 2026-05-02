@@ -119,10 +119,12 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
     // Calculate active filters count
     _activeFilters.clear();
     if (_showFavoritesOnly) _activeFilters.add('Избранные');
-    if (_createdDateFrom != null || _createdDateTo != null)
+    if (_createdDateFrom != null || _createdDateTo != null) {
       _activeFilters.add('Дата');
-    if (_minToolCount > 0 || _maxToolCount < 100)
+    }
+    if (_minToolCount > 0 || _maxToolCount < 100) {
       _activeFilters.add('Инструменты');
+    }
     if (_searchController.text.isNotEmpty) _activeFilters.add('Поиск');
 
     return Scaffold(

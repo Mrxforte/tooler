@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +9,7 @@ import '../../../viewmodels/tools_provider.dart';
 import '../../../viewmodels/objects_provider.dart';
 import '../../../viewmodels/auth_provider.dart';
 import '../../../core/utils/error_handler.dart';
+import '../../../core/utils/image_utils.dart';
 import '../../../data/services/report_service.dart';
 import '../../../views/widgets/selection_tool_card.dart';
 import '../tools/tool_details_screen.dart';
@@ -189,22 +189,12 @@ class _ObjectDetailsScreenState extends State<ObjectDetailsScreen> {
                       fit: StackFit.expand,
                       children: [
                         // Background image or gradient
-                        widget.object.displayImage != null
-                            ? Image(
-                                image:
-                                    widget.object.displayImage!.startsWith(
-                                      'http',
-                                    )
-                                    ? NetworkImage(widget.object.displayImage!)
-                                          as ImageProvider
-                                    : FileImage(
-                                        File(widget.object.displayImage!),
-                                      ),
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    _buildObjectImagePlaceholder(),
-                              )
-                            : _buildObjectImagePlaceholder(),
+                        buildToolImage(
+                          imageUrl: widget.object.imageUrl,
+                          localImagePath: widget.object.localImagePath,
+                          placeholder: _buildObjectImagePlaceholder(),
+                          fit: BoxFit.cover,
+                        ),
                         // Overlay gradient
                         Positioned(
                           bottom: 0,

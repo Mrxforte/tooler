@@ -1,11 +1,11 @@
 // ObjectCard widget for displaying construction objects
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/construction_object.dart';
 import '../../viewmodels/objects_provider.dart';
+import '../../core/utils/image_utils.dart';
 
 class ObjectCard extends StatelessWidget {
   final ConstructionObject object;
@@ -48,31 +48,21 @@ class ObjectCard extends StatelessWidget {
                   objectsProvider.toggleObjectSelection(object.id);
                 },
               )
-            : object.displayImage != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: object.displayImage!.startsWith('http')
-                          ? Image.network(
-                              object.displayImage!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.location_city, size: 32),
-                            )
-                          : Image.file(
-                              File(object.displayImage!),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  const Icon(Icons.location_city, size: 32),
-                            ),
-                    ),
-                  )
-                : const Icon(Icons.location_city, size: 32),
+            : ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: buildToolImage(
+                    imageUrl: object.imageUrl,
+                    localImagePath: object.localImagePath,
+                    placeholder: const Icon(Icons.location_city, size: 32),
+                    fit: BoxFit.cover,
+                    width: 56,
+                    height: 56,
+                  ),
+                ),
+              ),
         title: Text(object.name),
         subtitle: Text(object.description),
         trailing: Consumer<ObjectsProvider>(
