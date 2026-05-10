@@ -12,6 +12,7 @@ import '../data/models/construction_object.dart';
 import '../data/models/tool.dart';
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
+import '../core/services/database_service.dart';
 import 'auth_provider.dart' as app_auth;
 import 'tools_provider.dart' as app_tools;
 
@@ -84,7 +85,8 @@ class ObjectsProvider with ChangeNotifier {
     );
     _objects[index] = updated;
 
-    // Update UI immediately (optimistic update)
+    // Update SQLite + UI immediately (optimistic)
+    DatabaseService.instance.upsertObject(updated.toJson()); // fire-and-forget
     notifyListeners();
 
     // Save to Firebase in background (don't await)
@@ -164,16 +166,17 @@ class ObjectsProvider with ChangeNotifier {
   Future<void> loadObjects({bool forceRefresh = false}) async {
     if (_isLoading) return;
     _isLoading = true;
-    notifyListeners();
+    notifyListeners(); // rebuild #1 — show loading indicator
     try {
-      // Load directly from Firebase (no local caching)
-      await _syncWithFirebase();
-    } catch (e) {
-      // Error loading objects handled silently
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+      final localRows = await DatabaseService.instance.getObjects();
+      _objects.clear();
+      for (final row in localRows) {
+        try { _objects.add(ConstructionObject.fromJson(row)); } catch (_) {}
+      }
+    } catch (_) {}
+    _isLoading = false;
+    notifyListeners(); // rebuild #2 — show local data
+    _syncWithFirebase(); // Firestore sync runs in the background
   }
 
   Future<void> addObject(ConstructionObject obj, {XFile? imageFile}) async {
@@ -205,7 +208,8 @@ class ObjectsProvider with ChangeNotifier {
         }
       }
 
-      // Save to Firebase directly
+      // Save to SQLite first, then Firestore
+      await DatabaseService.instance.upsertObject(obj.toJson());
       await FirebaseFirestore.instance
           .collection('objects')
           .doc(obj.id)
@@ -263,7 +267,8 @@ class ObjectsProvider with ChangeNotifier {
       }
       _objects[index] = obj;
 
-      // Save to Firebase directly
+      // Save to SQLite first, then Firestore
+      await DatabaseService.instance.upsertObject(obj.toJson());
       await FirebaseFirestore.instance
           .collection('objects')
           .doc(obj.id)
@@ -352,6 +357,7 @@ class ObjectsProvider with ChangeNotifier {
       }
 
       _objects.removeAt(index);
+      await DatabaseService.instance.deleteObject(objectId);
       notifyListeners();
 
       // Delete from Firebase
@@ -449,15 +455,16 @@ class ObjectsProvider with ChangeNotifier {
         }
       }
 
-      // Delete objects from Firebase
+      // Delete from SQLite + Firebase
       for (final obj in selected) {
         try {
+          await DatabaseService.instance.deleteObject(obj.id);
           await FirebaseFirestore.instance
               .collection('objects')
               .doc(obj.id)
               .delete();
         } catch (e) {
-          // Firebase deletion error for individual object
+          // Deletion error for individual object
         }
       }
 
@@ -480,19 +487,15 @@ class ObjectsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      _objects.clear();
       final snapshot =
           await FirebaseFirestore.instance.collection('objects').get();
-      for (final doc in snapshot.docs) {
-        try {
-          final obj = ConstructionObject.fromJson(doc.data());
-          _objects.add(obj);
-        } catch (e) {
-          // Error parsing object handled silently
-        }
+      final objectsData = snapshot.docs.map((d) => d.data()).toList();
+      await DatabaseService.instance.replaceAllObjects(objectsData);
+      _objects.clear();
+      for (final data in objectsData) {
+        try { _objects.add(ConstructionObject.fromJson(data)); } catch (_) {}
       }
-    } catch (e) {
-      // Objects sync error handled silently
-    }
+      notifyListeners();
+    } catch (_) {}
   }
 }

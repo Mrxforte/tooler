@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:tooler/main.dart';
 import 'package:tooler/data/models/tool.dart';
 import 'package:tooler/data/models/construction_object.dart';
@@ -24,15 +25,14 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('MyApp shows MaterialApp after initialization', 
+    testWidgets('MyApp shows MaterialApp after initialization',
         (WidgetTester tester) async {
-      // Build the app
       await tester.pumpWidget(const MyApp());
-      
-      // Wait for SharedPreferences to initialize
-      await tester.pumpAndSettle(const Duration(seconds: 3));
+      // Pump a few frames to let the SharedPreferences FutureBuilder resolve
+      // without waiting for live timers (auto-refresh, countdown) to settle.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
 
-      // After initialization, should have MaterialApp
       expect(find.byType(MaterialApp), findsOneWidget);
     });
   });
@@ -355,22 +355,19 @@ void main() {
   });
 
   group('App Widget Structure Tests', () {
-    testWidgets('App uses MaterialApp with correct configuration', 
+    testWidgets('App uses MaterialApp with correct configuration',
         (WidgetTester tester) async {
+      // Pre-populate SharedPreferences so the FutureBuilder resolves immediately
+      SharedPreferences.setMockInitialValues({});
       await tester.pumpWidget(const MyApp());
-      await tester.pumpAndSettle(const Duration(seconds: 3));
+      await tester.pump(); // let the Future resolve
+      await tester.pump(); // let FutureBuilder rebuild with data
 
-      // Find MaterialApp
       final materialAppFinder = find.byType(MaterialApp);
       expect(materialAppFinder, findsOneWidget);
 
-      // Get MaterialApp widget
       final MaterialApp materialApp = tester.widget(materialAppFinder);
-
-      // Verify debug banner is disabled
       expect(materialApp.debugShowCheckedModeBanner, false);
-      
-      // Verify theme is configured
       expect(materialApp.theme, isNotNull);
       expect(materialApp.darkTheme, isNotNull);
     });

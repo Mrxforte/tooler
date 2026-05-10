@@ -15,6 +15,7 @@ import '../data/models/sync_item.dart';
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
 import '../core/utils/id_generator.dart';
+import '../core/services/database_service.dart';
 import 'objects_provider.dart' as app_objects;
 
 /// Main state holder for tools, including search, filters, selection,
@@ -54,7 +55,17 @@ class ToolsProvider with ChangeNotifier {
   String _filterBrand = 'all';
   bool _filterFavorites = false;
 
-  List<Tool> get tools => _getFilteredTools();
+  // Cached filtered result — cleared on every notifyListeners() so
+  // _getFilteredTools() only runs once per data/filter change, not per rebuild.
+  List<Tool>? _filteredCache;
+
+  @override
+  void notifyListeners() {
+    _filteredCache = null;
+    super.notifyListeners();
+  }
+
+  List<Tool> get tools => _filteredCache ??= _getFilteredTools();
   List<Tool> get allTools => List.unmodifiable(_tools);
   List<Tool> get garageTools =>
       _tools.where((t) => t.currentLocation == 'garage').toList();
@@ -213,16 +224,23 @@ class ToolsProvider with ChangeNotifier {
   Future<void> loadTools({bool forceRefresh = false}) async {
     if (_isLoading) return;
     _isLoading = true;
-    notifyListeners();
+    notifyListeners(); // rebuild #1 — show loading indicator
+
+    // Load from SQLite (instant, works offline)
     try {
-      // Load directly from Firebase (no local caching)
-      await _syncWithFirebase();
-    } catch (e) {
-      // Error loading tools handled silently
-    } finally {
-      _isLoading = false;
-      notifyListeners();
-    }
+      final localRows = await DatabaseService.instance.getTools();
+      _tools.clear();
+      for (final row in localRows) {
+        try { _tools.add(Tool.fromJson(row)); } catch (_) {}
+      }
+    } catch (_) {}
+
+    _isLoading = false;
+    notifyListeners(); // rebuild #2 — show local data
+
+    // Firestore sync runs in the background — won't block the UI.
+    // _syncWithFirebase() calls notifyListeners() once when done.
+    _syncWithFirebase();
   }
 
   Future<void> addTool(
@@ -322,6 +340,7 @@ class ToolsProvider with ChangeNotifier {
         return;
       }
       _tools.removeAt(index);
+      await DatabaseService.instance.deleteTool(toolId);
       notifyListeners();
 
       // Delete from Firebase with timeout
@@ -364,6 +383,7 @@ class ToolsProvider with ChangeNotifier {
       }
       for (final tool in selected) {
         try {
+          await DatabaseService.instance.deleteTool(tool.id);
           await FirebaseFirestore.instance
               .collection('tools')
               .doc(tool.id)
@@ -522,8 +542,9 @@ class ToolsProvider with ChangeNotifier {
       // Update tool in Firebase
       batch.update(toolCollection.doc(toolId), updatedTool.toJson());
 
-      // Update local list immediately
+      // Update local list + SQLite immediately (offline-first)
       _tools[toolIndex] = updatedTool;
+      await DatabaseService.instance.upsertTool(updatedTool.toJson());
       notifyListeners();
 
       // Commit tool update
@@ -662,11 +683,12 @@ class ToolsProvider with ChangeNotifier {
 
         batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
 
-        // Update local list
+        // Update local list + SQLite immediately (offline-first)
         final toolIndex = _tools.indexWhere((t) => t.id == tool.id);
         if (toolIndex != -1) {
           _tools[toolIndex] = updatedTool;
         }
+        await DatabaseService.instance.upsertTool(updatedTool.toJson());
       }
 
       // Commit all tool updates
@@ -824,11 +846,12 @@ class ToolsProvider with ChangeNotifier {
 
         batch.update(toolCollection.doc(tool.id), updatedTool.toJson());
 
-        // Update local list
+        // Update local list + SQLite immediately (offline-first)
         final toolIndex = _tools.indexWhere((t) => t.id == tool.id);
         if (toolIndex != -1) {
           _tools[toolIndex] = updatedTool;
         }
+        await DatabaseService.instance.upsertTool(updatedTool.toJson());
       }
 
       // Commit all tool updates
@@ -947,8 +970,11 @@ class ToolsProvider with ChangeNotifier {
     if (docId == null || docId.isEmpty) {
       throw Exception('Некорректный ID для синхронизации');
     }
-    // Firestore offline persistence is enabled: writes complete immediately
-    // from local cache and auto-sync to server when connection is restored.
+    // Write to SQLite first (immediate, works offline)
+    if (collection == 'tools') {
+      await DatabaseService.instance.upsertTool(data);
+    }
+    // Write to Firestore (queued offline by Firestore persistence, auto-syncs when online)
     final docRef = FirebaseFirestore.instance.collection(collection).doc(docId);
     switch (action) {
       case 'create':
@@ -963,20 +989,18 @@ class ToolsProvider with ChangeNotifier {
 
   Future<void> _syncWithFirebase() async {
     try {
-      _tools.clear();
-      // Load all tools so the admin sees every record across all devices/users
       final snapshot =
           await FirebaseFirestore.instance.collection('tools').get();
-      for (final doc in snapshot.docs) {
-        try {
-          final tool = Tool.fromJson(doc.data());
-          _tools.add(tool);
-        } catch (e) {
-          // Error parsing tool handled silently
-        }
+      final toolsData = snapshot.docs.map((d) => d.data()).toList();
+      // Persist latest data to SQLite
+      await DatabaseService.instance.replaceAllTools(toolsData);
+      // Update in-memory list
+      _tools.clear();
+      for (final data in toolsData) {
+        try { _tools.add(Tool.fromJson(data)); } catch (_) {}
       }
-    } catch (e) {
-      // Sync error handled silently
+    } catch (_) {
+      // Offline — SQLite data shown to user remains valid
     }
   }
 }

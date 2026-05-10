@@ -24,7 +24,7 @@ class AuthProvider with ChangeNotifier {
   bool get isBrigadir => false;
   bool get canMoveTools => true;
   bool get canControlObjects => true;
-  bool get rememberMe => false;
+  bool get rememberMe => true;
   XFile? get profileImage => _profileImage;
 
   AuthProvider(this._prefs) {
@@ -39,6 +39,9 @@ class AuthProvider with ChangeNotifier {
     if (_prefs.getString('secret_word') == null) {
       _prefs.setString('secret_word', _defaultSecretWord);
     }
+    // Restore session so the user doesn't need to re-enter the secret word
+    // on every launch (remember-me is always on).
+    _isUnlocked = _prefs.getBool('is_unlocked') ?? false;
   }
 
   /// Returns null on success, error message on failure.
@@ -53,6 +56,7 @@ class AuthProvider with ChangeNotifier {
       // Offline or Firebase unavailable — still allow local access
     }
     _isUnlocked = true;
+    await _prefs.setBool('is_unlocked', true);
     notifyListeners();
     return null;
   }
@@ -70,6 +74,7 @@ class AuthProvider with ChangeNotifier {
   Future<void> signOut() async {
     _isUnlocked = false;
     _profileImage = null;
+    await _prefs.setBool('is_unlocked', false);
     try {
       await FirebaseAuth.instance.signOut();
     } catch (_) {}

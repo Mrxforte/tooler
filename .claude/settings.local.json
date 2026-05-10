@@ -3,7 +3,12 @@
     "allow": [
       "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\Azamat\\\\Desktop\\\\Flutter\\\\tooler\" -Recurse -Force)",
       "Bash(Select-Object -ExpandProperty FullName)",
-      "Bash(flutter run *)"
+      "Bash(flutter run *)",
+      "Bash(Get-ChildItem -Path . -Force)",
+      "Bash(Select-Object Name, PSIsContainer)",
+      "Bash(xargs grep *)",
+      "Bash(powershell -command \"Get-Content 'lib\\\\views\\\\screens\\\\objects\\\\objects_list_screen.dart' | Select-Object -Skip 150 | Select-Object -First 80\")",
+      "Bash(findstr /r /i \"searchbar\\\\|textfield.*поиск\" lib\\\\views\\\\**\\\\*.dart)"
     ]
   }
 }

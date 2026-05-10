@@ -150,7 +150,7 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
                           borderRadius: BorderRadius.circular(10),
                         ),
                         filled: true,
-                        fillColor: Colors.grey.shade50,
+                        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                       ),
                       onChanged: (v) => setState(() {}),
                     ),

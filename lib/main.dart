@@ -1,5 +1,6 @@
 // Tooler - Construction Tool Management App
 // ignore_for_file: empty_catches, avoid_print, library_private_types_in_public_api, deprecated_member_use, use_build_context_synchronously, unnecessary_null_comparison, unused_import, unused_local_variable
+import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
@@ -18,6 +19,7 @@ import 'core/constants/app_constants.dart';
 import 'firebase_options.dart';
 
 import 'core/services/connectivity_service.dart';
+import 'core/services/sync_service.dart';
 import 'views/widgets/offline_banner.dart';
 
 // Providers
@@ -265,7 +267,7 @@ class _MyAppState extends State<MyApp> {
                   '/home': (_) => const MainHome(),
                   '/auth': (_) => const AuthFlow(),
                 },
-                home: const _AuthGate(),
+                home: const _ConnectivitySyncWatcher(child: _AuthGate()),
               );
             },
           ),
@@ -273,6 +275,75 @@ class _MyAppState extends State<MyApp> {
       },
     );
   }
+}
+
+/// Listens for connectivity-restored events and triggers a full
+/// Firestore → SQLite sync, then reloads all data providers.
+class _ConnectivitySyncWatcher extends StatefulWidget {
+  final Widget child;
+  const _ConnectivitySyncWatcher({required this.child});
+
+  @override
+  State<_ConnectivitySyncWatcher> createState() =>
+      _ConnectivitySyncWatcherState();
+}
+
+class _ConnectivitySyncWatcherState extends State<_ConnectivitySyncWatcher> {
+  ConnectivityService? _connectivity;
+  bool _wasOnline = true;
+  bool _initialized = false;
+  Timer? _autoRefreshTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_initialized) {
+      _initialized = true;
+      _connectivity = context.read<ConnectivityService>();
+      _wasOnline = _connectivity!.isOnline;
+      _connectivity!.addListener(_onConnectivityChanged);
+      _startAutoRefresh();
+    }
+  }
+
+  /// Refreshes data from Firestore every 20 seconds when online.
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 20), (_) {
+      if (_connectivity?.isOnline == true && mounted) {
+        _syncAndReload();
+      }
+    });
+  }
+
+  void _onConnectivityChanged() {
+    final isOnline = _connectivity!.isOnline;
+    if (isOnline && !_wasOnline) {
+      // Just came online — sync immediately, then resume periodic refresh
+      _syncAndReload();
+      _startAutoRefresh();
+    }
+    _wasOnline = isOnline;
+  }
+
+  Future<void> _syncAndReload() async {
+    await SyncService.instance.syncAll();
+    if (!mounted) return;
+    context.read<ToolsProvider>().loadTools(forceRefresh: true);
+    context.read<ObjectsProvider>().loadObjects(forceRefresh: true);
+    context.read<MoveRequestProvider>().loadRequests();
+    context.read<BatchMoveRequestProvider>().loadRequests();
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    _connectivity?.removeListener(_onConnectivityChanged);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 // Separate widget so Consumer<AuthProvider> doesn't rebuild MaterialApp
@@ -314,11 +385,18 @@ class MainHome extends StatefulWidget {
 
 class _MainHomeState extends State<MainHome> {
   int _navIndex = 0;
+  bool _notificationsStarted = false;
 
   @override
-  void initState() {
-    super.initState();
-    // Data loading is now lazy - each screen loads its own data when accessed
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_notificationsStarted) {
+      _notificationsStarted = true;
+      final userId = context.read<AuthProvider>().userId;
+      if (userId != null) {
+        context.read<NotificationProvider>().loadNotifications(userId);
+      }
+    }
   }
 
   Widget _buildScreen(int index) {

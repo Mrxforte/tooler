@@ -37,16 +37,17 @@ class NotificationProvider with ChangeNotifier {
   }
 
   Future<void> addNotification(AppNotification notification) async {
+    // Optimistic insert so the UI updates immediately without waiting for stream
+    if (!_notifications.any((n) => n.id == notification.id)) {
+      _notifications.insert(0, notification);
+      notifyListeners();
+    }
     try {
       await FirebaseFirestore.instance
           .collection(_collection)
           .doc(notification.id)
-          .set(notification.toJson(), SetOptions(merge: true))
-          ;
-    } catch (_) {
-      _notifications.insert(0, notification);
-      notifyListeners();
-    }
+          .set(notification.toJson(), SetOptions(merge: true));
+    } catch (_) {}
   }
 
   Future<void> createNotification({

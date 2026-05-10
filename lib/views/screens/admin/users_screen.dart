@@ -491,7 +491,7 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                       border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10)),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                     ),
                     onChanged: (v) => setState(() => _searchQuery = v),
                   ),
@@ -561,28 +561,39 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ),
       floatingActionButton: usersProvider.selectionMode &&
               usersProvider.hasSelectedUsers
-          ? Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton.extended(
-                  heroTag: 'delete_selected',
-                  onPressed: () =>
-                      _showBatchDeleteDialog(context, usersProvider),
-                  backgroundColor: Colors.red,
-                  icon: const Icon(Icons.delete),
-                  label: Text(
-                      'Удалить (${usersProvider.selectedUsers.length})'),
-                ),
-                const SizedBox(height: 12),
-                FloatingActionButton.extended(
-                  heroTag: 'change_role_selected',
-                  onPressed: () =>
-                      _showBatchRoleChangeDialog(context, usersProvider),
-                  backgroundColor: Colors.blue,
-                  icon: const Icon(Icons.group),
-                  label: const Text('Изменить роль'),
-                ),
-              ],
+          ? ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width - 32,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  FloatingActionButton.extended(
+                    heroTag: 'delete_selected',
+                    onPressed: () =>
+                        _showBatchDeleteDialog(context, usersProvider),
+                    backgroundColor: Colors.red,
+                    icon: const Icon(Icons.delete),
+                    label: Text(
+                      'Удалить (${usersProvider.selectedUsers.length})',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FloatingActionButton.extended(
+                    heroTag: 'change_role_selected',
+                    onPressed: () =>
+                        _showBatchRoleChangeDialog(context, usersProvider),
+                    backgroundColor: Colors.blue,
+                    icon: const Icon(Icons.group),
+                    label: const Text(
+                      'Изменить роль',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             )
           : FloatingActionButton.extended(
               heroTag: 'add_user',
