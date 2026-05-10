@@ -21,7 +21,7 @@ class NotificationsScreen extends StatelessWidget {
           children: [
             const Text('Уведомления'),
             if (notifProvider.unreadCount > 0) ...[
-              const SizedBox(width: 10),
+              const SizedBox(width: 0),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -71,10 +71,7 @@ class NotificationsScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(BuildContext context) {
-    final dim = Theme.of(context)
-        .colorScheme
-        .onSurface
-        .withValues(alpha: 0.3);
+    final dim = Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.3);
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -115,23 +112,35 @@ class _NotificationCard extends StatelessWidget {
 
   static IconData _iconForType(String type) {
     switch (type) {
-      case 'error':   return Icons.error_rounded;
-      case 'success': return Icons.check_circle_rounded;
-      case 'warning': return Icons.warning_rounded;
-      case 'move':    return Icons.swap_horiz_rounded;
-      case 'info':    return Icons.info_rounded;
-      default:        return Icons.notifications_rounded;
+      case 'error':
+        return Icons.error_rounded;
+      case 'success':
+        return Icons.check_circle_rounded;
+      case 'warning':
+        return Icons.warning_rounded;
+      case 'move':
+        return Icons.swap_horiz_rounded;
+      case 'info':
+        return Icons.info_rounded;
+      default:
+        return Icons.notifications_rounded;
     }
   }
 
   static Color _colorForType(String type) {
     switch (type) {
-      case 'error':   return const Color(0xFFD32F2F);
-      case 'success': return const Color(0xFF388E3C);
-      case 'warning': return const Color(0xFFF57C00);
-      case 'move':    return const Color(0xFF7B1FA2);
-      case 'info':    return const Color(0xFF1565C0);
-      default:        return const Color(0xFF0E639C);
+      case 'error':
+        return const Color(0xFFD32F2F);
+      case 'success':
+        return const Color(0xFF388E3C);
+      case 'warning':
+        return const Color(0xFFF57C00);
+      case 'move':
+        return const Color(0xFF7B1FA2);
+      case 'info':
+        return const Color(0xFF1565C0);
+      default:
+        return const Color(0xFF0E639C);
     }
   }
 
@@ -149,14 +158,14 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final typeColor = _colorForType(notif.type);
-    final typeIcon  = _iconForType(notif.type);
-    final isDark    = Theme.of(context).brightness == Brightness.dark;
+    final typeIcon = _iconForType(notif.type);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final cardBg = notif.read
         ? Theme.of(context).colorScheme.surface
         : (isDark
-            ? typeColor.withValues(alpha: 0.12)
-            : typeColor.withValues(alpha: 0.07));
+              ? typeColor.withValues(alpha: 0.12)
+              : typeColor.withValues(alpha: 0.07));
 
     return Dismissible(
       key: ValueKey(notif.id),
@@ -180,8 +189,10 @@ class _NotificationCard extends StatelessWidget {
           child: Column(
             children: [
               Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -233,10 +244,9 @@ class _NotificationCard extends StatelessWidget {
                             notif.body,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.7),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.7),
                               height: 1.4,
                             ),
                           ),
@@ -245,10 +255,9 @@ class _NotificationCard extends StatelessWidget {
                             _formatDate(notif.timestamp),
                             style: TextStyle(
                               fontSize: 11,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurface
-                                  .withValues(alpha: 0.45),
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurface.withValues(alpha: 0.45),
                             ),
                           ),
                         ],
@@ -261,9 +270,7 @@ class _NotificationCard extends StatelessWidget {
                 height: 1,
                 thickness: 1,
                 indent: 72,
-                color: Theme.of(context)
-                    .dividerColor
-                    .withValues(alpha: 0.4),
+                color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
               ),
             ],
           ),
