@@ -58,10 +58,11 @@ class ReportService {
   }
 
   static Future<Uint8List> _generateToolReportPdf(Tool tool) async {
-    final pdf = pw.Document();
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final primaryColor = PdfColors.blue700;
     final font = await _loadFont();
+    final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font));
 
     pdf.addPage(
       pw.Page(
@@ -446,16 +447,24 @@ class ReportService {
             'Инструмент_${tool.title.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
         final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(pdfFile.path)],
-            text: '🔧 ОТЧЕТ ОБ ИНСТРУМЕНТЕ: ${tool.title}',
-          ),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [XFile(pdfFile.path)],
+              text: '🔧 ОТЧЕТ ОБ ИНСТРУМЕНТЕ: ${tool.title}',
+            ),
+          );
+        } catch (_) {
+          return;
+        }
       } else {
-        await SharePlus.instance.share(
-          ShareParams(text: _generateToolReportText(tool)),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(text: _generateToolReportText(tool)),
+          );
+        } catch (_) {
+          return;
+        }
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -477,16 +486,25 @@ class ReportService {
             'Объект_${object.name.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_')}_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
         final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(pdfFile.path)],
-            text: '🏢 ОТЧЕТ ОБ ОБЪЕКТЕ: ${object.name}',
-          ),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [XFile(pdfFile.path)],
+              text: '🏢 ОТЧЕТ ОБ ОБЪЕКТЕ: ${object.name}',
+            ),
+          );
+        } catch (_) {
+          return;
+        }
       } else {
-        await SharePlus.instance.share(
-          ShareParams(text: _generateObjectReportText(object, toolsOnObject)),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(
+                text: _generateObjectReportText(object, toolsOnObject)),
+          );
+        } catch (_) {
+          return;
+        }
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -609,10 +627,11 @@ class ReportService {
     ConstructionObject object,
     List<Tool> toolsOnObject,
   ) async {
-    final pdf = pw.Document();
     final primaryColor = PdfColors.orange700;
     final accentColor = PdfColors.orange600;
     final font = await _loadFont();
+    final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font));
 
     pdf.addPage(
       pw.Page(
@@ -991,10 +1010,11 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
   static Future<Uint8List> _generateMultipleToolsReportPdf(
     List<Tool> tools,
   ) async {
-    final pdf = pw.Document();
     final primaryColor = PdfColors.blue700;
     final accentColor = PdfColors.blue600;
     final font = await _loadFont();
+    final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font));
 
     pdf.addPage(
       pw.Page(
@@ -1334,16 +1354,24 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
             'Инвентаризация_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
         final pdfFile = File('${tempDir.path}/$fileName');
         await pdfFile.writeAsBytes(pdfBytes);
-        await SharePlus.instance.share(
-          ShareParams(
-            files: [XFile(pdfFile.path)],
-            text: '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler',
-          ),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(
+              files: [XFile(pdfFile.path)],
+              text: '📊 ИНВЕНТАРИЗАЦИОННЫЙ ОТЧЕТ Tooler',
+            ),
+          );
+        } catch (_) {
+          return;
+        }
       } else {
-        await SharePlus.instance.share(
-          ShareParams(text: _generateInventoryReportText(tools, objects)),
-        );
+        try {
+          await SharePlus.instance.share(
+            ShareParams(text: _generateInventoryReportText(tools, objects)),
+          );
+        } catch (_) {
+          return;
+        }
       }
     } catch (e) {
       if (!context.mounted) return;
@@ -1355,9 +1383,10 @@ ${toolsOnObject.isEmpty ? 'Нет инструментов' : toolsOnObject.map(
     List<Tool> tools,
     List<ConstructionObject> objects,
   ) async {
-    final pdf = pw.Document();
     final primaryColor = PdfColors.green700;
     final font = await _loadFont();
+    final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font));
 
     pdf.addPage(
       pw.Page(
@@ -1497,12 +1526,16 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
           'Отчет_профиля_${DateFormat('dd_MM_yyyy').format(DateTime.now())}.pdf';
       final pdfFile = File('${tempDir.path}/$fileName');
       await pdfFile.writeAsBytes(pdfBytes);
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(pdfFile.path)],
-          text: '📋 ОТЧЕТ ПРОФИЛЯ Tooler',
-        ),
-      );
+      try {
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(pdfFile.path)],
+            text: '📋 ОТЧЕТ ПРОФИЛЯ Tooler',
+          ),
+        );
+      } catch (_) {
+        return;
+      }
       if (!context.mounted) return;
       ErrorHandler.showSuccessDialog(
         context,
@@ -1519,10 +1552,11 @@ ${objects.length > 10 ? '\n... и еще ${objects.length - 10} объектов
     ToolsProvider toolsProvider,
     ObjectsProvider objectsProvider,
   ) async {
-    final pdf = pw.Document();
     final primaryColor = PdfColors.cyan700;
     final accentColor = PdfColors.cyan600;
     final font = await _loadFont();
+    final pdf = pw.Document(
+        theme: pw.ThemeData.withFont(base: font, bold: font));
     final dateFormat = DateFormat('dd.MM.yyyy HH:mm');
     final currentDate = DateTime.now();
 

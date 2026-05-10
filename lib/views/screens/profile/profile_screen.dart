@@ -132,12 +132,8 @@ class _ProfileScreenState extends State<ProfileScreen>
                           CircleAvatar(
                             radius: 60,
                             backgroundColor: Colors.white,
-                            backgroundImage: authProvider.profileImage != null
-                                ? FileImage(
-                                    File(authProvider.profileImage!.path),
-                                  )
-                                : null,
-                            child: authProvider.profileImage == null
+                            backgroundImage: _resolveProfileImage(authProvider),
+                            child: _resolveProfileImage(authProvider) == null
                                 ? Icon(
                                     Icons.person,
                                     size: 60,
@@ -820,6 +816,19 @@ class _ProfileScreenState extends State<ProfileScreen>
     currentCtrl.dispose();
     newCtrl.dispose();
     confirmCtrl.dispose();
+  }
+
+  /// Network URL takes priority (survives restarts). Falls back to the just-
+  /// picked local file while the upload is in progress. Returns null (icon) if
+  /// neither is available.
+  ImageProvider? _resolveProfileImage(AuthProvider auth) {
+    if (auth.profileImageUrl != null) {
+      return NetworkImage(auth.profileImageUrl!);
+    }
+    if (auth.profileImage != null) {
+      return FileImage(File(auth.profileImage!.path));
+    }
+    return null;
   }
 
   Future<void> _pickProfileImage(AuthProvider auth) async {

@@ -332,13 +332,22 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
       floatingActionButton:
           toolsProvider.selectionMode && selectedGarageTools.isNotEmpty
           ? Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: FloatingActionButton.extended(
-                onPressed: () =>
-                    _showGarageSelectionActions(context, selectedGarageTools),
-                icon: const Icon(Icons.more_vert),
-                label: Text('Выбрано: ${selectedGarageTools.length}'),
-                backgroundColor: Theme.of(context).colorScheme.primary,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () =>
+                      _showGarageSelectionActions(context, selectedGarageTools),
+                  icon: const Icon(Icons.more_vert),
+                  label: Text('Выбрано: ${selectedGarageTools.length}'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
               ),
             )
           : null,
@@ -860,36 +869,40 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
     List<Tool> selectedTools,
     ReportType reportType,
   ) async {
-    final progressContext = context;
-    bool progressDialogShown = false;
+    bool isCancelled = false;
+    BuildContext? dialogCtxRef;
     try {
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (dialogContext) {
-          progressDialogShown = true;
-          return WillPopScope(
-            onWillPop: () async => false,
-            child: AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  Text(
-                    reportType == ReportType.pdf
-                        ? 'Создание PDF отчета...'
-                        : 'Создание текстового отчета...',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
-              ),
+        builder: (dialogCtx) {
+          dialogCtxRef = dialogCtx;
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  reportType == ReportType.pdf
+                      ? 'Создание PDF отчета...'
+                      : 'Создание текстового отчета...',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    isCancelled = true;
+                    Navigator.of(dialogCtx).pop();
+                  },
+                  child: const Text('Отмена'),
+                ),
+              ],
             ),
           );
         },
       );
 
-      // Add timeout to prevent infinite loading
       try {
         await ReportService.shareMultipleToolsReport(
           selectedTools,
@@ -904,27 +917,35 @@ class _EnhancedGarageScreenState extends State<EnhancedGarageScreen> {
           },
         );
       } catch (e) {
-        if (progressDialogShown && progressContext.mounted) {
-          Navigator.of(progressContext, rootNavigator: true).pop();
-          progressDialogShown = false;
+        if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+          Navigator.of(dialogCtxRef!, rootNavigator: true).pop();
+          dialogCtxRef = null;
         }
         rethrow;
       }
 
-      if (progressDialogShown && progressContext.mounted) {
-        Navigator.of(progressContext, rootNavigator: true).pop();
-        progressDialogShown = false;
-        ErrorHandler.showSuccessDialog(
-          progressContext,
-          reportType == ReportType.pdf
-              ? 'PDF отчет готов!'
-              : 'Текстовый отчет готов!',
-        );
+      if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+        Navigator.of(dialogCtxRef!, rootNavigator: true).pop();
+        dialogCtxRef = null;
       }
+
+      if (!context.mounted) return;
+      if (isCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Создание отменено')),
+        );
+        return;
+      }
+      ErrorHandler.showSuccessDialog(
+        context,
+        reportType == ReportType.pdf
+            ? 'PDF отчет готов!'
+            : 'Текстовый отчет готов!',
+      );
     } catch (e) {
-      if (progressDialogShown && context.mounted) {
+      if (dialogCtxRef != null && context.mounted) {
         Navigator.of(context, rootNavigator: true).pop();
-        progressDialogShown = false;
+        dialogCtxRef = null;
       }
       if (context.mounted) {
         ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');

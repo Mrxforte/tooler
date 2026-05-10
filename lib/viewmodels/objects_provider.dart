@@ -13,6 +13,7 @@ import '../data/models/tool.dart';
 import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
 import '../core/services/database_service.dart';
+import '../core/services/notification_service.dart';
 import 'auth_provider.dart' as app_auth;
 import 'tools_provider.dart' as app_tools;
 
@@ -215,7 +216,7 @@ class ObjectsProvider with ChangeNotifier {
           .doc(obj.id)
           .set(obj.toJson());
       _objects.add(obj);
-
+      NotificationService.notify('Объект добавлен', obj.name, 'object_added');
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект добавлен');
       }
@@ -274,6 +275,7 @@ class ObjectsProvider with ChangeNotifier {
           .doc(obj.id)
           .update(obj.toJson());
 
+      NotificationService.notify('Объект обновлён', obj.name, 'object_updated');
       if (_canUseContext(ctx)) {
         ErrorHandler.showSuccessDialog(ctx!, 'Объект обновлён');
       }
@@ -318,6 +320,7 @@ class ObjectsProvider with ChangeNotifier {
         }
         return;
       }
+      final objectName = _objects[index].name;
 
       final ctx = context ?? navigatorKey.currentContext;
       final toolsProvider = ctx != null
@@ -370,6 +373,7 @@ class ObjectsProvider with ChangeNotifier {
         // Firebase deletion error
       }
 
+      NotificationService.notify('Объект удалён', objectName, 'object_deleted');
       if (_canUseContext(context)) {
         ErrorHandler.showSuccessDialog(context!, 'Объект успешно удалён');
       }

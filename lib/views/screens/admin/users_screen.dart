@@ -561,45 +561,65 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       ),
       floatingActionButton: usersProvider.selectionMode &&
               usersProvider.hasSelectedUsers
-          ? ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width - 32,
-              ),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  FloatingActionButton.extended(
-                    heroTag: 'delete_selected',
-                    onPressed: () =>
-                        _showBatchDeleteDialog(context, usersProvider),
-                    backgroundColor: Colors.red,
-                    icon: const Icon(Icons.delete),
-                    label: Text(
-                      'Удалить (${usersProvider.selectedUsers.length})',
-                      overflow: TextOverflow.ellipsis,
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _showBatchDeleteDialog(context, usersProvider),
+                      icon: const Icon(Icons.delete),
+                      label: Text(
+                          'Удалить (${usersProvider.selectedUsers.length})'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
-                  FloatingActionButton.extended(
-                    heroTag: 'change_role_selected',
-                    onPressed: () =>
-                        _showBatchRoleChangeDialog(context, usersProvider),
-                    backgroundColor: Colors.blue,
-                    icon: const Icon(Icons.group),
-                    label: const Text(
-                      'Изменить роль',
-                      overflow: TextOverflow.ellipsis,
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _showBatchRoleChangeDialog(context, usersProvider),
+                      icon: const Icon(Icons.group),
+                      label: const Text('Изменить роль'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
                 ],
               ),
             )
-          : FloatingActionButton.extended(
-              heroTag: 'add_user',
-              onPressed: _showCreateUserDialog,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Добавить'),
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _showCreateUserDialog,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Добавить'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
             ),
     );
   }

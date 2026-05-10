@@ -12,6 +12,7 @@ class AuthProvider with ChangeNotifier {
   bool _isUnlocked = false;
   String? _userId;
   XFile? _profileImage;
+  String? _profileImageUrl;
 
   static const _defaultSecretWord = 'admin123';
 
@@ -26,6 +27,7 @@ class AuthProvider with ChangeNotifier {
   bool get canControlObjects => true;
   bool get rememberMe => true;
   XFile? get profileImage => _profileImage;
+  String? get profileImageUrl => _profileImageUrl;
 
   AuthProvider(this._prefs) {
     // Prefer the old 'user_id' key so existing Firestore data keeps loading.
@@ -42,6 +44,7 @@ class AuthProvider with ChangeNotifier {
     // Restore session so the user doesn't need to re-enter the secret word
     // on every launch (remember-me is always on).
     _isUnlocked = _prefs.getBool('is_unlocked') ?? false;
+    _profileImageUrl = _prefs.getString('profile_image_url');
   }
 
   /// Returns null on success, error message on failure.
@@ -83,9 +86,14 @@ class AuthProvider with ChangeNotifier {
 
   Future<void> setProfileImage(XFile image) async {
     _profileImage = image;
-    notifyListeners();
+    notifyListeners(); // show local file immediately
     if (_userId != null) {
-      await ImageService.uploadImage(image, _userId!);
+      final url = await ImageService.uploadImage(image, _userId!);
+      if (url != null) {
+        _profileImageUrl = url;
+        await _prefs.setString('profile_image_url', url);
+        notifyListeners(); // switch to network image once uploaded
+      }
     }
   }
 

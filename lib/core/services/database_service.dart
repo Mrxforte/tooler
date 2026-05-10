@@ -20,7 +20,23 @@ class DatabaseService {
 
   Future<Database> _init() async {
     final path = join(await getDatabasesPath(), 'tooler_local.db');
-    return openDatabase(path, version: 1, onCreate: _onCreate);
+    return openDatabase(
+      path,
+      version: 1,
+      onCreate: _onCreate,
+      // onOpen runs after the DB is fully opened. execute() works here for
+      // PRAGMAs that don't return rows. journal_mode=WAL is intentionally
+      // omitted — it returns a result row and crashes sqflite on Android.
+      onOpen: _onOpen,
+    );
+  }
+
+  Future<void> _onOpen(Database db) async {
+    try {
+      await db.execute('PRAGMA synchronous=NORMAL');
+      await db.execute('PRAGMA cache_size=-8000');
+      await db.execute('PRAGMA temp_store=MEMORY');
+    } catch (_) {}
   }
 
   Future<void> _onCreate(Database db, int version) async {
@@ -60,9 +76,7 @@ class DatabaseService {
     final db = await _database;
     if (db == null) return [];
     final rows = await db.query('tools');
-    return rows
-        .map((r) => jsonDecode(r['data'] as String) as Map<String, dynamic>)
-        .toList();
+    return _decodeRows(rows);
   }
 
   Future<void> upsertTool(Map<String, dynamic> data) async {
@@ -70,11 +84,7 @@ class DatabaseService {
     if (db == null) return;
     await db.insert(
       'tools',
-      {
-        'id': data['id'],
-        'updated_at': data['updatedAt'],
-        'data': jsonEncode(data),
-      },
+      {'id': data['id'], 'updated_at': data['updatedAt'], 'data': jsonEncode(data)},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -88,20 +98,16 @@ class DatabaseService {
   Future<void> replaceAllTools(List<Map<String, dynamic>> tools) async {
     final db = await _database;
     if (db == null) return;
-    await db.transaction((txn) async {
-      await txn.delete('tools');
-      for (final t in tools) {
-        await txn.insert(
-          'tools',
-          {
-            'id': t['id'],
-            'updated_at': t['updatedAt'],
-            'data': jsonEncode(t),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
+    final batch = db.batch();
+    batch.delete('tools');
+    for (final t in tools) {
+      batch.insert(
+        'tools',
+        {'id': t['id'], 'updated_at': t['updatedAt'], 'data': jsonEncode(t)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   // ── Objects ────────────────────────────────────────────────────────────────
@@ -110,9 +116,7 @@ class DatabaseService {
     final db = await _database;
     if (db == null) return [];
     final rows = await db.query('objects');
-    return rows
-        .map((r) => jsonDecode(r['data'] as String) as Map<String, dynamic>)
-        .toList();
+    return _decodeRows(rows);
   }
 
   Future<void> upsertObject(Map<String, dynamic> data) async {
@@ -120,11 +124,7 @@ class DatabaseService {
     if (db == null) return;
     await db.insert(
       'objects',
-      {
-        'id': data['id'],
-        'updated_at': data['updatedAt'],
-        'data': jsonEncode(data),
-      },
+      {'id': data['id'], 'updated_at': data['updatedAt'], 'data': jsonEncode(data)},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -138,20 +138,16 @@ class DatabaseService {
   Future<void> replaceAllObjects(List<Map<String, dynamic>> objects) async {
     final db = await _database;
     if (db == null) return;
-    await db.transaction((txn) async {
-      await txn.delete('objects');
-      for (final o in objects) {
-        await txn.insert(
-          'objects',
-          {
-            'id': o['id'],
-            'updated_at': o['updatedAt'],
-            'data': jsonEncode(o),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
+    final batch = db.batch();
+    batch.delete('objects');
+    for (final o in objects) {
+      batch.insert(
+        'objects',
+        {'id': o['id'], 'updated_at': o['updatedAt'], 'data': jsonEncode(o)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   // ── Move Requests ──────────────────────────────────────────────────────────
@@ -160,9 +156,7 @@ class DatabaseService {
     final db = await _database;
     if (db == null) return [];
     final rows = await db.query('move_requests');
-    return rows
-        .map((r) => jsonDecode(r['data'] as String) as Map<String, dynamic>)
-        .toList();
+    return _decodeRows(rows);
   }
 
   Future<void> upsertMoveRequest(Map<String, dynamic> data) async {
@@ -170,11 +164,7 @@ class DatabaseService {
     if (db == null) return;
     await db.insert(
       'move_requests',
-      {
-        'id': data['id'],
-        'status': data['status'],
-        'data': jsonEncode(data),
-      },
+      {'id': data['id'], 'status': data['status'], 'data': jsonEncode(data)},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -185,24 +175,19 @@ class DatabaseService {
     await db.delete('move_requests', where: 'id = ?', whereArgs: [id]);
   }
 
-  Future<void> replaceAllMoveRequests(
-      List<Map<String, dynamic>> requests) async {
+  Future<void> replaceAllMoveRequests(List<Map<String, dynamic>> requests) async {
     final db = await _database;
     if (db == null) return;
-    await db.transaction((txn) async {
-      await txn.delete('move_requests');
-      for (final r in requests) {
-        await txn.insert(
-          'move_requests',
-          {
-            'id': r['id'],
-            'status': r['status'],
-            'data': jsonEncode(r),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
+    final batch = db.batch();
+    batch.delete('move_requests');
+    for (final r in requests) {
+      batch.insert(
+        'move_requests',
+        {'id': r['id'], 'status': r['status'], 'data': jsonEncode(r)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
   }
 
   // ── Batch Move Requests ────────────────────────────────────────────────────
@@ -211,9 +196,7 @@ class DatabaseService {
     final db = await _database;
     if (db == null) return [];
     final rows = await db.query('batch_move_requests');
-    return rows
-        .map((r) => jsonDecode(r['data'] as String) as Map<String, dynamic>)
-        .toList();
+    return _decodeRows(rows);
   }
 
   Future<void> upsertBatchMoveRequest(Map<String, dynamic> data) async {
@@ -221,11 +204,7 @@ class DatabaseService {
     if (db == null) return;
     await db.insert(
       'batch_move_requests',
-      {
-        'id': data['id'],
-        'status': data['status'],
-        'data': jsonEncode(data),
-      },
+      {'id': data['id'], 'status': data['status'], 'data': jsonEncode(data)},
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
@@ -240,19 +219,27 @@ class DatabaseService {
       List<Map<String, dynamic>> requests) async {
     final db = await _database;
     if (db == null) return;
-    await db.transaction((txn) async {
-      await txn.delete('batch_move_requests');
-      for (final r in requests) {
-        await txn.insert(
-          'batch_move_requests',
-          {
-            'id': r['id'],
-            'status': r['status'],
-            'data': jsonEncode(r),
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-    });
+    final batch = db.batch();
+    batch.delete('batch_move_requests');
+    for (final r in requests) {
+      batch.insert(
+        'batch_move_requests',
+        {'id': r['id'], 'status': r['status'], 'data': jsonEncode(r)},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+
+  static List<Map<String, dynamic>> _decodeRows(List<Map<String, dynamic>> rows) {
+    final result = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      try {
+        result.add(jsonDecode(row['data'] as String) as Map<String, dynamic>);
+      } catch (_) {}
+    }
+    return result;
   }
 }

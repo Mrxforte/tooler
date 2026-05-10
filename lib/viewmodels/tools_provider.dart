@@ -16,6 +16,7 @@ import '../data/services/image_service.dart';
 import '../core/utils/error_handler.dart';
 import '../core/utils/id_generator.dart';
 import '../core/services/database_service.dart';
+import '../core/services/notification_service.dart';
 import 'objects_provider.dart' as app_objects;
 
 /// Main state holder for tools, including search, filters, selection,
@@ -270,6 +271,8 @@ class ToolsProvider with ChangeNotifier {
         collection: 'tools',
         data: tool.toJson(),
       );
+      NotificationService.notify(
+        'Инструмент добавлен', tool.title, 'tool_added');
       if (_canUseContext(context)) {
         ErrorHandler.showSuccessDialog(context!, 'Инструмент добавлен');
       }
@@ -313,6 +316,8 @@ class ToolsProvider with ChangeNotifier {
           collection: 'tools',
           data: tool.toJson(),
         );
+        NotificationService.notify(
+          'Инструмент обновлён', tool.title, 'tool_updated');
         if (_canUseContext(context)) {
           ErrorHandler.showSuccessDialog(context!, 'Инструмент обновлён');
         }
@@ -339,6 +344,7 @@ class ToolsProvider with ChangeNotifier {
         }
         return;
       }
+      final toolName = _tools[index].title;
       _tools.removeAt(index);
       await DatabaseService.instance.deleteTool(toolId);
       notifyListeners();
@@ -360,6 +366,7 @@ class ToolsProvider with ChangeNotifier {
         // Log error but don't fail the entire operation
       }
 
+      NotificationService.notify('Инструмент удалён', toolName, 'tool_deleted');
       if (_canUseContext(context)) {
         ErrorHandler.showSuccessDialog(context!, 'Инструмент успешно удалён');
       }
@@ -400,6 +407,11 @@ class ToolsProvider with ChangeNotifier {
       }
       _tools.removeWhere((t) => t.isSelected);
       _selectionMode = false;
+      NotificationService.notify(
+        'Инструменты удалены',
+        'Удалено: ${selected.length} инстр.',
+        'tool_deleted',
+      );
       ErrorHandler.showSuccessDialog(
         navigatorKey.currentContext!,
         'Удалено ${selected.length} инструментов',
@@ -600,6 +612,11 @@ class ToolsProvider with ChangeNotifier {
       }
 
       // Show success and reload
+      NotificationService.notify(
+        'Инструмент перемещён',
+        '${tool.title} → $newLocationName',
+        'tool_moved',
+      );
       if (ctx != null && ctx.mounted) {
         ErrorHandler.showSuccessDialog(
           ctx,

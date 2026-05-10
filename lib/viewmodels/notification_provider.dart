@@ -1,8 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../data/models/notification.dart';
 import '../core/utils/id_generator.dart';
+import '../core/services/push_service.dart';
 
 class NotificationProvider with ChangeNotifier {
   List<AppNotification> _notifications = [];
@@ -19,25 +20,29 @@ class NotificationProvider with ChangeNotifier {
     _subscription = FirebaseFirestore.instance
         .collection(_collection)
         .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
         .snapshots()
-        .listen((snapshot) {
-      _notifications = snapshot.docs
-          .map((doc) {
-            try {
-              return AppNotification.fromJson(doc.data());
-            } catch (_) {
-              return null;
-            }
-          })
-          .whereType<AppNotification>()
-          .toList();
-      notifyListeners();
-    });
+        .listen(
+      (snapshot) {
+        _notifications = snapshot.docs
+            .map((doc) {
+              try {
+                return AppNotification.fromJson(doc.data());
+              } catch (_) {
+                return null;
+              }
+            })
+            .whereType<AppNotification>()
+            .toList()
+          ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+        notifyListeners();
+      },
+      onError: (_) {},     // Firestore index errors are non-fatal — local cache still works
+      cancelOnError: false,
+    );
   }
 
   Future<void> addNotification(AppNotification notification) async {
-    // Optimistic insert so the UI updates immediately without waiting for stream
+    // Optimistic insert — UI updates immediately without waiting for stream.
     if (!_notifications.any((n) => n.id == notification.id)) {
       _notifications.insert(0, notification);
       notifyListeners();
@@ -50,14 +55,61 @@ class NotificationProvider with ChangeNotifier {
     } catch (_) {}
   }
 
-  Future<void> createNotification({
+  /// Creates or increments an existing recent notification of the same type.
+  /// If a notification with the same [type] and [userId] was created within
+  /// the last 5 minutes, its title gets a ×N counter and it floats to the top.
+  /// Otherwise a fresh notification is created. Also fires a push notification.
+  Future<void> smartAdd({
     required String title,
     required String body,
     required String type,
     required String userId,
     String? relatedId,
   }) async {
-    final notification = AppNotification(
+    final sameType = _notifications
+        .where((n) => n.type == type && n.userId == userId)
+        .toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+    if (sameType.isNotEmpty) {
+      final last = sameType.first;
+      if (DateTime.now().difference(last.timestamp).inMinutes < 5) {
+        final match = RegExp(r' \(×(\d+)\)$').firstMatch(last.title);
+        final count = match != null ? int.parse(match.group(1)!) + 1 : 2;
+        final base  = last.title.replaceAll(RegExp(r' \(×\d+\)$'), '');
+        final newTitle = '$base (×$count)';
+
+        final updated = last.copyWith(
+          title: newTitle,
+          body: body,
+          timestamp: DateTime.now(),
+          read: false,
+        );
+
+        final idx = _notifications.indexWhere((n) => n.id == last.id);
+        if (idx != -1) {
+          _notifications[idx] = updated;
+          _notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+          notifyListeners();
+          PushService.show(newTitle, body);
+          try {
+            await FirebaseFirestore.instance
+                .collection(_collection)
+                .doc(last.id)
+                .update({
+              'title': newTitle,
+              'body': body,
+              'timestamp': updated.timestamp.toIso8601String(),
+              'read': false,
+            });
+          } catch (_) {}
+        }
+        return;
+      }
+    }
+
+    // No recent match — create a fresh notification.
+    final notif = AppNotification(
       id: IdGenerator.generateNotificationId(),
       title: title,
       body: body,
@@ -65,7 +117,24 @@ class NotificationProvider with ChangeNotifier {
       userId: userId,
       relatedId: relatedId,
     );
-    await addNotification(notification);
+    PushService.show(title, body);
+    await addNotification(notif);
+  }
+
+  Future<void> createNotification({
+    required String title,
+    required String body,
+    required String type,
+    required String userId,
+    String? relatedId,
+  }) async {
+    await smartAdd(
+      title: title,
+      body: body,
+      type: type,
+      userId: userId,
+      relatedId: relatedId,
+    );
   }
 
   Future<void> markAsRead(String id) async {
@@ -108,8 +177,7 @@ class NotificationProvider with ChangeNotifier {
       await FirebaseFirestore.instance
           .collection(_collection)
           .doc(id)
-          .delete()
-          ;
+          .delete();
     } catch (_) {}
   }
 

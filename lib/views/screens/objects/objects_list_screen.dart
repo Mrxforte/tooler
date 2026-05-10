@@ -273,13 +273,26 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
               ),
       ),
       floatingActionButton: objectsProvider.selectionMode
-          ? FloatingActionButton.extended(
-              onPressed: objectsProvider.hasSelectedObjects
-                  ? () => _showObjectSelectionActions(context)
-                  : null,
-              icon: const Icon(Icons.more_vert),
-              label: Text('${objectsProvider.selectedObjects.length}'),
-              backgroundColor: Theme.of(context).colorScheme.primary,
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: objectsProvider.hasSelectedObjects
+                      ? () => _showObjectSelectionActions(context)
+                      : null,
+                  icon: const Icon(Icons.more_vert),
+                  label: Text(
+                      'Выбрано: ${objectsProvider.selectedObjects.length}'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
             )
           : FloatingActionButton(
               onPressed: () => Navigator.push(
@@ -803,35 +816,38 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
   ) async {
     if (!context.mounted) return;
 
-    try {
-      final dialogContext = context;
-      int processedReports = 0;
+    final dialogContext = context;
+    int processedReports = 0;
+    bool isCancelled = false;
+    BuildContext? dialogCtxRef;
 
-      // Show progress dialog
+    try {
+
       showDialog(
         context: context,
-        barrierDismissible: true, // Allow back button
+        barrierDismissible: false,
         builder: (dialogCtx) {
-          return PopScope(
-            canPop: true, // Allow back button
-            onPopInvoked: (didPop) {
-              if (didPop) {
-                // User pressed back button
-              }
-            },
-            child: AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  Text(
-                    'Создание отчетов...\n($processedReports/${selectedObjects.length})',
-                    style: const TextStyle(fontSize: 16),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
+          dialogCtxRef = dialogCtx;
+          return AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                Text(
+                  'Создание отчетов...\n($processedReports/${selectedObjects.length})',
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: () {
+                    isCancelled = true;
+                    Navigator.of(dialogCtx).pop();
+                  },
+                  child: const Text('Отмена'),
+                ),
+              ],
             ),
           );
         },
@@ -839,6 +855,7 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
 
       // Generate reports
       for (final obj in selectedObjects) {
+        if (isCancelled) break;
         if (!dialogContext.mounted) break;
 
         final toolsOnObject = toolsProvider.tools
@@ -859,41 +876,46 @@ class _EnhancedObjectsListScreenState extends State<EnhancedObjectsListScreen> {
       }
 
       // Close progress dialog safely
-      if (dialogContext.mounted) {
+      if (dialogCtxRef != null && dialogCtxRef!.mounted) {
         try {
-          Navigator.of(dialogContext).pop();
-        } catch (e) {
-          // Dialog might already be closed
-        }
-      }
-
-      // Show completion message
-      if (dialogContext.mounted) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (dialogContext.mounted) {
-            objectsProvider.toggleSelectionMode();
-            ScaffoldMessenger.of(dialogContext).hideCurrentSnackBar();
-            ScaffoldMessenger.of(dialogContext).showSnackBar(
-              SnackBar(
-                content: Text(
-                  processedReports == selectedObjects.length
-                      ? 'Создано ${selectedObjects.length} отчет(ов)'
-                      : 'Создано $processedReports из ${selectedObjects.length} отчетов',
-                ),
-                backgroundColor: Colors.green,
-                duration: const Duration(seconds: 2),
-              ),
-            );
-          }
-        });
-      }
-    } catch (e) {
-      if (context.mounted) {
-        // Try to close any open dialogs
-        try {
-          Navigator.of(context).pop();
+          Navigator.of(dialogCtxRef!).pop();
         } catch (_) {}
+        dialogCtxRef = null;
+      }
 
+      if (!dialogContext.mounted) return;
+
+      if (isCancelled) {
+        ScaffoldMessenger.of(dialogContext).showSnackBar(
+          const SnackBar(content: Text('Создание отменено')),
+        );
+        return;
+      }
+
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (dialogContext.mounted) {
+          objectsProvider.toggleSelectionMode();
+          ScaffoldMessenger.of(dialogContext).hideCurrentSnackBar();
+          ScaffoldMessenger.of(dialogContext).showSnackBar(
+            SnackBar(
+              content: Text(
+                processedReports == selectedObjects.length
+                    ? 'Создано ${selectedObjects.length} отчет(ов)'
+                    : 'Создано $processedReports из ${selectedObjects.length} отчетов',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      });
+    } catch (e) {
+      if (dialogCtxRef != null && context.mounted) {
+        try { Navigator.of(context).pop(); } catch (_) {}
+        dialogCtxRef = null;
+      }
+
+      if (context.mounted) {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(

@@ -20,6 +20,7 @@ import 'firebase_options.dart';
 
 import 'core/services/connectivity_service.dart';
 import 'core/services/sync_service.dart';
+import 'core/services/notification_service.dart';
 import 'views/widgets/offline_banner.dart';
 
 // Providers
@@ -77,24 +78,27 @@ void main() async {
         print('Firebase App Check initialization failed: $e');
       }
 
-      // Local notifications & background tasks — Android/iOS only
-      const AndroidInitializationSettings androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
-      final DarwinInitializationSettings iosSettings =
-          DarwinInitializationSettings();
-      final InitializationSettings settings = InitializationSettings(
-        android: androidSettings,
-        iOS: iosSettings,
-      );
-      await flutterLocalNotificationsPlugin.initialize(settings: settings);
+      // Local notifications & background tasks — isolated so a missing icon
+      // or permission denial doesn't break the Firebase init above.
+      try {
+        const AndroidInitializationSettings androidSettings =
+            AndroidInitializationSettings('ic_notification');
+        final InitializationSettings settings = InitializationSettings(
+          android: androidSettings,
+          iOS: DarwinInitializationSettings(),
+        );
+        await flutterLocalNotificationsPlugin.initialize(settings: settings);
 
-      Workmanager().initialize(callbackDispatcher, isInDebugMode: true);
-      Workmanager().registerPeriodicTask(
-        'daily-salary-reminder',
-        'dailySalaryReminder',
-        frequency: Duration(hours: 24),
-        initialDelay: _getTimeUntil7PM(),
-      );
+        Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
+        Workmanager().registerPeriodicTask(
+          'daily-salary-reminder',
+          'dailySalaryReminder',
+          frequency: const Duration(hours: 24),
+          initialDelay: _getTimeUntil7PM(),
+        );
+      } catch (e) {
+        print('Notifications/Workmanager init failed: $e');
+      }
     }
 
     print('App ready');
@@ -393,9 +397,12 @@ class _MainHomeState extends State<MainHome> {
     if (!_notificationsStarted) {
       _notificationsStarted = true;
       final userId = context.read<AuthProvider>().userId;
+      final notifProvider = context.read<NotificationProvider>();
       if (userId != null) {
-        context.read<NotificationProvider>().loadNotifications(userId);
+        notifProvider.loadNotifications(userId);
       }
+      // Register so providers can push notifications without a BuildContext.
+      NotificationService.register(notifProvider);
     }
   }
 

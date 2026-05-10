@@ -835,46 +835,44 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
   ) async {
     if (!context.mounted) return;
 
-    try {
-      // Show progress dialog with proper context handling
-      final dialogContext = context;
-      bool dialogShown = false;
+    bool isCancelled = false;
+    BuildContext? dialogCtxRef;
 
-      showDialog(
-        context: context,
-        barrierDismissible: true, // Allow back button to dismiss
-        builder: (dialogCtx) {
-          dialogShown = true;
-          return PopScope(
-            canPop: true, // Allow back button
-            onPopInvoked: (didPop) {
-              if (didPop) {
-                // User pressed back button
-              }
-            },
-            child: AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  Text(
-                    reportType == ReportType.pdf
-                        ? 'Создание PDF отчета...'
-                        : 'Создание текстового отчета...',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ],
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        dialogCtxRef = dialogCtx;
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(
+                reportType == ReportType.pdf
+                    ? 'Создание PDF отчета...'
+                    : 'Создание текстового отчета...',
+                style: const TextStyle(fontSize: 16),
               ),
-            ),
-          );
-        },
-      );
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  isCancelled = true;
+                  Navigator.of(dialogCtx).pop();
+                },
+                child: const Text('Отмена'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
 
-      // Generate and share the report
+    try {
       await ReportService.shareToolReport(
         tool,
-        dialogContext,
+        context,
         reportType,
       ).timeout(
         const Duration(seconds: 30),
@@ -882,46 +880,39 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
           throw TimeoutException('Время ожидания истекло. Повторите попытку.');
         },
       );
-
-      // Close progress dialog if it's still showing
-      if (dialogShown && dialogContext.mounted) {
-        try {
-          Navigator.of(dialogContext).pop();
-        } catch (e) {
-          // Dialog might already be closed
-        }
-      }
-
-      // Show success message
-      if (dialogContext.mounted) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (dialogContext.mounted) {
-            ErrorHandler.showSuccessDialog(
-              dialogContext,
-              reportType == ReportType.pdf
-                  ? 'PDF отчет готов!'
-                  : 'Текстовый отчет готов!',
-            );
-          }
-        });
-      }
     } catch (e) {
-      // Handle error while preserving context
-      if (context.mounted) {
-        try {
-          Navigator.of(context).pop();
-        } catch (_) {}
-
-        Future.delayed(const Duration(milliseconds: 300), () {
+      if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+        try { Navigator.of(dialogCtxRef!).pop(); } catch (_) {}
+      }
+      if (!isCancelled && context.mounted) {
+        Future.delayed(const Duration(milliseconds: 200), () {
           if (context.mounted) {
-            ErrorHandler.showErrorDialog(
-              context,
-              'Ошибка при создании отчета: $e',
-            );
+            ErrorHandler.showErrorDialog(context, 'Ошибка при создании отчета: $e');
           }
         });
       }
+      return;
     }
+
+    if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+      try { Navigator.of(dialogCtxRef!).pop(); } catch (_) {}
+    }
+
+    if (!context.mounted) return;
+    if (isCancelled) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Создание отменено')),
+      );
+      return;
+    }
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (context.mounted) {
+        ErrorHandler.showSuccessDialog(
+          context,
+          reportType == ReportType.pdf ? 'PDF отчет готов!' : 'Текстовый отчет готов!',
+        );
+      }
+    });
   }
 
   Future<void> _shareReport(
@@ -931,75 +922,64 @@ class _EnhancedToolDetailsScreenState extends State<EnhancedToolDetailsScreen> {
   ) async {
     if (!context.mounted) return;
 
-    try {
-      final dialogContext = context;
-      bool dialogShown = false;
+    bool isCancelled = false;
+    BuildContext? dialogCtxRef;
 
-      // Show progress dialog
-      showDialog(
-        context: context,
-        barrierDismissible: true, // Allow back button
-        builder: (dialogCtx) {
-          dialogShown = true;
-          return PopScope(
-            canPop: true, // Allow back button
-            onPopInvoked: (didPop) {
-              if (didPop) {
-                // User pressed back button
-              }
-            },
-            child: AlertDialog(
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 20),
-                  const Text(
-                    'Подготовка к отправке...',
-                    style: TextStyle(fontSize: 16),
-                  ),
-                ],
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) {
+        dialogCtxRef = dialogCtx;
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              const Text('Подготовка к отправке...', style: TextStyle(fontSize: 16)),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () {
+                  isCancelled = true;
+                  Navigator.of(dialogCtx).pop();
+                },
+                child: const Text('Отмена'),
               ),
-            ),
-          );
-        },
-      );
+            ],
+          ),
+        );
+      },
+    );
 
-      await ReportService.shareToolReport(
-        tool,
-        dialogContext,
-        reportType,
-      ).timeout(
+    try {
+      await ReportService.shareToolReport(tool, context, reportType).timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           throw TimeoutException('Время ожидания истекло. Повторите попытку.');
         },
       );
-
-      // Close progress dialog safely
-      if (dialogShown && dialogContext.mounted) {
-        try {
-          Navigator.of(dialogContext).pop();
-        } catch (e) {
-          // Dialog might already be closed
-        }
-      }
     } catch (e) {
-      if (context.mounted) {
-        // Try to close any open dialogs
-        try {
-          Navigator.of(context).pop();
-        } catch (_) {}
-
-        Future.delayed(const Duration(milliseconds: 300), () {
+      if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+        try { Navigator.of(dialogCtxRef!).pop(); } catch (_) {}
+      }
+      if (!isCancelled && context.mounted) {
+        Future.delayed(const Duration(milliseconds: 200), () {
           if (context.mounted) {
-            ErrorHandler.showErrorDialog(
-              context,
-              'Ошибка при отправке отчета: $e',
-            );
+            ErrorHandler.showErrorDialog(context, 'Ошибка при отправке отчета: $e');
           }
         });
       }
+      return;
+    }
+
+    if (dialogCtxRef != null && dialogCtxRef!.mounted) {
+      try { Navigator.of(dialogCtxRef!).pop(); } catch (_) {}
+    }
+
+    if (isCancelled && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Создание отменено')),
+      );
     }
   }
 

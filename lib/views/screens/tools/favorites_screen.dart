@@ -164,16 +164,30 @@ class _FavoritesScreenState extends State<FavoritesScreen>
       ),
         ),
       floatingActionButton: isSelectionMode && hasSelected
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                if (currentTab == 0) {
-                  _showBatchActionsSheet(context, toolsProvider, 'tools');
-                } else {
-                  _showBatchActionsSheet(context, objectsProvider, 'objects');
-                }
-              },
-              icon: const Icon(Icons.more_horiz),
-              label: const Text('Действия'),
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    if (currentTab == 0) {
+                      _showBatchActionsSheet(context, toolsProvider, 'tools');
+                    } else {
+                      _showBatchActionsSheet(
+                          context, objectsProvider, 'objects');
+                    }
+                  },
+                  icon: const Icon(Icons.more_horiz),
+                  label: const Text('Действия'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
             )
           : null,
     );
